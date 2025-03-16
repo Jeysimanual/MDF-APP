@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".StudentTickets">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Main CardView -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:cardElevation="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clickable="false"
+                android:focusable="false">
+
+                <!-- Ticket Card -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/ticketPass"
+                    android:layout_width="385dp"
+                    android:layout_height="180dp"
+                    android:layout_marginTop="200dp"
+                    android:backgroundTint="@color/ticket_bg"
+                    android:clickable="false"
+                    android:focusable="false"
+                    app:cardCornerRadius="15dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.088">
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_margin="10dp">
+
+                        <!-- Event Details Card -->
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/event_details"
+                            android:layout_width="225dp"
+                            android:layout_height="160dp"
+                            android:layout_marginEnd="6dp"
+                            android:elevation="0dp"
+                            app:cardCornerRadius="15dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toStartOf="@+id/qr_info"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <androidx.constraintlayout.widget.ConstraintLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent">
+
+                                <TextView
+                                    android:id="@+id/organizer_name"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:fontFamily="@font/host_grotesk_bold"
+                                    android:text="---"
+                                    android:textSize="20sp"
+                                    android:textStyle="bold"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintHorizontal_bias="0.036"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toTopOf="parent" />
+
+                                <TextView
+                                    android:id="@+id/eventName"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginLeft="1dp"
+                                    android:layout_marginTop="1dp"
+                                    android:fontFamily="@font/host_grotesk_medium"
+                                    android:text="------ --------"
+                                    android:textSize="16sp"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintHorizontal_bias="0.044"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toBottomOf="@+id/organizer_name" />
+
+                                <TextView
+                                    android:id="@+id/loc"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="📍 "
+                                    android:textSize="8sp"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintHorizontal_bias="0.037"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toBottomOf="@+id/eventName" />
+
+                                <TextView
+                                    android:id="@+id/venue"
+                                    android:layout_width="125dp"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/host_grotesk_medium"
+                                    android:text=" ------------- ---"
+                                    android:textSize="8sp"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintHorizontal_bias="0.0"
+                                    app:layout_constraintStart_toEndOf="@+id/loc"
+                                    app:layout_constraintTop_toBottomOf="@+id/eventName" />
+
+                                <TextView
+                                    android:id="@+id/to_text2"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/host_grotesk_medium"
+                                    android:paddingStart="5dp"
+                                    android:paddingEnd="5dp"
+                                    android:text="to"
+                                    android:textSize="8sp"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintStart_toEndOf="@+id/startTime"
+                                    app:layout_constraintTop_toBottomOf="@+id/venue"
+                                    app:layout_constraintVertical_bias="0.94" />
+
+                                <TextView
+                                    android:id="@+id/endTime"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/host_grotesk_medium"
+                                    android:paddingStart="3dp"
+                                    android:text="-:- --"
+                                    android:textSize="8sp"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintHorizontal_bias="0.0"
+                                    app:layout_constraintStart_toEndOf="@+id/endDate"
+                                    app:layout_constraintTop_toBottomOf="@+id/venue"
+                                    app:layout_constraintVertical_bias="0.94" />
+
+                                <TextView
+                                    android:id="@+id/endDate"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/host_grotesk_medium"
+                                    android:text="---------- |"
+                                    android:textSize="8sp"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintStart_toEndOf="@+id/to_text2"
+                                    app:layout_constraintTop_toBottomOf="@+id/venue"
+                                    app:layout_constraintVertical_bias="0.94" />
+
+                                <TextView
+                                    android:id="@+id/startTime"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/host_grotesk_medium"
+                                    android:paddingStart="3dp"
+                                    android:text="-:-- --"
+                                    android:textSize="8sp"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintStart_toEndOf="@+id/startDate"
+                                    app:layout_constraintTop_toBottomOf="@+id/venue"
+                                    app:layout_constraintVertical_bias="0.94" />
+
+                                <TextView
+                                    android:id="@+id/startDate"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="20dp"
+                                    android:fontFamily="@font/host_grotesk_medium"
+                                    android:text="--------- |"
+                                    android:textSize="8sp"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toBottomOf="@+id/venue"
+                                    app:layout_constraintVertical_bias="0.94" />
+
+                            </androidx.constraintlayout.widget.ConstraintLayout>
+
+                        </androidx.cardview.widget.CardView>
+
+                        <!-- QR Code -->
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/qr_info"
+                            android:layout_width="135dp"
+                            android:layout_height="160dp"
+                            android:elevation="0dp"
+                            app:cardCornerRadius="15dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toEndOf="@+id/event_details"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <androidx.constraintlayout.widget.ConstraintLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:layout_margin="5dp">
+
+                                <ImageView
+                                    android:id="@+id/ticketQr"
+                                    android:layout_width="110dp"
+                                    android:layout_height="110dp"
+                                    app:layout_constraintBottom_toTopOf="@+id/ticket_id_text"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toTopOf="parent" />
+
+                                <TextView
+                                    android:id="@+id/ticket_id_text"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/host_grotesk_bold"
+                                    android:text="TICKET ID"
+                                    android:textAlignment="center"
+                                    android:textSize="8sp"
+                                    app:layout_constraintBottom_toTopOf="@+id/ticket_id"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toBottomOf="@+id/ticketQr" />
+
+                                <TextView
+                                    android:id="@+id/ticket_id"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/host_grotesk_medium"
+                                    android:text="000000000000"
+                                    android:textAlignment="center"
+                                    android:textSize="8sp"
+                                    app:layout_constraintBottom_toBottomOf="parent"
+                                    app:layout_constraintEnd_toEndOf="parent"
+                                    app:layout_constraintHorizontal_bias="0.0"
+                                    app:layout_constraintStart_toStartOf="parent"
+                                    app:layout_constraintTop_toBottomOf="@+id/ticket_id_text" />
+
+                            </androidx.constraintlayout.widget.ConstraintLayout>
+
+                        </androidx.cardview.widget.CardView>
+
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                </androidx.cardview.widget.CardView>
+
+                <View
+                    android:id="@+id/overlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/transparent"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone" />
+
+                <!-- Download Button -->
+                <Button
+                    android:id="@+id/downloadTicket"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="@color/black"
+                    android:fontFamily="@font/host_grotesk_bold"
+                    android:text="Download"
+                    android:textSize="15sp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.498"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/ticketPass"
+                    app:layout_constraintVertical_bias="0.22" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </androidx.cardview.widget.CardView>
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
