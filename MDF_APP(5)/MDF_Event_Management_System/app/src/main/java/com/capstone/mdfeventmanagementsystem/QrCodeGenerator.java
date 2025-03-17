@@ -62,7 +62,10 @@ public class QrCodeGenerator {
                                 String eventName = eventSnapshot.child("eventName").getValue(String.class);
                                 String startDate = eventSnapshot.child("startDate").getValue(String.class);
                                 String startTime = eventSnapshot.child("startTime").getValue(String.class);
+                                String endDate = eventSnapshot.child("endDate").getValue(String.class);
                                 String endTime = eventSnapshot.child("endTime").getValue(String.class);
+                                String eventSpan = eventSnapshot.child("eventSpan").getValue(String.class);
+                                String graceTime = eventSnapshot.child("graceTime").getValue(String.class);
 
                                 generateUniqueTicketID(eventUID, studentID, new OnTicketIDGeneratedListener() {
                                     @Override
@@ -73,7 +76,10 @@ public class QrCodeGenerator {
                                         qrData.put("eventName", eventName);
                                         qrData.put("startDate", startDate);
                                         qrData.put("startTime", startTime);
+                                        qrData.put("endDate", endDate);
                                         qrData.put("endTime", endTime);
+                                        qrData.put("eventSpan", eventSpan);
+                                        qrData.put("graceTime", graceTime);
                                         qrData.put("studentID", studentID);
                                         qrData.put("firstName", firstName);
                                         qrData.put("lastName", lastName);

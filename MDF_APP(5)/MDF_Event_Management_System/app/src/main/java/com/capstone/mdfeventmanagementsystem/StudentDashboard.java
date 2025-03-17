@@ -97,7 +97,7 @@ public class StudentDashboard extends AppCompatActivity implements EventAdapter.
         intent.putExtra("venue", event.getVenue());
         intent.putExtra("eventSpan", event.getEventSpan());
         intent.putExtra("ticketType", event.getTicketType());
-        intent.putExtra("ticketActivationTime", event.getTicketActivationTime());
+        intent.putExtra("graceTime", event.getgraceTime());
         intent.putExtra("eventPhotoUrl", event.getEventPhotoUrl());
 
         startActivity(intent);

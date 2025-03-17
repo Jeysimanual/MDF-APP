@@ -91,28 +91,23 @@ public class TeacherScanning extends AppCompatActivity {
         String eventId = ticketData.get("eventUID");
         String startDate = ticketData.get("startDate");
         String startTime = ticketData.get("startTime");
+        String endTime = ticketData.get("endTime");
+        String graceTimeStr = ticketData.get("graceTime");
 
-        if (studentId == null || ticketId == null || eventId == null || startDate == null || startTime == null) {
+        if (studentId == null || ticketId == null || eventId == null || startDate == null || startTime == null || endTime == null || graceTimeStr == null) {
             showInvalidTicket();
             Toast.makeText(this, "Invalid QR Code: Missing required information", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Check if current time is within valid window
-        int timeStatus = checkTimeStatus(startDate, startTime);
-        if (timeStatus != 0) {
-            // If event hasn't started yet, show lock icon
-            if (timeStatus == -1) {
-                showNotAllowedTicket();
-                Toast.makeText(this, "This ticket is not allowed to scan yet. Event has not started.", Toast.LENGTH_SHORT).show();
-            } else {
-                showInvalidTicket();
-                Toast.makeText(this, "This ticket has expired. The 30-minute window after event start has passed.", Toast.LENGTH_SHORT).show();
-            }
+        int timeStatus = checkTimeStatus(startDate, startTime, endTime, graceTimeStr);
+
+        if (timeStatus == 2) {
+            showInvalidTicket();
+            Toast.makeText(this, "This ticket is invalid. Event has ended.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Reference to student's ticket for the event
         DatabaseReference ticketRef = FirebaseDatabase.getInstance()
                 .getReference("students")
                 .child(studentId)
@@ -128,8 +123,12 @@ public class TeacherScanning extends AppCompatActivity {
                     if ("Present".equals(currentStatus)) {
                         showUsedTicket();
                     } else if ("pending".equals(currentStatus)) {
-                        ticketRef.child("status").setValue("Present")
-                                .addOnSuccessListener(aVoid -> showValidTicket())
+                        String newStatus = (timeStatus == 1) ? "Late" : "Present";
+                        ticketRef.child("status").setValue(newStatus)
+                                .addOnSuccessListener(aVoid -> {
+                                    Toast.makeText(TeacherScanning.this, "Ticket is valid and marked as " + newStatus + ".", Toast.LENGTH_SHORT).show();
+                                    showValidTicket();
+                                })
                                 .addOnFailureListener(e ->
                                         Toast.makeText(TeacherScanning.this, "Failed to update status!", Toast.LENGTH_SHORT).show()
                                 );
@@ -148,50 +147,44 @@ public class TeacherScanning extends AppCompatActivity {
         });
     }
 
-    /**
-     * Checks the time status of the ticket.
-     * @return 0 if the current time is within the valid window,
-     *         -1 if the event hasn't started yet,
-     *         1 if the event's valid window has passed
-     */
-    private int checkTimeStatus(String startDate, String startTime) {
+    private int checkTimeStatus(String startDate, String startTime, String endTime, String graceTimeStr) {
         try {
-            // Parse date and time from QR code
             SimpleDateFormat combinedFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+            String combinedStartDateTime = startDate + " " + startTime;
+            Date eventStartTime = combinedFormat.parse(combinedStartDateTime);
+            Date currentTime = new Date();
+            String combinedEndDateTime = startDate + " " + endTime;
+            Date eventEndTime = combinedFormat.parse(combinedEndDateTime);
 
-            // Combine date and time
-            String combinedDateTime = startDate + " " + startTime;
-            Date eventStartTime = combinedFormat.parse(combinedDateTime);
-
-            if (eventStartTime == null) {
-                return 1; // Invalid time format, treat as expired
+            if (eventEndTime != null && currentTime.after(eventEndTime)) {
+                return 2;
             }
 
-            // Get current time
-            Date currentTime = new Date();
+            if (graceTimeStr.equalsIgnoreCase("none")) {
+                return 0;
+            }
 
-            // Calculate end of valid window (start time + 30 minutes)
+            int graceTime = Integer.parseInt(graceTimeStr);
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(eventStartTime);
-            calendar.add(Calendar.MINUTE, 30);
+            calendar.add(Calendar.MINUTE, graceTime);
             Date validEndTime = calendar.getTime();
 
-            // Check time status
             if (currentTime.before(eventStartTime)) {
-                return -1; // Event hasn't started yet
+                return -1;
             } else if (currentTime.after(validEndTime)) {
-                return 1;  // Event's valid window has passed
+                return 1;
             } else {
-                return 0;  // Current time is within valid window
+                return 0;
             }
-
         } catch (ParseException e) {
             e.printStackTrace();
-            return 1; // Error in parsing, treat as expired
+            return 1;
         }
     }
 
-    private Map<String, String> parseQRContent(String qrContent) {
+
+private Map<String, String> parseQRContent(String qrContent) {
         Map<String, String> map = new HashMap<>();
         qrContent = qrContent.replaceAll("[{}]", "");
 

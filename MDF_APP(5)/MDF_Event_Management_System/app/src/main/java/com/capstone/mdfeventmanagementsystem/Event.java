@@ -7,7 +7,7 @@ import java.util.Locale;
 public class Event {
     private String eventUID; // Added event UID
     private String eventName, eventDescription, venue, dateCreated, startDate, endDate, startTime, endTime;
-    private String eventSpan, ticketType, ticketActivationTime, eventPhotoUrl;
+    private String eventSpan, ticketType, graceTime, eventPhotoUrl;
 
     // Updated date format to match "YYYY-MM-DD"
     private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US);
@@ -19,7 +19,7 @@ public class Event {
 
     public Event(String eventUID, String eventName, String eventDescription, String venue, String dateCreated,
                  String startDate, String endDate, String startTime, String endTime,
-                 String eventSpan, String ticketType, String ticketActivationTime, String eventPhotoUrl) {
+                 String eventSpan, String ticketType, String graceTime, String eventPhotoUrl) {
         this.eventUID = eventUID;
         this.eventName = eventName;
         this.eventDescription = eventDescription;
@@ -31,7 +31,7 @@ public class Event {
         this.endTime = endTime;
         this.eventSpan = eventSpan;
         this.ticketType = ticketType;
-        this.ticketActivationTime = ticketActivationTime;
+        this.graceTime = graceTime;
         this.eventPhotoUrl = eventPhotoUrl;
     }
 
@@ -83,8 +83,8 @@ public class Event {
         return ticketType;
     }
 
-    public String getTicketActivationTime() {
-        return ticketActivationTime;
+    public String getgraceTime() {
+        return graceTime;
     }
 
     public String getEventPhotoUrl() {

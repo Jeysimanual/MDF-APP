@@ -1,5 +1,6 @@
 package com.capstone.mdfeventmanagementsystem;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
@@ -25,7 +26,7 @@ import java.util.Locale;
 
 public class StudentDashboardInside extends AppCompatActivity {
 
-    private TextView eventName, eventDescription, startDate, endDate, startTime, endTime, venue, eventSpan, ticketType, ticketActivationTime;
+    private TextView eventName, eventDescription, startDate, endDate, startTime, endTime, venue, eventSpan, ticketType, graceTime;
     private ImageView eventImage;
     private Button registerButton;
 
@@ -34,6 +35,7 @@ public class StudentDashboardInside extends AppCompatActivity {
     private String eventUID; // Store event UID as a variable
     private String studentID; // Store the student ID retrieved from SharedPreferences
 
+    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -49,7 +51,7 @@ public class StudentDashboardInside extends AppCompatActivity {
         venue = findViewById(R.id.venue);
         eventSpan = findViewById(R.id.eventSpan);
         ticketType = findViewById(R.id.ticketType);
-        ticketActivationTime = findViewById(R.id.ticketActivationTime);
+        graceTime = findViewById(R.id.graceTime);
         eventImage = findViewById(R.id.eventPhotoUrl);
         registerButton = findViewById(R.id.registerButton); // Button for registering
 
@@ -87,7 +89,7 @@ public class StudentDashboardInside extends AppCompatActivity {
         venue.setText(intent.getStringExtra("venue"));
         eventSpan.setText(intent.getStringExtra("eventSpan"));
         ticketType.setText(intent.getStringExtra("ticketType"));
-        ticketActivationTime.setText(intent.getStringExtra("ticketActivationTime"));
+       graceTime.setText(intent.getStringExtra("graceTime"));
 
         Log.d("TestApp", "Received Event UID: " + eventUID);
 
