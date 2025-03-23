@@ -3,7 +3,7 @@ package com.capstone.mdfeventmanagementsystem;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;  // Added for logging
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -18,14 +18,25 @@ public class MainActivity extends AppCompatActivity {
     private Button selectButton;
     private String selectedRole = "Student"; // Default selection
     private static final String TAG = "MainActivity";
+    private NotificationManager notificationManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_main);
 
         Log.d(TAG, "onCreate: MainActivity started");
+
+        // Initialize the notification manager
+        notificationManager = new NotificationManager(this);
+        Log.d(TAG, "onCreate: NotificationManager initialized");
+
+        // Check if opened from notification
+        if (getIntent().hasExtra("notification_id")) {
+            String notificationId = getIntent().getStringExtra("notification_id");
+            notificationManager.markNotificationAsViewed(notificationId);
+            Log.d(TAG, "onCreate: Marked notification " + notificationId + " as viewed");
+        }
 
         roleSpinner = findViewById(R.id.roleSpinner);
         selectButton = findViewById(R.id.btnSelect);
@@ -44,7 +55,6 @@ public class MainActivity extends AppCompatActivity {
 
         Log.d(TAG, "onCreate: Spinner populated with roles");
 
-
         roleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -62,6 +72,18 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "onClick: Select button clicked, navigating to " + selectedRole + " login");
             navigateToLogin();
         });
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+
+        // Check if opened from notification while app is running
+        if (intent.hasExtra("notification_id")) {
+            String notificationId = intent.getStringExtra("notification_id");
+            notificationManager.markNotificationAsViewed(notificationId);
+            Log.d(TAG, "onNewIntent: Marked notification " + notificationId + " as viewed");
+        }
     }
 
     private void navigateToLogin() {

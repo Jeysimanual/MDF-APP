@@ -1,43 +1,30 @@
 package com.capstone.mdfeventmanagementsystem;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.*;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class TeacherScanning extends AppCompatActivity {
 
-    private TextView instructionForScanning;
-    private TextView validText;
-    private TextView usedText;
-    private TextView invalidText;
-    private TextView notAllowedText;
-    private ImageView validTicket;
-    private ImageView usedTicket;
-    private ImageView invalidTicket;
-    private ImageView notAllowedTicket;
-    private Button scanTicketBtn;
-    private Button cancelScanBtn;
+    private TextView instructionForScanning, validText, usedText, invalidText, notAllowedText;
+    private ImageView validTicket, usedTicket, invalidTicket, notAllowedTicket;
+    private Button scanTicketBtn, cancelScanBtn;
+
+    private DatabaseReference databaseRef;
+    private SharedPreferences sharedPreferences;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +45,13 @@ public class TeacherScanning extends AppCompatActivity {
 
         scanTicketBtn.setOnClickListener(v -> startQRScanner());
         cancelScanBtn.setOnClickListener(v -> finish());
+
+        // Initialize Firebase database reference
+        databaseRef = FirebaseDatabase.getInstance().getReference();
+        databaseRef.keepSynced(true);
+
+        // Initialize SharedPreferences
+        sharedPreferences = getSharedPreferences("TicketStatus", MODE_PRIVATE);
     }
 
     private void startQRScanner() {
@@ -73,65 +67,48 @@ public class TeacherScanning extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-        if (result != null) {
-            if (result.getContents() != null) {
-                validateTicket(result.getContents());
-            } else {
-                Toast.makeText(this, "Scan Cancelled", Toast.LENGTH_SHORT).show();
-            }
+        if (result != null && result.getContents() != null) {
+            validateTicket(result.getContents());
+        } else {
+            Toast.makeText(this, "Scan Cancelled", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void validateTicket(String qrContent) {
         Map<String, String> ticketData = parseQRContent(qrContent);
         String studentId = ticketData.get("studentID");
-        String ticketId = ticketData.get("ticketID");
         String eventId = ticketData.get("eventUID");
-        String startDate = ticketData.get("startDate");
-        String startTime = ticketData.get("startTime");
-        String endTime = ticketData.get("endTime");
-        String graceTimeStr = ticketData.get("graceTime");
 
-        if (studentId == null || ticketId == null || eventId == null || startDate == null || startTime == null || endTime == null || graceTimeStr == null) {
+        if (studentId == null || eventId == null) {
             showInvalidTicket();
-            Toast.makeText(this, "Invalid QR Code: Missing required information", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        int timeStatus = checkTimeStatus(startDate, startTime, endTime, graceTimeStr);
+        int timeStatus = checkTimeStatus(ticketData);
 
         if (timeStatus == 2) {
             showInvalidTicket();
-            Toast.makeText(this, "This ticket is invalid. Event has ended.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        DatabaseReference ticketRef = FirebaseDatabase.getInstance()
-                .getReference("students")
-                .child(studentId)
-                .child("tickets")
-                .child(eventId);
+        DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
+        ticketRef.keepSynced(true);
 
         ticketRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 if (snapshot.exists()) {
                     String currentStatus = snapshot.child("status").getValue(String.class);
+                    saveTicketStatus(eventId, currentStatus);
 
                     if ("Present".equals(currentStatus)) {
                         showUsedTicket();
                     } else if ("pending".equals(currentStatus)) {
                         String newStatus = (timeStatus == 1) ? "Late" : "Present";
-                        ticketRef.child("status").setValue(newStatus)
-                                .addOnSuccessListener(aVoid -> {
-                                    Toast.makeText(TeacherScanning.this, "Ticket is valid and marked as " + newStatus + ".", Toast.LENGTH_SHORT).show();
-                                    showValidTicket();
-                                })
-                                .addOnFailureListener(e ->
-                                        Toast.makeText(TeacherScanning.this, "Failed to update status!", Toast.LENGTH_SHORT).show()
-                                );
+                        ticketRef.child("status").setValue(newStatus);
+                        saveTicketStatus(eventId, newStatus);
+                        showValidTicket();
                     } else {
                         showInvalidTicket();
                     }
@@ -142,26 +119,61 @@ public class TeacherScanning extends AppCompatActivity {
 
             @Override
             public void onCancelled(DatabaseError error) {
-                Toast.makeText(TeacherScanning.this, "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                String offlineStatus = getTicketStatus(eventId);
+                if (offlineStatus != null) {
+                    if ("Present".equals(offlineStatus)) {
+                        showUsedTicket();
+                    } else {
+                        showValidTicket();
+                    }
+                } else {
+                    showInvalidTicket();
+                }
             }
         });
     }
 
-    private int checkTimeStatus(String startDate, String startTime, String endTime, String graceTimeStr) {
-        try {
-            SimpleDateFormat combinedFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
-            String combinedStartDateTime = startDate + " " + startTime;
-            Date eventStartTime = combinedFormat.parse(combinedStartDateTime);
-            Date currentTime = new Date();
-            String combinedEndDateTime = startDate + " " + endTime;
-            Date eventEndTime = combinedFormat.parse(combinedEndDateTime);
+    private void saveTicketStatus(String eventId, String status) {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(eventId, status);
+        editor.apply();
+    }
 
-            if (eventEndTime != null && currentTime.after(eventEndTime)) {
-                return 2;
+    private String getTicketStatus(String eventId) {
+        return sharedPreferences.getString(eventId, null);
+    }
+
+    private Map<String, String> parseQRContent(String qrContent) {
+        Map<String, String> map = new HashMap<>();
+        qrContent = qrContent.replaceAll("[{}]", ""); // Remove curly braces if present
+        String[] pairs = qrContent.split(", ");
+        for (String pair : pairs) {
+            String[] entry = pair.split("=");
+            if (entry.length == 2) {
+                map.put(entry[0].trim(), entry[1].trim());
+            }
+        }
+        return map;
+    }
+
+    private int checkTimeStatus(Map<String, String> ticketData) {
+        try {
+            String startDate = ticketData.get("startDate");
+            String startTime = ticketData.get("startTime");
+            String endTime = ticketData.get("endTime");
+            String graceTimeStr = ticketData.get("graceTime");
+
+            SimpleDateFormat combinedFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+            Date eventStartTime = combinedFormat.parse(startDate + " " + startTime);
+            Date eventEndTime = combinedFormat.parse(startDate + " " + endTime);
+            Date currentTime = new Date();
+
+            if (currentTime.after(eventEndTime)) {
+                return 2; // Event has ended, ticket is invalid
             }
 
-            if (graceTimeStr.equalsIgnoreCase("none")) {
-                return 0;
+            if ("none".equalsIgnoreCase(graceTimeStr)) {
+                return 0; // No grace period, valid if before end time
             }
 
             int graceTime = Integer.parseInt(graceTimeStr);
@@ -171,31 +183,15 @@ public class TeacherScanning extends AppCompatActivity {
             Date validEndTime = calendar.getTime();
 
             if (currentTime.before(eventStartTime)) {
-                return -1;
+                return -1; // Too early
             } else if (currentTime.after(validEndTime)) {
-                return 1;
+                return 1; // Late
             } else {
-                return 0;
+                return 0; // On time
             }
         } catch (ParseException e) {
-            e.printStackTrace();
-            return 1;
+            return 1; // Default to "late" if there's a parsing error
         }
-    }
-
-
-private Map<String, String> parseQRContent(String qrContent) {
-        Map<String, String> map = new HashMap<>();
-        qrContent = qrContent.replaceAll("[{}]", "");
-
-        String[] pairs = qrContent.split(", ");
-        for (String pair : pairs) {
-            String[] entry = pair.split("=");
-            if (entry.length == 2) {
-                map.put(entry[0].trim(), entry[1].trim());
-            }
-        }
-        return map;
     }
 
     private void showValidTicket() {
@@ -214,12 +210,6 @@ private Map<String, String> parseQRContent(String qrContent) {
         hideAllTicketViews();
         invalidTicket.setVisibility(ImageView.VISIBLE);
         invalidText.setVisibility(TextView.VISIBLE);
-    }
-
-    private void showNotAllowedTicket() {
-        hideAllTicketViews();
-        notAllowedTicket.setVisibility(ImageView.VISIBLE);
-        notAllowedText.setVisibility(TextView.VISIBLE);
     }
 
     private void hideAllTicketViews() {

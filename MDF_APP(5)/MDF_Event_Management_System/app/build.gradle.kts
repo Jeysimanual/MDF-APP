@@ -129,4 +129,7 @@ dependencies {
     implementation ("com.google.mlkit:barcode-scanning:17.0.0")
 
 
+    // AndroidX core for notifications
+    implementation ("androidx.core:core:1.12.0")
+
 }
