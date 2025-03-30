@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    tools:context=".StudentDashboard">
+
+    <!-- No Events Message -->
+    <TextView
+        android:id="@+id/noEventMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No events found in the selected date range."
+        android:fontFamily="@font/host_grotesk_bold"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:textColor="@color/bg_green"
+        android:textSize="@dimen/_12ssp"
+        android:visibility="gone"
+        android:layout_marginTop="16dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewEvents"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            tools:listitem="@layout/item_events" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        app:menu="@menu/bottom_nav_menu"/>
+
+
+</FrameLayout>
