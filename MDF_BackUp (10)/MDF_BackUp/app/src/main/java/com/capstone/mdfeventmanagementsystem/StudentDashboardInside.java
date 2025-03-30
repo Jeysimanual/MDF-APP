@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -28,7 +29,7 @@ public class StudentDashboardInside extends AppCompatActivity {
 
     private TextView eventName, eventDescription, startDate, endDate, startTime, endTime, venue, eventSpan, ticketType, graceTime;
     private ImageView eventImage;
-    private Button registerButton;
+    private Button registerButton, ticketButton;
 
     private FirebaseAuth mAuth;
     private DatabaseReference studentTicketsRef;
@@ -53,6 +54,7 @@ public class StudentDashboardInside extends AppCompatActivity {
         graceTime = findViewById(R.id.graceTime);
         eventImage = findViewById(R.id.eventPhotoUrl);
         registerButton = findViewById(R.id.registerButton);
+        ticketButton = findViewById(R.id.ticketButton);
 
         // ✅ Add new TextViews for eventType and eventFor
         TextView eventType = findViewById(R.id.eventType);
@@ -123,45 +125,62 @@ public class StudentDashboardInside extends AppCompatActivity {
         }
 
         DatabaseReference studentRef = FirebaseDatabase.getInstance().getReference("students").child(studentID);
+        DatabaseReference ticketRef = studentRef.child("tickets").child(eventUID);
 
-        // Ensure student exists before adding tickets
-        studentRef.get().addOnCompleteListener(task -> {
-            if (task.isSuccessful() && task.getResult().exists()) {
-                DatabaseReference ticketRef = studentRef.child("tickets").child(eventUID);
-
-                ticketRef.get().addOnCompleteListener(ticketTask -> {
-                    if (ticketTask.isSuccessful() && ticketTask.getResult().exists()) {
-                        Toast.makeText(this, "You are already registered for this event!", Toast.LENGTH_SHORT).show();
-                        Log.d("TestApp", "Student already registered for event: " + eventUID);
-                    } else {
-                        // Get the current timestamp
-                        long currentTimeMillis = System.currentTimeMillis();
-                        String formattedTimestamp = getCurrentTimestamp();
-
-                        // Register new ticket
-                        HashMap<String, Object> ticketData = new HashMap<>();
-                        ticketData.put("registeredAt", formattedTimestamp);
-                        ticketData.put("timestampMillis", currentTimeMillis);
-
-                        ticketRef.setValue(ticketData)
-                                .addOnSuccessListener(aVoid -> {
-                                    Toast.makeText(this, "Registered successfully!", Toast.LENGTH_SHORT).show();
-                                    Log.d("TestApp", "Event registered at " + formattedTimestamp + " under: students/" + studentID + "/tickets/" + eventUID);
-
-                                    // Generate and upload QR Code after successful registration
-                                    generateAndUploadQRCode();
-                                })
-                                .addOnFailureListener(e -> {
-                                    Toast.makeText(this, "Registration failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                                    Log.e("TestApp", "Error registering event: " + e.getMessage());
-                                });
-                    }
-                });
+        ticketRef.get().addOnCompleteListener(ticketTask -> {
+            if (ticketTask.isSuccessful() && ticketTask.getResult().exists()) {
+                Toast.makeText(this, "You are already registered for this event!", Toast.LENGTH_SHORT).show();
+                Log.d("TestApp", "Student already registered for event: " + eventUID);
+                updateButtonState(true);
             } else {
-                Toast.makeText(this, "Student data not found!", Toast.LENGTH_SHORT).show();
-                Log.e("TestApp", "Student does not exist in database: " + studentID);
+                long currentTimeMillis = System.currentTimeMillis();
+                String formattedTimestamp = getCurrentTimestamp();
+
+                HashMap<String, Object> ticketData = new HashMap<>();
+                ticketData.put("registeredAt", formattedTimestamp);
+                ticketData.put("timestampMillis", currentTimeMillis);
+
+                ticketRef.setValue(ticketData)
+                        .addOnSuccessListener(aVoid -> {
+                            Toast.makeText(this, "Registered successfully!", Toast.LENGTH_SHORT).show();
+                            Log.d("TestApp", "Event registered at " + formattedTimestamp);
+                            generateAndUploadQRCode();
+                            updateButtonState(true);
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(this, "Registration failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            Log.e("TestApp", "Error registering event: " + e.getMessage());
+                        });
             }
         });
+    }
+
+    private void checkRegistrationStatus() {
+        DatabaseReference ticketRef = FirebaseDatabase.getInstance()
+                .getReference("students")
+                .child(studentID)
+                .child("tickets")
+                .child(eventUID);
+
+        ticketRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful() && task.getResult().exists()) {
+                updateButtonState(true);
+            } else {
+                updateButtonState(false);
+            }
+        });
+    }
+
+    private void updateButtonState(boolean isRegistered) {
+        if (isRegistered) {
+            registerButton.setVisibility(View.GONE);
+            ticketButton.setVisibility(View.VISIBLE);
+            ticketButton.setClickable(true);
+        } else {
+            registerButton.setVisibility(View.VISIBLE);
+            ticketButton.setVisibility(View.GONE);
+            ticketButton.setClickable(false);
+        }
     }
 
     private void generateAndUploadQRCode() {
@@ -172,7 +191,7 @@ public class StudentDashboardInside extends AppCompatActivity {
             }
 
             @Override
-            public void onQRCodeUploaded(String downloadUrl) {
+            public void onQRCodeUploaded(String downloadUrl, String ticketID) { // Updated to include ticketID
                 // Reference to the student’s ticket entry
                 DatabaseReference ticketRef = FirebaseDatabase.getInstance()
                         .getReference("students")
@@ -180,8 +199,9 @@ public class StudentDashboardInside extends AppCompatActivity {
                         .child("tickets")
                         .child(eventUID);
 
-                // Add QR code URL and "pending" status
+                // Add ticketID, QR code URL, and "pending" status
                 HashMap<String, Object> ticketData = new HashMap<>();
+                ticketData.put("ticketID", ticketID); // Save the ticket ID
                 ticketData.put("qrCodeUrl", downloadUrl);
                 ticketData.put("status", "pending"); // Add the "pending" status
 
@@ -203,6 +223,7 @@ public class StudentDashboardInside extends AppCompatActivity {
             }
         });
     }
+
 
 
     /**

@@ -78,7 +78,7 @@ public class MainActivity2 extends AppCompatActivity{
             } else if (itemId == R.id.nav_event) {
                 startActivity(new Intent(getApplicationContext(), StudentDashboard.class));
             } else if (itemId == R.id.nav_ticket) {
-                startActivity(new Intent(getApplicationContext(), MyTicketsActivity.class));
+                startActivity(new Intent(getApplicationContext(), StudentTickets.class));
             } else if (itemId == R.id.nav_scan) {
                 startActivity(new Intent(getApplicationContext(), QRCheckInActivity.class));
             }

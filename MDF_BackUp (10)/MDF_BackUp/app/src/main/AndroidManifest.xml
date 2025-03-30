@@ -27,6 +27,9 @@
         android:theme="@style/Theme.MDFEventManagementSystem"
         tools:targetApi="31">
         <activity
+            android:name=".StudentTicketsInside"
+            android:exported="false" />
+        <activity
             android:name=".TeacherEventsInside"
             android:exported="false" />
         <activity

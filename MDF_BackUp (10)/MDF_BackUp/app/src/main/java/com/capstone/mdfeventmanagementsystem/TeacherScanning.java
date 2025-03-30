@@ -9,6 +9,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import com.google.firebase.database.*;
@@ -21,7 +22,7 @@ public class TeacherScanning extends AppCompatActivity {
 
     private TextView instructionForScanning, validText, usedText, invalidText, notAllowedText;
     private ImageView validTicket, usedTicket, invalidTicket, notAllowedTicket;
-    private Button scanTicketBtn, cancelScanBtn, scanNewBtn;
+    private Button scanTicketBtn, cancelScanBtn;
 
     private DatabaseReference databaseRef;
     private SharedPreferences sharedPreferences;
@@ -42,14 +43,9 @@ public class TeacherScanning extends AppCompatActivity {
         notAllowedTicket = findViewById(R.id.notAllowedTicket);
         scanTicketBtn = findViewById(R.id.scanTicketBtn);
         cancelScanBtn = findViewById(R.id.cancelScanBtn);
-        scanNewBtn = findViewById(R.id.scanNewBtn);
 
         scanTicketBtn.setOnClickListener(v -> startQRScanner());
         cancelScanBtn.setOnClickListener(v -> finish());
-        scanNewBtn.setOnClickListener(v -> {
-            resetScanUI();
-            startQRScanner();
-        });
 
         // Initialize Firebase database reference
         databaseRef = FirebaseDatabase.getInstance().getReference();
@@ -57,13 +53,32 @@ public class TeacherScanning extends AppCompatActivity {
 
         // Initialize SharedPreferences
         sharedPreferences = getSharedPreferences("TicketStatus", MODE_PRIVATE);
-    }
 
-    private void resetScanUI() {
-        // Hide all result views and show the scanning instruction
-        hideAllTicketViews();
-        instructionForScanning.setVisibility(TextView.VISIBLE);
-        scanTicketBtn.setVisibility(Button.VISIBLE);
+
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation_teacher);
+        bottomNavigationView.setSelectedItemId(R.id.nav_scan_teacher);
+
+        bottomNavigationView.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+
+            if (itemId == R.id.nav_home_teacher) {
+                startActivity(new Intent(this, TeacherDashboard.class));
+                finish();
+            } else if (itemId == R.id.nav_event_teacher) {
+                startActivity(new Intent(this, TeacherEvents.class));
+                finish();
+            } else if (itemId == R.id.nav_scan_teacher) {
+                return true; // Stay on the same page
+            } else if (itemId == R.id.nav_profile_teacher) {
+                startActivity(new Intent(this, TeacherProfile.class));
+                finish();
+            }
+
+            overridePendingTransition(0, 0); // Remove animation between transitions
+            return true;
+        });
+
+
     }
 
     private void startQRScanner() {
@@ -97,93 +112,32 @@ public class TeacherScanning extends AppCompatActivity {
             return;
         }
 
-        // Check if this is a multi-day event
-        databaseRef.child("events").child(eventId).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    String eventSpan = snapshot.child("eventSpan").getValue(String.class);
-                    boolean isMultiDay = "multi-day".equals(eventSpan);
+        int timeStatus = checkTimeStatus(ticketData);
 
-                    // Now check the time status
-                    int timeStatus = checkTimeStatus(ticketData);
+        if (timeStatus == 2) {
+            showInvalidTicket();
+            return;
+        }
 
-                    if (timeStatus == 2) {
-                        showInvalidTicket();
-                        return;
-                    }
-
-                    // Proceed to check attendance status
-                    validateAttendance(studentId, eventId, isMultiDay, timeStatus);
-                } else {
-                    showInvalidTicket();
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                Toast.makeText(TeacherScanning.this, "Error checking event: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                showInvalidTicket();
-            }
-        });
-    }
-
-    private void validateAttendance(String studentId, String eventId, boolean isMultiDay, int timeStatus) {
         DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
+        ticketRef.keepSynced(true);
 
         ticketRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 if (snapshot.exists()) {
                     String currentStatus = snapshot.child("status").getValue(String.class);
-                    String currentDate = getCurrentDate();
+                    saveTicketStatus(eventId, currentStatus);
 
-                    if (isMultiDay) {
-                        // Check if they've already attended today
-                        boolean alreadyAttendedToday = false;
-                        DataSnapshot attendanceDays = snapshot.child("attendanceDays");
-
-                        if (attendanceDays.exists()) {
-                            for (DataSnapshot daySnapshot : attendanceDays.getChildren()) {
-                                if (currentDate.equals(daySnapshot.getValue(String.class))) {
-                                    alreadyAttendedToday = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (alreadyAttendedToday) {
-                            // Already attended today
-                            showUsedTicket();
-                        } else {
-                            // First attendance today, update the status
-                            String newStatus = (timeStatus == 1) ? "Late" : "Present";
-
-                            // Update the main status
-                            ticketRef.child("status").setValue(newStatus);
-
-                            // Add today to attendance days
-                            long dayCount = attendanceDays.getChildrenCount();
-                            ticketRef.child("attendanceDays").child("day_" + (dayCount + 1)).setValue(currentDate);
-
-                            // Save local status
-                            saveTicketStatus(eventId, newStatus);
-
-                            showValidTicket();
-                        }
+                    if ("Present".equals(currentStatus)) {
+                        showUsedTicket();
+                    } else if ("pending".equals(currentStatus)) {
+                        String newStatus = (timeStatus == 1) ? "Late" : "Present";
+                        ticketRef.child("status").setValue(newStatus);
+                        saveTicketStatus(eventId, newStatus);
+                        showValidTicket();
                     } else {
-                        // Single-day event processing
-                        if ("Present".equals(currentStatus) || "Late".equals(currentStatus)) {
-                            showUsedTicket();
-                        } else if ("pending".equals(currentStatus)) {
-                            String newStatus = (timeStatus == 1) ? "Late" : "Present";
-                            ticketRef.child("status").setValue(newStatus);
-                            ticketRef.child("attendanceDate").setValue(currentDate);
-                            saveTicketStatus(eventId, newStatus);
-                            showValidTicket();
-                        } else {
-                            showInvalidTicket();
-                        }
+                        showInvalidTicket();
                     }
                 } else {
                     showInvalidTicket();
@@ -194,7 +148,7 @@ public class TeacherScanning extends AppCompatActivity {
             public void onCancelled(DatabaseError error) {
                 String offlineStatus = getTicketStatus(eventId);
                 if (offlineStatus != null) {
-                    if ("Present".equals(offlineStatus) || "Late".equals(offlineStatus)) {
+                    if ("Present".equals(offlineStatus)) {
                         showUsedTicket();
                     } else {
                         showValidTicket();
@@ -204,11 +158,6 @@ public class TeacherScanning extends AppCompatActivity {
                 }
             }
         });
-    }
-
-    private String getCurrentDate() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        return sdf.format(new Date());
     }
 
     private void saveTicketStatus(String eventId, String status) {
@@ -237,35 +186,17 @@ public class TeacherScanning extends AppCompatActivity {
     private int checkTimeStatus(Map<String, String> ticketData) {
         try {
             String startDate = ticketData.get("startDate");
-            String endDate = ticketData.get("endDate"); // Added for multi-day events
             String startTime = ticketData.get("startTime");
             String endTime = ticketData.get("endTime");
             String graceTimeStr = ticketData.get("graceTime");
 
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.US);
             SimpleDateFormat combinedFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+            Date eventStartTime = combinedFormat.parse(startDate + " " + startTime);
+            Date eventEndTime = combinedFormat.parse(startDate + " " + endTime);
+            Date currentTime = new Date();
 
-            Date currentDate = new Date();
-            String currentDateStr = dateFormat.format(currentDate);
-
-            // For multi-day events, check if current date is within event date range
-            if (endDate != null && !endDate.isEmpty()) {
-                Date eventStartDate = dateFormat.parse(startDate);
-                Date eventEndDate = dateFormat.parse(endDate);
-                Date currentDateOnly = dateFormat.parse(currentDateStr);
-
-                if (currentDateOnly.before(eventStartDate) || currentDateOnly.after(eventEndDate)) {
-                    return 2; // Outside event date range
-                }
-            }
-
-            // Check time constraints for the current day
-            Date eventStartTime = combinedFormat.parse(currentDateStr + " " + startTime);
-            Date eventEndTime = combinedFormat.parse(currentDateStr + " " + endTime);
-
-            if (currentDate.after(eventEndTime)) {
-                return 2; // Event has ended for today
+            if (currentTime.after(eventEndTime)) {
+                return 2; // Event has ended, ticket is invalid
             }
 
             if ("none".equalsIgnoreCase(graceTimeStr)) {
@@ -278,9 +209,9 @@ public class TeacherScanning extends AppCompatActivity {
             calendar.add(Calendar.MINUTE, graceTime);
             Date validEndTime = calendar.getTime();
 
-            if (currentDate.before(eventStartTime)) {
+            if (currentTime.before(eventStartTime)) {
                 return -1; // Too early
-            } else if (currentDate.after(validEndTime)) {
+            } else if (currentTime.after(validEndTime)) {
                 return 1; // Late
             } else {
                 return 0; // On time
@@ -294,28 +225,18 @@ public class TeacherScanning extends AppCompatActivity {
         hideAllTicketViews();
         validTicket.setVisibility(ImageView.VISIBLE);
         validText.setVisibility(TextView.VISIBLE);
-        scanNewBtn.setVisibility(Button.VISIBLE);
     }
 
     private void showUsedTicket() {
         hideAllTicketViews();
         usedTicket.setVisibility(ImageView.VISIBLE);
         usedText.setVisibility(TextView.VISIBLE);
-        scanNewBtn.setVisibility(Button.VISIBLE);
     }
 
     private void showInvalidTicket() {
         hideAllTicketViews();
         invalidTicket.setVisibility(ImageView.VISIBLE);
         invalidText.setVisibility(TextView.VISIBLE);
-        scanNewBtn.setVisibility(Button.VISIBLE);
-    }
-
-    private void showNotAllowedTicket() {
-        hideAllTicketViews();
-        notAllowedTicket.setVisibility(ImageView.VISIBLE);
-        notAllowedText.setVisibility(TextView.VISIBLE);
-        scanNewBtn.setVisibility(Button.VISIBLE);
     }
 
     private void hideAllTicketViews() {
@@ -328,7 +249,5 @@ public class TeacherScanning extends AppCompatActivity {
         invalidText.setVisibility(TextView.GONE);
         notAllowedTicket.setVisibility(ImageView.GONE);
         notAllowedText.setVisibility(TextView.GONE);
-        scanNewBtn.setVisibility(Button.GONE);
-        scanTicketBtn.setVisibility(Button.GONE);
     }
 }

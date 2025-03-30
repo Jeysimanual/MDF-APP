@@ -72,7 +72,7 @@ public class StudentSignUp extends AppCompatActivity {
         spinnerYearLevel.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                String selectedYear = parent.getItemAtPosition(position).toString(); // Ensure it matches Firebase keys
+                String selectedYear = parent.getItemAtPosition(position).toString().replace(" ", "-"); // Ensure it matches Firebase keys
                 Log.d(TAG, "Year level selected: " + selectedYear);
 
                 DatabaseReference sectionsRef = FirebaseDatabase.getInstance().getReference("yearLvls").child(selectedYear);
