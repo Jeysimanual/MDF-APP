@@ -447,7 +447,7 @@
                             android:layout_marginTop="@dimen/_40sdp">
 
                             <Button
-                                android:id="@+id/viewCoordinator"
+                                android:id="@+id/showCoordinatorsBtn"
                                 android:layout_width="0dp"
                                 android:layout_height="@dimen/_35sdp"
                                 android:layout_marginLeft="@dimen/_4sdp"
@@ -473,7 +473,7 @@
                                 android:padding="0dp"
                                 app:layout_constraintBottom_toBottomOf="parent"
                                 app:layout_constraintEnd_toEndOf="parent"
-                                app:layout_constraintStart_toEndOf="@id/viewCoordinator"
+                                app:layout_constraintStart_toEndOf="@id/showCoordinatorsBtn"
                                 app:layout_constraintTop_toTopOf="parent" />
 
 

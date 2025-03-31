@@ -1,6 +1,7 @@
 package com.capstone.mdfeventmanagementsystem;
 
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+
 import java.util.List;
 
 public class EventTicketAdapter extends RecyclerView.Adapter<EventTicketAdapter.ViewHolder> {
@@ -42,6 +44,20 @@ public class EventTicketAdapter extends RecyclerView.Adapter<EventTicketAdapter.
 
         // Load QR code image using Glide
         Glide.with(context).load(ticket.getQrCodeUrl()).into(holder.qrCodeImage);
+
+        // ✅ Make each ticket item clickable
+        holder.itemView.setOnClickListener(v -> {
+            Intent intent = new Intent(context, StudentTicketsInside.class);
+            intent.putExtra("eventName", ticket.getEventName());
+            intent.putExtra("eventType", ticket.getEventType());
+            intent.putExtra("startDate", ticket.getStartDate());
+            intent.putExtra("startTime", ticket.getStartTime());
+            intent.putExtra("venue", ticket.getVenue());
+            intent.putExtra("qrCodeUrl", ticket.getQrCodeUrl());
+            intent.putExtra("ticketID", ticket.getTicketID());
+
+            context.startActivity(intent);
+        });
     }
 
     @Override
@@ -61,7 +77,7 @@ public class EventTicketAdapter extends RecyclerView.Adapter<EventTicketAdapter.
             startTime = itemView.findViewById(R.id.startTime);
             venue = itemView.findViewById(R.id.venue);
             ticketID = itemView.findViewById(R.id.ticketID);
-            qrCodeImage = itemView.findViewById(R.id.qrCodeImage); // Ensure this matches your XML ID
+            qrCodeImage = itemView.findViewById(R.id.qrCodeImage);
         }
     }
 }

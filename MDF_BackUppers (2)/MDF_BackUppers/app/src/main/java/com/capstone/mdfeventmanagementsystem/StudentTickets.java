@@ -43,7 +43,7 @@ public class StudentTickets extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         ticketList = new ArrayList<>();
-        adapter = new EventTicketAdapter(this, ticketList);
+        adapter = new EventTicketAdapter(StudentTickets.this, ticketList);
         recyclerView.setAdapter(adapter);
 
         mAuth = FirebaseAuth.getInstance();
@@ -59,14 +59,27 @@ public class StudentTickets extends AppCompatActivity {
     }
 
     private void fetchStudentUID() {
-        DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
-        Log.d(TAG, "Fetching student UID from database...");
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "No user logged in!");
+            Toast.makeText(StudentTickets.this, "User not logged in!", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
 
-        studentsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        String userEmail = currentUser.getEmail();
+        if (userEmail == null) {
+            Log.e(TAG, "User email is null!");
+            Toast.makeText(StudentTickets.this, "Error fetching user email!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
+        studentsRef.orderByChild("email").equalTo(userEmail).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists()) {
-                    Log.w(TAG, "No students found in database!");
+                    Log.w(TAG, "No matching student found in database!");
                     Toast.makeText(StudentTickets.this, "No student data found!", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -76,7 +89,6 @@ public class StudentTickets extends AppCompatActivity {
                     if (studentUID != null) {
                         Log.d(TAG, "Student UID found: " + studentUID);
                         fetchTicketsForStudent(studentUID);
-                        break;
                     }
                 }
             }
@@ -87,6 +99,7 @@ public class StudentTickets extends AppCompatActivity {
             }
         });
     }
+
 
     private void fetchTicketsForStudent(String studentUID) {
         studentTicketsRef = FirebaseDatabase.getInstance()

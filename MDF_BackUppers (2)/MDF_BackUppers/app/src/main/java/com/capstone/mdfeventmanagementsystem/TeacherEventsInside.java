@@ -1,26 +1,48 @@
 package com.capstone.mdfeventmanagementsystem;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class TeacherEventsInside extends AppCompatActivity {
 
     private TextView eventName, eventDescription, startDate, endDate, startTime, endTime, venue, eventSpan, ticketType, graceTime, eventType, eventFor;
     private ImageView eventImage;
     private String eventUID; // Store event UID
+    private Button showCoordinatorsBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_teacher_events_inside);
+
+
+        showCoordinatorsBtn = findViewById(R.id.showCoordinatorsBtn);
+        // Get event UID from Intent
+        eventUID = getIntent().getStringExtra("eventUID");
+
+        showCoordinatorsBtn.setOnClickListener(v -> showCoordinatorsDialog());
 
         // Initialize UI elements
         eventName = findViewById(R.id.eventName);
@@ -35,6 +57,16 @@ public class TeacherEventsInside extends AppCompatActivity {
         eventType = findViewById(R.id.eventType);
         eventFor = findViewById(R.id.eventFor);
         eventImage = findViewById(R.id.eventPhotoUrl);
+
+        // Check if any view is null
+        if (eventName == null || eventDescription == null || startDate == null || endDate == null ||
+                startTime == null || endTime == null || venue == null || eventSpan == null ||
+                graceTime == null || eventType == null || eventFor == null || eventImage == null) {
+            Log.e("UI_ERROR", "One or more views are null. Check IDs in XML.");
+            Toast.makeText(this, "Error loading UI components!", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
 
         // Get event details from intent
         Intent intent = getIntent();
@@ -97,4 +129,67 @@ public class TeacherEventsInside extends AppCompatActivity {
             finish();
         }
     }
+
+    private void showCoordinatorsDialog() {
+        if (eventUID == null || eventUID.isEmpty()) {
+            Toast.makeText(this, "Event ID is missing!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Log.d("CoordinatorDebug", "Fetching coordinators for event ID: " + eventUID);
+
+        DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events")
+                .child(eventUID).child("eventCoordinators");
+
+        eventRef.orderByValue().equalTo(true).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                List<String> coordinatorEmails = new ArrayList<>();
+
+                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                    String email = snapshot.getKey();
+                    if (email != null) {
+                        coordinatorEmails.add(email.replace(",", "."));  // Replace stored commas with dots
+                    }
+                }
+
+                if (coordinatorEmails.isEmpty()) {
+                    Toast.makeText(TeacherEventsInside.this, "No coordinators found.", Toast.LENGTH_SHORT).show();
+                } else {
+                    showCoordinatorEmailDialog(coordinatorEmails);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Log.e("FirebaseError", "Error fetching coordinators: " + databaseError.getMessage());
+                Toast.makeText(TeacherEventsInside.this, "Error loading coordinator list", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showCoordinatorEmailDialog(List<String> coordinatorEmails) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Event Coordinators");
+
+        ScrollView scrollView = new ScrollView(this);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+        for (String email : coordinatorEmails) {
+            TextView emailTextView = new TextView(this);
+            emailTextView.setText(email);
+            emailTextView.setTextSize(16);
+            emailTextView.setTextColor(Color.BLACK);
+            emailTextView.setPadding(20, 10, 10, 10);
+
+            layout.addView(emailTextView);
+        }
+
+        scrollView.addView(layout);
+        builder.setView(scrollView);
+        builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
+        builder.create().show();
+    }
 }
+

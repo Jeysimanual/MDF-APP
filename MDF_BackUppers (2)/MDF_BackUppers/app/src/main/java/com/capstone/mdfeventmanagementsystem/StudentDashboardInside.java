@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.bumptech.glide.Glide;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
@@ -125,7 +126,74 @@ public class StudentDashboardInside extends AppCompatActivity {
         }
 
         DatabaseReference studentRef = FirebaseDatabase.getInstance().getReference("students").child(studentID);
-        DatabaseReference ticketRef = studentRef.child("tickets").child(eventUID);
+        DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
+        DatabaseReference ticketsRef = FirebaseDatabase.getInstance().getReference("students").child(studentID).child("tickets");
+
+        Log.d("TestApp", "Checking if student is already registered for event: " + eventUID);
+
+        // Check if student already has a ticket
+        ticketsRef.get().addOnCompleteListener(ticketTask -> {
+            if (ticketTask.isSuccessful() && ticketTask.getResult().exists()) {
+                for (DataSnapshot ticketSnapshot : ticketTask.getResult().getChildren()) {
+                    Log.d("TestApp", "Checking ticket: " + ticketSnapshot.getKey());
+                    if (ticketSnapshot.getKey().equals(eventUID)) {
+                        Toast.makeText(this, "You are already registered for this event!", Toast.LENGTH_SHORT).show();
+                        Log.d("TestApp", "Student already registered for event: " + eventUID);
+                        updateButtonState(true);
+                        return;
+                    }
+                }
+            }
+
+            Log.d("TestApp", "Student is not registered, proceeding with eligibility check.");
+
+            // Fetch student's yearLevel if not already registered
+            studentRef.child("yearLevel").get().addOnCompleteListener(studentTask -> {
+                if (studentTask.isSuccessful() && studentTask.getResult().exists()) {
+                    String studentYearLevel = studentTask.getResult().getValue(String.class);
+                    Log.d("TestApp", "Student Year Level: " + studentYearLevel);
+
+                    // Fetch event's "eventFor" field
+                    eventRef.child("eventFor").get().addOnCompleteListener(eventTask -> {
+                        if (eventTask.isSuccessful() && eventTask.getResult().exists()) {
+                            String eventFor = eventTask.getResult().getValue(String.class);
+                            Log.d("TestApp", "Event For: " + eventFor);
+
+                            // Normalize and compare values
+                            String normalizedEventFor = eventFor.replace("-", " ").trim();
+                            String normalizedYearLevel = studentYearLevel.trim();
+
+                            if (normalizedEventFor.equalsIgnoreCase("All") || normalizedEventFor.equalsIgnoreCase(normalizedYearLevel)) {
+                                Log.d("TestApp", "Student is eligible for registration.");
+                                registerButton.setEnabled(true); // Enable the button if eligible
+                                proceedWithRegistration();
+                            } else {
+                                registerButton.setEnabled(false); // Disable the button if not eligible
+                                Toast.makeText(this, "You are not eligible for this event.", Toast.LENGTH_SHORT).show();
+                                Log.d("TestApp", "Student year level does not match eventFor.");
+                            }
+                        } else {
+                            Toast.makeText(this, "Failed to fetch event details.", Toast.LENGTH_SHORT).show();
+                            Log.e("TestApp", "Error fetching eventFor: " + eventTask.getException().getMessage());
+                        }
+                    });
+                } else {
+                    Toast.makeText(this, "Failed to fetch student details.", Toast.LENGTH_SHORT).show();
+                    Log.e("TestApp", "Error fetching student yearLevel: " + studentTask.getException().getMessage());
+                }
+            });
+        });
+    }
+
+
+
+    // ✅ Function to proceed with registration if section matches
+    private void proceedWithRegistration() {
+        DatabaseReference ticketRef = FirebaseDatabase.getInstance()
+                .getReference("students")
+                .child(studentID)
+                .child("tickets")
+                .child(eventUID);
 
         ticketRef.get().addOnCompleteListener(ticketTask -> {
             if (ticketTask.isSuccessful() && ticketTask.getResult().exists()) {
@@ -155,6 +223,7 @@ public class StudentDashboardInside extends AppCompatActivity {
         });
     }
 
+
     private void checkRegistrationStatus() {
         DatabaseReference ticketRef = FirebaseDatabase.getInstance()
                 .getReference("students")
@@ -162,26 +231,46 @@ public class StudentDashboardInside extends AppCompatActivity {
                 .child("tickets")
                 .child(eventUID);
 
+        Log.d("TestApp", "Checking registration status for event: " + eventUID);
+
         ticketRef.get().addOnCompleteListener(task -> {
-            if (task.isSuccessful() && task.getResult().exists()) {
-                updateButtonState(true);
+            if (task.isSuccessful()) {
+                if (task.getResult().exists()) {
+                    Log.d("TestApp", "Student is already registered, updating button to SEE TICKET.");
+                    updateButtonState(true);
+                } else {
+                    Log.d("TestApp", "Student is not registered, showing Register button.");
+                    updateButtonState(false);
+                }
             } else {
-                updateButtonState(false);
+                Log.e("TestApp", "Error checking registration status: " + task.getException().getMessage());
             }
         });
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        checkRegistrationStatus(); // Automatically check registration status when the activity starts
+    }
+
+
     private void updateButtonState(boolean isRegistered) {
+        Log.d("TestApp", "Updating button state: isRegistered = " + isRegistered);
         if (isRegistered) {
             registerButton.setVisibility(View.GONE);
             ticketButton.setVisibility(View.VISIBLE);
             ticketButton.setClickable(true);
+            Log.d("TestApp", "Showing ticket button.");
         } else {
             registerButton.setVisibility(View.VISIBLE);
             ticketButton.setVisibility(View.GONE);
             ticketButton.setClickable(false);
+            Log.d("TestApp", "Showing register button.");
         }
     }
+
+
 
     private void generateAndUploadQRCode() {
         QrCodeGenerator.generateQRCodeWithEventAndStudentInfo(this, eventUID, new QrCodeGenerator.OnQRCodeGeneratedListener() {
