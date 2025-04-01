@@ -4,7 +4,10 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -14,8 +17,11 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -23,14 +29,19 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TeacherEventsInside extends AppCompatActivity {
 
     private TextView eventName, eventDescription, startDate, endDate, startTime, endTime, venue, eventSpan, ticketType, graceTime, eventType, eventFor;
     private ImageView eventImage;
     private String eventUID; // Store event UID
-    private Button showCoordinatorsBtn;
+    private Button showCoordinatorsBtn, addCoordinatorBtn;
+    private EmailAdapter emailAdapter;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +54,9 @@ public class TeacherEventsInside extends AppCompatActivity {
         eventUID = getIntent().getStringExtra("eventUID");
 
         showCoordinatorsBtn.setOnClickListener(v -> showCoordinatorsDialog());
+
+        addCoordinatorBtn = findViewById(R.id.addCoordinator);
+        addCoordinatorBtn.setOnClickListener(v -> showAddCoordinatorDialog());
 
         // Initialize UI elements
         eventName = findViewById(R.id.eventName);
@@ -129,6 +143,108 @@ public class TeacherEventsInside extends AppCompatActivity {
             finish();
         }
     }
+
+    private void showAddCoordinatorDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_coordinator, null);
+        builder.setView(dialogView);
+
+        EditText emailEditText = dialogView.findViewById(R.id.emailEditText);
+        Button addEmailButton = dialogView.findViewById(R.id.addEmailButton);
+        Button cancelButton = dialogView.findViewById(R.id.cancelButton);
+        Button addCoordinatorButton = dialogView.findViewById(R.id.addCoordinatorButton);
+        RecyclerView addedEmailsRecyclerView = dialogView.findViewById(R.id.addedEmailsRecyclerView);
+
+        List<String> addedEmails = new ArrayList<>();
+        Set<String> duplicateEmails = new HashSet<>();
+
+        addedEmailsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        emailAdapter = new EmailAdapter(addedEmails, email -> {
+            addedEmails.remove(email);
+            emailAdapter.notifyDataSetChanged();
+            Toast.makeText(this, "Email removed.", Toast.LENGTH_SHORT).show();
+        });
+
+        addedEmailsRecyclerView.setAdapter(emailAdapter);
+
+        AlertDialog alertDialog = builder.create();
+
+        addEmailButton.setOnClickListener(v -> {
+            String emailInput = emailEditText.getText().toString().trim();
+            String[] emails = emailInput.split(",");
+            Set<String> seenEmails = new HashSet<>();
+            List<String> filteredEmails = new ArrayList<>();
+
+            for (String individualEmail : emails) {
+                String trimmedEmail = individualEmail.trim();
+                if (!trimmedEmail.isEmpty() && !seenEmails.contains(trimmedEmail) &&
+                        android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+                    seenEmails.add(trimmedEmail);
+                    filteredEmails.add(trimmedEmail);
+                }
+            }
+
+            for (String email : filteredEmails) {
+                if (addedEmails.contains(email)) {
+                    duplicateEmails.add(email);
+                } else {
+                    addedEmails.add(email);
+                }
+            }
+
+            if (!duplicateEmails.isEmpty()) {
+                showDuplicateEmailDialog(new ArrayList<>(duplicateEmails));
+            }
+
+            emailAdapter.notifyDataSetChanged();
+            emailEditText.setText("");
+        });
+
+        cancelButton.setOnClickListener(v -> {
+            Toast.makeText(this, "Adding of Coordinator is cancelled.", Toast.LENGTH_SHORT).show();
+            alertDialog.dismiss();
+        });
+
+        addCoordinatorButton.setOnClickListener(v -> {
+            if (!addedEmails.isEmpty()) {
+                addCoordinatorsToFirebase(addedEmails, alertDialog);
+            } else {
+                Toast.makeText(this, "No coordinators to add.", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        alertDialog.show();
+    }
+
+    private void addCoordinatorsToFirebase(List<String> addedEmails, AlertDialog alertDialog) {
+        String currentUserUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
+
+        AtomicInteger processedCount = new AtomicInteger(0);
+        for (String email : addedEmails) {
+            eventRef.child("eventCoordinators").child(email.replace(".", ",")).setValue(true)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Toast.makeText(this, "Coordinator added: " + email, Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(this, "Failed to add: " + email, Toast.LENGTH_SHORT).show();
+                        }
+
+                        if (processedCount.incrementAndGet() == addedEmails.size()) {
+                            alertDialog.dismiss();
+                        }
+                    });
+        }
+    }
+
+    private void showDuplicateEmailDialog(List<String> duplicateEmails) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Duplicate Emails Found");
+        builder.setMessage("The following emails are duplicates:\n" + String.join("\n", duplicateEmails));
+        builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
 
     private void showCoordinatorsDialog() {
         if (eventUID == null || eventUID.isEmpty()) {

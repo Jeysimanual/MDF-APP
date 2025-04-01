@@ -21,10 +21,13 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class StudentDashboardInside extends AppCompatActivity {
 
@@ -116,8 +119,15 @@ public class StudentDashboardInside extends AppCompatActivity {
 
         // Register button click
         registerButton.setOnClickListener(v -> registerForEvent());
-    }
 
+        // Ticket button click
+        ticketButton.setOnClickListener(v -> {
+            // Implement navigation to ticket details
+            Intent ticketIntent = new Intent(StudentDashboardInside.this, StudentTickets.class);
+            ticketIntent.putExtra("eventUID", eventUID);
+            startActivity(ticketIntent);
+        });
+    }
 
     private void registerForEvent() {
         if (eventUID == null || eventUID.isEmpty()) {
@@ -185,10 +195,9 @@ public class StudentDashboardInside extends AppCompatActivity {
         });
     }
 
-
-
     // ✅ Function to proceed with registration if section matches
     private void proceedWithRegistration() {
+        DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
         DatabaseReference ticketRef = FirebaseDatabase.getInstance()
                 .getReference("students")
                 .child(studentID)
@@ -201,29 +210,109 @@ public class StudentDashboardInside extends AppCompatActivity {
                 Log.d("TestApp", "Student already registered for event: " + eventUID);
                 updateButtonState(true);
             } else {
-                long currentTimeMillis = System.currentTimeMillis();
-                String formattedTimestamp = getCurrentTimestamp();
+                // Get event details to determine if it's a multi-day event
+                eventRef.get().addOnCompleteListener(eventTask -> {
+                    if (eventTask.isSuccessful() && eventTask.getResult().exists()) {
+                        DataSnapshot eventSnapshot = eventTask.getResult();
+                        String eventSpanValue = eventSnapshot.child("eventSpan").getValue(String.class);
+                        String startDateValue = eventSnapshot.child("startDate").getValue(String.class);
+                        String endDateValue = eventSnapshot.child("endDate").getValue(String.class);
 
-                HashMap<String, Object> ticketData = new HashMap<>();
-                ticketData.put("registeredAt", formattedTimestamp);
-                ticketData.put("timestampMillis", currentTimeMillis);
+                        long currentTimeMillis = System.currentTimeMillis();
+                        String formattedTimestamp = getCurrentTimestamp();
 
-                ticketRef.setValue(ticketData)
-                        .addOnSuccessListener(aVoid -> {
-                            Toast.makeText(this, "Registered successfully!", Toast.LENGTH_SHORT).show();
-                            Log.d("TestApp", "Event registered at " + formattedTimestamp);
-                            generateAndUploadQRCode();
-                            updateButtonState(true);
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(this, "Registration failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                            Log.e("TestApp", "Error registering event: " + e.getMessage());
-                        });
+                        HashMap<String, Object> ticketData = new HashMap<>();
+                        ticketData.put("registeredAt", formattedTimestamp);
+                        ticketData.put("timestampMillis", currentTimeMillis);
+
+                        // We no longer add the global status field
+                        // REMOVED: ticketData.put("status", "pending");
+
+                        // Check if it's a multi-day event
+                        boolean isMultiDay = "multi-day".equals(eventSpanValue);
+                        if (isMultiDay && startDateValue != null && endDateValue != null) {
+                            // Create attendance records for each day of the multi-day event
+                            // Each day will have its own date and status
+                            Log.d("TestApp", "Creating attendance days for multi-day event");
+                            HashMap<String, Object> attendanceDays = createAttendanceDaysForDateRange(startDateValue, endDateValue);
+                            ticketData.put("attendanceDays", attendanceDays);
+                        } else {
+                            // For single-day events, still create one day with status
+                            HashMap<String, Object> attendanceDays = new HashMap<>();
+                            HashMap<String, Object> dayData = new HashMap<>();
+                            dayData.put("date", startDateValue);
+                            dayData.put("status", "pending");
+                            attendanceDays.put("day_1", dayData);
+                            ticketData.put("attendanceDays", attendanceDays);
+                        }
+
+                        // Register with the prepared data
+                        ticketRef.setValue(ticketData)
+                                .addOnSuccessListener(aVoid -> {
+                                    Toast.makeText(this, "Registered successfully!", Toast.LENGTH_SHORT).show();
+                                    Log.d("TestApp", "Event registered at " + formattedTimestamp);
+                                    generateAndUploadQRCode();
+                                    updateButtonState(true);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(this, "Registration failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    Log.e("TestApp", "Error registering event: " + e.getMessage());
+                                });
+                    } else {
+                        Toast.makeText(this, "Failed to fetch event details.", Toast.LENGTH_SHORT).show();
+                        Log.e("TestApp", "Error fetching event details: " +
+                                (eventTask.getException() != null ? eventTask.getException().getMessage() : "Unknown error"));
+                    }
+                });
             }
         });
     }
+    /**
+     * Creates attendance day entries for each day in the given date range.
+     * Each day will have the "pending" status initially.
+     */
+    private HashMap<String, Object> createAttendanceDaysForDateRange(String startDateStr, String endDateStr) {
+        HashMap<String, Object> attendanceDays = new HashMap<>();
 
+        try {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            Date startDate = dateFormat.parse(startDateStr);
+            Date endDate = dateFormat.parse(endDateStr);
 
+            if (startDate == null || endDate == null) {
+                Log.e("TestApp", "Invalid date format for start or end date");
+                return attendanceDays;
+            }
+
+            // Calculate number of days between start and end date (inclusive)
+            long diffInMillis = endDate.getTime() - startDate.getTime();
+            long dayCount = TimeUnit.DAYS.convert(diffInMillis, TimeUnit.MILLISECONDS) + 1;
+
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(startDate);
+
+            // Create an entry for each day in the range with date and status
+            for (int i = 1; i <= dayCount; i++) {
+                String currentDateStr = dateFormat.format(calendar.getTime());
+
+                // Create a HashMap for each day containing both date and status
+                HashMap<String, Object> dayData = new HashMap<>();
+                dayData.put("date", currentDateStr);
+                dayData.put("status", "pending"); // Initialize status as pending for each day
+
+                // Add this day's data to the attendanceDays map
+                attendanceDays.put("day_" + i, dayData);
+
+                calendar.add(Calendar.DAY_OF_MONTH, 1);
+            }
+
+            Log.d("TestApp", "Created attendance days with status: " + attendanceDays.toString());
+        } catch (ParseException e) {
+            Log.e("TestApp", "Error parsing dates: " + e.getMessage());
+        }
+
+        return attendanceDays;
+    }
     private void checkRegistrationStatus() {
         DatabaseReference ticketRef = FirebaseDatabase.getInstance()
                 .getReference("students")
@@ -254,7 +343,6 @@ public class StudentDashboardInside extends AppCompatActivity {
         checkRegistrationStatus(); // Automatically check registration status when the activity starts
     }
 
-
     private void updateButtonState(boolean isRegistered) {
         Log.d("TestApp", "Updating button state: isRegistered = " + isRegistered);
         if (isRegistered) {
@@ -270,8 +358,6 @@ public class StudentDashboardInside extends AppCompatActivity {
         }
     }
 
-
-
     private void generateAndUploadQRCode() {
         QrCodeGenerator.generateQRCodeWithEventAndStudentInfo(this, eventUID, new QrCodeGenerator.OnQRCodeGeneratedListener() {
             @Override
@@ -281,27 +367,26 @@ public class StudentDashboardInside extends AppCompatActivity {
 
             @Override
             public void onQRCodeUploaded(String downloadUrl, String ticketID) { // Updated to include ticketID
-                // Reference to the student’s ticket entry
+                // Reference to the student's ticket entry
                 DatabaseReference ticketRef = FirebaseDatabase.getInstance()
                         .getReference("students")
                         .child(studentID)
                         .child("tickets")
                         .child(eventUID);
 
-                // Add ticketID, QR code URL, and "pending" status
+                // Add ticketID and QR code URL (without overwriting attendanceDays if present)
                 HashMap<String, Object> ticketData = new HashMap<>();
                 ticketData.put("ticketID", ticketID); // Save the ticket ID
                 ticketData.put("qrCodeUrl", downloadUrl);
-                ticketData.put("status", "pending"); // Add the "pending" status
 
                 ticketRef.updateChildren(ticketData)
                         .addOnSuccessListener(aVoid -> {
-                            Toast.makeText(StudentDashboardInside.this, "QR Code saved and status set to pending!", Toast.LENGTH_SHORT).show();
-                            Log.d("TestApp", "QR Code URL and status saved in Firebase: " + downloadUrl);
+                            Toast.makeText(StudentDashboardInside.this, "QR Code saved!", Toast.LENGTH_SHORT).show();
+                            Log.d("TestApp", "QR Code URL saved in Firebase: " + downloadUrl);
                         })
                         .addOnFailureListener(e -> {
-                            Toast.makeText(StudentDashboardInside.this, "Failed to save QR Code URL and status!", Toast.LENGTH_SHORT).show();
-                            Log.e("TestApp", "Error saving QR Code URL and status: " + e.getMessage());
+                            Toast.makeText(StudentDashboardInside.this, "Failed to save QR Code URL!", Toast.LENGTH_SHORT).show();
+                            Log.e("TestApp", "Error saving QR Code URL: " + e.getMessage());
                         });
             }
 
@@ -312,8 +397,6 @@ public class StudentDashboardInside extends AppCompatActivity {
             }
         });
     }
-
-
 
     /**
      * Returns the current timestamp in the format MM/dd/yyyy hh:mm a (e.g., 03/14/2025 5:00 AM)

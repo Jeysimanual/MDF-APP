@@ -246,26 +246,25 @@ public class TeacherScanning extends AppCompatActivity {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 if (snapshot.exists()) {
-                    String currentStatus = snapshot.child("status").getValue(String.class);
                     String currentDate = getCurrentDate();
-
-                    // Check if the student is authorized for this event
-                    if (!"pending".equals(currentStatus) && !"Present".equals(currentStatus) && !"Late".equals(currentStatus)) {
-                        showNotAllowedTicket();
-                        notAllowedText.setText("This ticket is not authorized for attendance");
-                        persistNotAllowedTicket = true; // Persist this view
-                        return;
-                    }
 
                     if (isMultiDay) {
                         // Check if they've already attended today
                         boolean alreadyAttendedToday = false;
+                        String attendedDayKey = null;
                         DataSnapshot attendanceDays = snapshot.child("attendanceDays");
 
                         if (attendanceDays.exists()) {
                             for (DataSnapshot daySnapshot : attendanceDays.getChildren()) {
-                                if (currentDate.equals(daySnapshot.getValue(String.class))) {
-                                    alreadyAttendedToday = true;
+                                // Check if this day matches today's date
+                                if (daySnapshot.child("date").exists() &&
+                                        currentDate.equals(daySnapshot.child("date").getValue(String.class))) {
+                                    attendedDayKey = daySnapshot.getKey();
+                                    String dayStatus = daySnapshot.child("status").getValue(String.class);
+
+                                    if ("Present".equals(dayStatus) || "Late".equals(dayStatus)) {
+                                        alreadyAttendedToday = true;
+                                    }
                                     break;
                                 }
                             }
@@ -274,35 +273,45 @@ public class TeacherScanning extends AppCompatActivity {
                         if (alreadyAttendedToday) {
                             // Already attended today
                             showUsedTicket();
-                        } else {
-                            // First attendance today, update the status
+                        } else if (attendedDayKey != null) {
+                            // Found the day entry for today, update its status
                             String newStatus = (timeStatus == 1) ? "Late" : "Present";
 
-                            // Update the main status
-                            ticketRef.child("status").setValue(newStatus);
+                            // Update the status for this specific day
+                            ticketRef.child("attendanceDays").child(attendedDayKey).child("status").setValue(newStatus)
+                                    .addOnSuccessListener(aVoid -> {
+                                        // Log success
+                                        Toast.makeText(TeacherScanning.this, "Attendance marked successfully for " + currentDate, Toast.LENGTH_SHORT).show();
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        // Log failure
+                                        Toast.makeText(TeacherScanning.this, "Failed to update attendance: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                    });
 
-                            // Add today to attendance days
-                            long dayCount = attendanceDays.getChildrenCount();
-                            ticketRef.child("attendanceDays").child("day_" + (dayCount + 1)).setValue(currentDate);
-
-                            // Save local status
-                            saveTicketStatus(eventId, newStatus);
+                            // Save local status for this event date combination
+                            saveTicketStatus(eventId + "_" + currentDate, newStatus);
 
                             showValidTicket();
                             if (timeStatus == 1) {
-                                validText.setText("Marked as Late");
+                                validText.setText("Marked as Late for " + currentDate);
                             } else {
-                                validText.setText("Marked as Present");
+                                validText.setText("Marked as Present for " + currentDate);
                             }
+                        } else {
+                            // No entry found for today's date
+                            showNotAllowedTicket();
+                            notAllowedText.setText("No attendance record found for today");
+                            persistNotAllowedTicket = true;
                         }
                     } else {
-                        // Single-day event processing
+                        // Single-day event processing - keep the original logic
+                        String currentStatus = snapshot.child("attendanceDays").child("day_1").child("status").getValue(String.class);
+
                         if ("Present".equals(currentStatus) || "Late".equals(currentStatus)) {
                             showUsedTicket();
                         } else if ("pending".equals(currentStatus)) {
                             String newStatus = (timeStatus == 1) ? "Late" : "Present";
-                            ticketRef.child("status").setValue(newStatus);
-                            ticketRef.child("attendanceDate").setValue(currentDate);
+                            ticketRef.child("attendanceDays").child("day_1").child("status").setValue(newStatus);
                             saveTicketStatus(eventId, newStatus);
                             showValidTicket();
                             if (timeStatus == 1) {
@@ -313,14 +322,14 @@ public class TeacherScanning extends AppCompatActivity {
                         } else {
                             showNotAllowedTicket();
                             notAllowedText.setText("This ticket is not valid for attendance");
-                            persistNotAllowedTicket = true; // Persist this view
+                            persistNotAllowedTicket = true;
                         }
                     }
                 } else {
                     // Ticket doesn't exist for this student-event combination
                     showNotAllowedTicket();
                     notAllowedText.setText("No ticket found for this student");
-                    persistNotAllowedTicket = true; // Persist this view
+                    persistNotAllowedTicket = true;
                 }
             }
 
@@ -334,7 +343,7 @@ public class TeacherScanning extends AppCompatActivity {
                         showValidTicket();
                     } else {
                         showNotAllowedTicket();
-                        persistNotAllowedTicket = true; // Persist this view
+                        persistNotAllowedTicket = true;
                     }
                 } else {
                     showInvalidTicket();
