@@ -1,0 +1,149 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_login"
+    android:gravity="top">
+
+    <ImageView
+        android:id="@+id/logo"
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="50dp"
+        android:elevation="4dp"
+        android:src="@drawable/mdf_logo" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginTop="100dp">
+
+        <LinearLayout
+            android:id="@+id/ticketContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/login_student"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:id="@+id/txtRegister"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Register"
+                android:textColor="@color/black"
+                android:textSize="34sp"
+                android:textStyle="bold"
+                android:layout_gravity="left"
+                android:layout_marginTop="@dimen/_30sdp"
+                android:layout_marginLeft="@dimen/_12sdp"
+                android:layout_marginBottom="16dp" />
+
+            <LinearLayout
+                android:layout_width="@dimen/_250sdp"
+                android:layout_height="@dimen/_40sdp"
+                android:orientation="horizontal"
+                android:layout_marginTop="@dimen/_40sdp">
+
+                <EditText
+                    android:id="@+id/etFirstName"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:hint="First Name"
+                    android:background="@drawable/spinner_background"
+                    android:padding="12dp"
+                    android:inputType="textPersonName" />
+
+
+                <EditText
+                    android:id="@+id/etLastName"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:hint="Last Name"
+                    android:background="@drawable/spinner_background"
+                    android:padding="12dp"
+                    android:inputType="textPersonName" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/idNumber"
+                android:layout_width="@dimen/_250sdp"
+                android:layout_height="@dimen/_40sdp"
+                android:hint="ID Number"
+                android:background="@drawable/spinner_background"
+                android:padding="12dp"
+                android:inputType="number"
+                android:layout_marginTop="12dp" />
+
+            <EditText
+                android:id="@+id/etEmail"
+                android:layout_width="@dimen/_250sdp"
+                android:layout_height="@dimen/_40sdp"
+                android:hint="Email"
+                android:background="@drawable/spinner_background"
+                android:padding="12dp"
+                android:inputType="textEmailAddress"
+                android:layout_marginTop="12dp" />
+
+            <EditText
+                android:id="@+id/etPassword"
+                android:layout_width="@dimen/_250sdp"
+                android:layout_height="@dimen/_40sdp"
+                android:hint="Password"
+                android:background="@drawable/spinner_background"
+                android:padding="12dp"
+                android:inputType="textPassword"
+                android:layout_marginTop="12dp" />
+
+            <EditText
+                android:id="@+id/etConfirmPassword"
+                android:layout_width="@dimen/_250sdp"
+                android:layout_height="@dimen/_40sdp"
+                android:hint="Confirm Password"
+                android:background="@drawable/spinner_background"
+                android:padding="12dp"
+                android:inputType="textPassword"
+                android:layout_marginTop="12dp" />
+
+            <LinearLayout
+                android:layout_width="@dimen/_250sdp"
+                android:layout_height="@dimen/_40sdp"
+                android:orientation="horizontal"
+                android:layout_marginTop="12dp">
+
+                <Spinner
+                    android:id="@+id/spinnerYearLevel"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/spinner_background" />
+
+                <View android:layout_width="8dp" android:layout_height="wrap_content" />
+
+                <Spinner
+                    android:id="@+id/spinnerSection"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/spinner_background" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnSignUp"
+                android:layout_width="@dimen/_150sdp"
+                android:layout_height="@dimen/_50sdp"
+                android:text="Register"
+                android:textColor="@color/white"
+                android:textSize="@dimen/_18sdp"
+                android:backgroundTint="@color/bg_login"
+                android:layout_marginTop="16dp" />
+
+        </LinearLayout>
+    </FrameLayout>
+
+</FrameLayout>
