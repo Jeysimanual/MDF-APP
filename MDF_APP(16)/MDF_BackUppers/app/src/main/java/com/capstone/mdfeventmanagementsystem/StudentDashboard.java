@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -36,17 +37,36 @@ public class StudentDashboard extends AppCompatActivity implements EventAdapter.
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_student_dashboard);
 
+        // Check if studentID exists in SharedPreferences
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+        String studentID = prefs.getString("studentID", null);
+
+        if (studentID == null) {
+            Log.e("TestApp", "No studentID found in SharedPreferences!");
+            // Optionally, prompt the user to log in again or show a relevant message
+            Toast.makeText(this, "Student ID not found. Please log in again.", Toast.LENGTH_SHORT).show();
+
+            // Redirect the user to the login activity
+            Intent intent = new Intent(StudentDashboard.this, StudentLogin.class);
+            startActivity(intent);
+            finish();  // Close the current activity
+        } else {
+            Log.d("TestApp", "StudentID found: " + studentID);
+        }
+
+        // Initialize RecyclerView for events
         recyclerView = findViewById(R.id.recyclerViewEvents);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         eventList = new ArrayList<>();
 
-        // Initialize the adapter and pass "this" for click listener
+        // Initialize the adapter and pass "this" for the click listener
         eventAdapter = new EventAdapter(this, eventList, this);
         recyclerView.setAdapter(eventAdapter);
 
         databaseReference = FirebaseDatabase.getInstance().getReference("events");
         fetchEventsFromFirebase();
 
+        // Setup bottom navigation
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
         bottomNavigationView.setSelectedItemId(R.id.nav_event);
 
@@ -64,8 +84,8 @@ public class StudentDashboard extends AppCompatActivity implements EventAdapter.
             overridePendingTransition(0, 0);
             return true;
         });
-
     }
+
 
     private void fetchEventsFromFirebase() {
         Log.d("TestApp", "Fetching events from Firebase...");

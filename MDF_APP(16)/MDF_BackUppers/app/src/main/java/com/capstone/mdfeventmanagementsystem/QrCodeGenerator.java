@@ -36,7 +36,7 @@ public class QrCodeGenerator {
     }
 
     public static void generateQRCodeWithEventAndStudentInfo(Context context, final String eventUID, final OnQRCodeGeneratedListener listener) {
-        SharedPreferences sharedPreferences = context.getSharedPreferences("MyAppPrefs", Context.MODE_PRIVATE);
+        SharedPreferences sharedPreferences = context.getSharedPreferences("UserSession", Context.MODE_PRIVATE);
         String studentID = sharedPreferences.getString("studentID", null);
 
         if (studentID == null) {

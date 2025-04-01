@@ -73,7 +73,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
     /** ✅ Requests notification permissions for Android 13+ */
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+ (API 33)
@@ -112,6 +111,8 @@ public class MainActivity extends AppCompatActivity {
 
     /** ✅ Navigates to the correct login activity */
     private void navigateToLogin() {
+        Log.d(TAG, "navigateToLogin: Attempting to navigate to " + selectedRole + " login activity");
+
         Intent intent;
         if ("Teacher".equals(selectedRole)) {
             intent = new Intent(MainActivity.this, TeacherLogin.class);

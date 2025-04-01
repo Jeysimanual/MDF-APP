@@ -26,6 +26,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MDFEventManagementSystem"
         tools:targetApi="31">
+
+        <!-- Add your activities -->
         <activity
             android:name=".StudentTicketsInside"
             android:exported="false" />
@@ -43,12 +45,10 @@
             android:name=".QRCheckInActivity"
             android:exported="false" />
         <activity
-            android:name=".MyTicketsActivity"
-            android:exported="false" />
-        <activity
             android:name=".MainActivity2"
-            android:exported="false" />
+            android:exported="true" />
 
+        <!-- Notification service -->
         <service
             android:name=".NotificationService"
             android:exported="false"
@@ -75,12 +75,17 @@
         <activity
             android:name=".StudentSignUp"
             android:exported="false" />
+
+        <!-- Make sure StudentLogin is exportable to be accessed properly -->
         <activity
             android:name=".StudentLogin"
-            android:exported="false" />
+            android:exported="true" />
+
         <activity
             android:name=".TeacherLogin"
-            android:exported="false" />
+            android:exported="true" />
+
+        <!-- MainActivity with proper intent filter for launching -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -88,7 +93,6 @@
             tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

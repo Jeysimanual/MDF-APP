@@ -73,13 +73,16 @@ public class StudentDashboardInside extends AppCompatActivity {
             return;
         }
 
-        // Retrieve studentID from SharedPreferences
-        SharedPreferences sharedPreferences = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
+        // Retrieve studentID from UserSession SharedPreferences (not MyAppPrefs)
+        SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
         studentID = sharedPreferences.getString("studentID", null);
 
         if (studentID == null || studentID.isEmpty()) {
-            Toast.makeText(this, "Student ID not found!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Student ID not found! Please log in again.", Toast.LENGTH_SHORT).show();
             Log.e("TestApp", "No studentID found in SharedPreferences!");
+            // Redirect back to login
+            Intent intent = new Intent(StudentDashboardInside.this, StudentLogin.class);
+            startActivity(intent);
             finish();
             return;
         }

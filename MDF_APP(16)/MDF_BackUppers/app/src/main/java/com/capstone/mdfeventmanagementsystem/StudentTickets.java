@@ -153,11 +153,20 @@ public class StudentTickets extends AppCompatActivity {
                 String eventName = snapshot.child("eventName").getValue(String.class);
                 String eventType = snapshot.child("eventType").getValue(String.class);
                 String startDate = snapshot.child("startDate").getValue(String.class);
+                String endDate = snapshot.child("endDate").getValue(String.class);
                 String startTime = snapshot.child("startTime").getValue(String.class);
+                String endTime = snapshot.child("endTime").getValue(String.class);
+                String graceTime = snapshot.child("graceTime").getValue(String.class);
+                String eventSpan = snapshot.child("eventSpan").getValue(String.class);
                 String venue = snapshot.child("venue").getValue(String.class);
+                String eventDescription = snapshot.child("eventDescription").getValue(String.class);
 
                 if (eventName != null && eventType != null && startDate != null && startTime != null && venue != null) {
-                    EventTicket ticket = new EventTicket(eventName, eventType, startDate, startTime, venue, qrCodeUrl, ticketID);
+                    EventTicket ticket = new EventTicket(
+                            eventName, eventType, startDate, endDate, startTime, endTime,
+                            graceTime, eventSpan, venue, eventDescription, qrCodeUrl, ticketID
+                    );
+
                     ticketList.add(ticket);
                     adapter.notifyDataSetChanged();
                 } else {
@@ -171,6 +180,7 @@ public class StudentTickets extends AppCompatActivity {
             }
         });
     }
+
 
     private void setupBottomNavigation() {
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);

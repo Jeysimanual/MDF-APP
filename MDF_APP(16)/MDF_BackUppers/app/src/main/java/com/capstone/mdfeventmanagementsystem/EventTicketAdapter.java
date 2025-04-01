@@ -45,14 +45,19 @@ public class EventTicketAdapter extends RecyclerView.Adapter<EventTicketAdapter.
         // Load QR code image using Glide
         Glide.with(context).load(ticket.getQrCodeUrl()).into(holder.qrCodeImage);
 
-        // ✅ Make each ticket item clickable
+        // ✅ Make each ticket item clickable & pass extra data
         holder.itemView.setOnClickListener(v -> {
             Intent intent = new Intent(context, StudentTicketsInside.class);
             intent.putExtra("eventName", ticket.getEventName());
             intent.putExtra("eventType", ticket.getEventType());
             intent.putExtra("startDate", ticket.getStartDate());
+            intent.putExtra("endDate", ticket.getEndDate());
             intent.putExtra("startTime", ticket.getStartTime());
+            intent.putExtra("endTime", ticket.getEndTime());
+            intent.putExtra("graceTime", ticket.getGraceTime());
+            intent.putExtra("eventSpan", ticket.getEventSpan());
             intent.putExtra("venue", ticket.getVenue());
+            intent.putExtra("eventDescription", ticket.getEventDescription());
             intent.putExtra("qrCodeUrl", ticket.getQrCodeUrl());
             intent.putExtra("ticketID", ticket.getTicketID());
 

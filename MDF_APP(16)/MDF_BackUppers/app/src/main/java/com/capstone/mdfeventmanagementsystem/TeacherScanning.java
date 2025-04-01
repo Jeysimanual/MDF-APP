@@ -134,44 +134,6 @@ public class TeacherScanning extends AppCompatActivity {
         barcodeView.resume();
     }
 
-    private void stopScanning() {
-        scanning = false;
-        barcodeView.pauseAndWait();
-        barcodeView.setVisibility(DecoratedBarcodeView.GONE);
-        cancelScanBtn.setVisibility(Button.GONE);
-
-        // If we should keep showing NotAllowedTicket, don't fully reset
-        if (persistNotAllowedTicket) {
-            scanTicketBtn.setVisibility(Button.VISIBLE);
-        } else {
-            resetScanUI();
-        }
-    }
-
-    private void resetScanUI() {
-        // If we should keep showing NotAllowedTicket, don't fully reset
-        if (persistNotAllowedTicket) {
-            // Keep NotAllowedTicket visible but hide other UI
-            getStarted.setVisibility(TextView.GONE);
-            instructionForScanning.setVisibility(TextView.GONE);
-            validTicket.setVisibility(ImageView.GONE);
-            validText.setVisibility(TextView.GONE);
-            usedTicket.setVisibility(ImageView.GONE);
-            usedText.setVisibility(TextView.GONE);
-            invalidTicket.setVisibility(ImageView.GONE);
-            invalidText.setVisibility(TextView.GONE);
-            notAllowedTicket.setVisibility(ImageView.VISIBLE);
-            notAllowedText.setVisibility(TextView.VISIBLE);
-            scanTicketBtn.setVisibility(Button.VISIBLE);
-        } else {
-            // Hide all result views and show the initial instructions
-            hideAllTicketViews();
-            getStarted.setVisibility(TextView.VISIBLE);
-            instructionForScanning.setVisibility(TextView.GONE);
-            scanTicketBtn.setVisibility(Button.VISIBLE);
-        }
-    }
-
     private void validateTicket(String qrContent) {
         // If we're persisting NotAllowedTicket, immediately show it
         if (persistNotAllowedTicket) {
@@ -238,6 +200,46 @@ public class TeacherScanning extends AppCompatActivity {
             }
         });
     }
+
+
+    private void stopScanning() {
+        scanning = false;
+        barcodeView.pauseAndWait();
+        barcodeView.setVisibility(DecoratedBarcodeView.GONE);
+        cancelScanBtn.setVisibility(Button.GONE);
+
+        // If we should keep showing NotAllowedTicket, don't fully reset
+        if (persistNotAllowedTicket) {
+            scanTicketBtn.setVisibility(Button.VISIBLE);
+        } else {
+            resetScanUI();
+        }
+    }
+
+    private void resetScanUI() {
+        // If we should keep showing NotAllowedTicket, don't fully reset
+        if (persistNotAllowedTicket) {
+            // Keep NotAllowedTicket visible but hide other UI
+            getStarted.setVisibility(TextView.GONE);
+            instructionForScanning.setVisibility(TextView.GONE);
+            validTicket.setVisibility(ImageView.GONE);
+            validText.setVisibility(TextView.GONE);
+            usedTicket.setVisibility(ImageView.GONE);
+            usedText.setVisibility(TextView.GONE);
+            invalidTicket.setVisibility(ImageView.GONE);
+            invalidText.setVisibility(TextView.GONE);
+            notAllowedTicket.setVisibility(ImageView.VISIBLE);
+            notAllowedText.setVisibility(TextView.VISIBLE);
+            scanTicketBtn.setVisibility(Button.VISIBLE);
+        } else {
+            // Hide all result views and show the initial instructions
+            hideAllTicketViews();
+            getStarted.setVisibility(TextView.VISIBLE);
+            instructionForScanning.setVisibility(TextView.GONE);
+            scanTicketBtn.setVisibility(Button.VISIBLE);
+        }
+    }
+
 
     private void validateAttendance(String studentId, String eventId, boolean isMultiDay, int timeStatus) {
         DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);

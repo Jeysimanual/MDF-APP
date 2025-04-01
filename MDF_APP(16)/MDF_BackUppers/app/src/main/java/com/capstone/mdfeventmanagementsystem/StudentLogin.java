@@ -36,7 +36,20 @@ public class StudentLogin extends AppCompatActivity {
         boolean isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false);
         String userType = sharedPreferences.getString("userType", "");
 
+        // Check if student session exists, if so, skip login screen
         if (isLoggedIn && "student".equals(userType)) {
+            String studentID = sharedPreferences.getString("studentID", null); // Retrieve studentID from SharedPreferences
+
+            if (studentID == null) {
+                Log.e(TAG, "No studentID found in SharedPreferences!");
+                Toast.makeText(this, "Student ID not found. Please log in again.", Toast.LENGTH_SHORT).show();
+                // Redirect to login screen if no studentID found
+                Intent intent = new Intent(StudentLogin.this, StudentLogin.class);
+                startActivity(intent);
+                finish();
+                return;
+            }
+
             Log.d(TAG, "User session found. Redirecting to Student Dashboard...");
             Intent intent = new Intent(StudentLogin.this, MainActivity2.class);
             startActivity(intent);
@@ -118,7 +131,7 @@ public class StudentLogin extends AppCompatActivity {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putBoolean("isLoggedIn", true); // ✅ Save login status
         editor.putString("userType", "student"); // ✅ Save user type
-        editor.putString("studentID", studentID);
+        editor.putString("studentID", studentID); // ✅ Save studentID
         editor.apply(); // Save changes asynchronously
         Log.d(TAG, "Student session saved in SharedPreferences: " + studentID);
     }
