@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="refresh_button" type="id" />
+    <item name="radio_late" type="id" />
+    <item name="radio_ongoing" type="id" />
+    <item name="radio_pending" type="id" />
+</resources>

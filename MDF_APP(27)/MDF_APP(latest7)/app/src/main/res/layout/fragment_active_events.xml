@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- No Events Message -->
+    <TextView
+        android:id="@+id/noActiveEventMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No active events found.\nCheck back later for upcoming events."
+        android:fontFamily="@font/host_grotesk_bold"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:textColor="@color/blue"
+        android:textSize="@dimen/_12ssp"
+        android:visibility="visible"
+        android:layout_gravity="center_vertical"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp" />
+
+    <!-- RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewActiveEvents"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="50dp"
+        android:visibility="gone"
+        tools:listitem="@layout/item_events" />
+
+</FrameLayout>
