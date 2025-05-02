@@ -1,79 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:paddingHorizontal="12dp"
-    android:paddingVertical="12dp">
+    android:orientation="horizontal"
+    android:padding="@dimen/_8sdp">
 
     <TextView
         android:id="@+id/tv_name"
-        android:layout_width="0dp"
+        android:layout_width="@dimen/_220sdp"
         android:layout_height="wrap_content"
-        android:textColor="@color/black"
-        android:textSize="14sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintWidth_percent="0.3"
-        android:layout_marginEnd="8dp"
-        tools:text="-------, -------" />
+        android:text="/name/"
+        android:textSize="@dimen/_10ssp"
+        android:padding="@dimen/_8sdp"
+        android:ellipsize="end"
+        android:maxLines="1" />
 
     <TextView
         android:id="@+id/tv_section"
-        android:layout_width="0dp"
+        android:layout_width="@dimen/_100sdp"
         android:layout_height="wrap_content"
-        android:textColor="@color/black"
-        android:textSize="14sp"
-        app:layout_constraintStart_toEndOf="@id/tv_name"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintWidth_percent="0.2"
-        android:layout_marginEnd="8dp"
-        tools:text="-------" />
+        android:text="/section/"
+        android:textSize="@dimen/_10ssp"
+        android:gravity="center"
+        android:padding="@dimen/_8sdp" />
 
     <TextView
         android:id="@+id/tv_time_in"
-        android:layout_width="0dp"
+        android:layout_width="@dimen/_100sdp"
         android:layout_height="wrap_content"
-        android:textColor="@color/black"
-        android:textSize="14sp"
-        app:layout_constraintStart_toEndOf="@id/tv_section"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintWidth_percent="0.2"
-        android:layout_marginEnd="8dp"
-        tools:text="--:--" />
+        android:text="--:--"
+        android:textSize="@dimen/_10ssp"
+        android:gravity="center"
+        android:padding="@dimen/_8sdp" />
 
     <TextView
         android:id="@+id/tv_time_out"
-        android:layout_width="0dp"
+        android:layout_width="@dimen/_125sdp"
         android:layout_height="wrap_content"
-        android:textColor="@color/black"
-        android:textSize="14sp"
-        app:layout_constraintStart_toEndOf="@id/tv_time_in"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintWidth_percent="0.15"
-        android:layout_marginEnd="8dp"
-        tools:text="--:--" />
+        android:text="--:--"
+        android:textSize="@dimen/_10ssp"
+        android:gravity="center"
+        android:padding="@dimen/_8sdp" />
 
     <TextView
         android:id="@+id/tv_status"
-        android:layout_width="wrap_content"
+        android:layout_width="@dimen/_150sdp"
         android:layout_height="wrap_content"
-        android:textColor="@color/white"
-        android:textSize="14sp"
-        android:background="@drawable/status_present_background"
+        android:text="Present"
+        android:textSize="@dimen/_10ssp"
         android:gravity="center"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="4dp"
-        app:layout_constraintStart_toEndOf="@id/tv_time_out"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        tools:text="Present" />
+        android:padding="@dimen/_6sdp"
+        android:background="@drawable/status_present_background"
+        android:textColor="@color/white" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>

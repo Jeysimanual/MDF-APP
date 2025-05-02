@@ -5,7 +5,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="@dimen/_15sdp">
+    android:padding="@dimen/_15sdp"
+    android:background="@color/white"
+    tools:context=".Teacher.ParticipantsFragment">
 
     <LinearLayout
         android:id="@+id/search_container"
@@ -21,7 +23,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Search"
+            android:hint="Search participants"
             android:padding="8dp"
             android:drawableStart="@drawable/ic_search"
             android:drawablePadding="8dp"
@@ -34,6 +36,7 @@
             android:layout_height="match_parent"
             android:layout_marginStart="8dp"
             android:background="?attr/selectableItemBackground"
+            android:contentDescription="Filter participants"
             android:src="@drawable/ic_filter" />
 
         <Button
@@ -45,16 +48,98 @@
             android:drawablePadding="4dp" />
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/participants_recycler_view"
+    <!-- Table container with horizontal scroll -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
+        android:layout_margin="@dimen/_8sdp"
+        app:cardCornerRadius="@dimen/_8sdp"
+        app:cardElevation="@dimen/_4sdp"
         app:layout_constraintTop_toBottomOf="@id/search_container"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
 
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <!-- Table header -->
+                <LinearLayout
+                    android:id="@+id/table_header"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="@dimen/_8sdp"
+                    android:background="@color/white">
+
+                    <TextView
+                        android:layout_width="@dimen/_220sdp"
+                        android:layout_height="wrap_content"
+                        android:text="Name"
+                        android:textSize="@dimen/_12ssp"
+                        android:textStyle="bold"
+                        android:padding="@dimen/_8sdp" />
+
+                    <TextView
+                        android:layout_width="@dimen/_100sdp"
+                        android:layout_height="wrap_content"
+                        android:text="Section"
+                        android:textSize="@dimen/_12ssp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:padding="@dimen/_8sdp" />
+
+                    <TextView
+                        android:layout_width="@dimen/_100sdp"
+                        android:layout_height="wrap_content"
+                        android:text="Time In"
+                        android:textSize="@dimen/_12ssp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:padding="@dimen/_8sdp" />
+
+                    <TextView
+                        android:layout_width="@dimen/_125sdp"
+                        android:layout_height="wrap_content"
+                        android:text="Time Out"
+                        android:textSize="@dimen/_12ssp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:padding="@dimen/_8sdp" />
+
+                    <TextView
+                        android:layout_width="@dimen/_150sdp"
+                        android:layout_height="wrap_content"
+                        android:text="Status"
+                        android:textSize="@dimen/_12ssp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:padding="@dimen/_8sdp" />
+                </LinearLayout>
+
+                <!-- Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@android:color/darker_gray" />
+
+                <!-- RecyclerView for participants -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/participants_recycler_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </LinearLayout>
+        </HorizontalScrollView>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Empty state text -->
     <TextView
         android:id="@+id/no_participants_text"
         android:layout_width="wrap_content"
@@ -63,8 +148,8 @@
         android:textSize="@dimen/_16ssp"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

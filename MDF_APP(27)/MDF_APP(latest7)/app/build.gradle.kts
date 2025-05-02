@@ -32,6 +32,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -72,9 +73,6 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    dependencies {
-        implementation ("com.google.android.material:material:1.9.0")
-    }
 
 
     // Firebase and Google Play Services
@@ -139,5 +137,7 @@ dependencies {
 
     // AndroidX core for notifications
     implementation ("androidx.core:core:1.12.0")
+
+
 
 }

@@ -1,12 +1,16 @@
 package com.capstone.mdfeventmanagementsystem.Teacher;
 
 import android.Manifest;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -33,6 +37,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.capstone.mdfeventmanagementsystem.R;
 import com.capstone.mdfeventmanagementsystem.Adapters.ParticipantsAdapter;
 import com.capstone.mdfeventmanagementsystem.Models.Participant;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -41,9 +47,12 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -59,14 +68,13 @@ public class ParticipantsFragment extends Fragment {
     private static final String TAG = "ParticipantsFragment";
     private static final int WRITE_EXTERNAL_STORAGE_REQUEST_CODE = 101;
     private String eventId;
+    private String eventName = "event"; // Default value
     private RecyclerView recyclerView;
     private ParticipantsAdapter adapter;
     private TextView noParticipantsText;
     private EditText searchEditText;
     private ImageButton filterButton;
     private Button exportButton;
-    private Button refreshButton;
-    private FirebaseFirestore db;
     private List<Participant> participantList = new ArrayList<>();
 
     // Event data
@@ -76,10 +84,14 @@ public class ParticipantsFragment extends Fragment {
     private String eventEndDate;
     private String eventGraceTime;
     private boolean isMultiDayEvent = false;
+    private boolean isFilteringBySection = true; // Start with filtering by section
 
     // Handler for automatic status updates
     private Handler statusUpdateHandler = new Handler();
     private Runnable statusUpdateRunnable;
+
+    private ValueEventListener participantsListener;
+    private DatabaseReference studentsRef;
     private static final long STATUS_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     public ParticipantsFragment() {
@@ -103,7 +115,6 @@ public class ParticipantsFragment extends Fragment {
         } else {
             Log.e(TAG, "No event ID provided to fragment");
         }
-        db = FirebaseFirestore.getInstance();
     }
 
     @Override
@@ -115,8 +126,28 @@ public class ParticipantsFragment extends Fragment {
         initViews(view);
         setupRecyclerView();
 
-        // Load event details first
+        // Load event details first, but use section filtering for participants
         loadEventDetails();
+
+        // Fetch event name if available from Firebase Realtime Database
+        fetchEventName();
+
+        // Add a toggle button for filtering by section
+        Button filterBySection = new Button(getContext());
+        filterBySection.setText("Filter by My Section");
+        filterBySection.setOnClickListener(v -> {
+            // Toggle between all participants and section-filtered participants
+            if (isFilteringBySection) {
+                loadParticipants(); // Load all participants
+                filterBySection.setText("Filter by My Section");
+                isFilteringBySection = false;
+            } else {
+                loadParticipantsForTeacherSection(); // Load filtered participants
+                filterBySection.setText("Show All Participants");
+                isFilteringBySection = true;
+            }
+        });
+
 
         setupListeners();
         setupStatusUpdateChecker();
@@ -130,6 +161,41 @@ public class ParticipantsFragment extends Fragment {
         if (eventStartTime != null && eventEndTime != null) {
             // Update status when returning to fragment
             updateAttendanceStatusForAll();
+            updatePendingStatusesForPastDays(); // Add this line to check past days
+        }
+
+        // Initialize multi-day event handling when returning to the fragment
+        if (isMultiDayEvent) {
+            initMultiDayEventHandling();
+        }
+    }
+
+    // This method will initialize the handling of multi-day events
+    private void initMultiDayEventHandling() {
+        if (!isMultiDayEvent) {
+            return;
+        }
+
+        try {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Date startDate = dateFormat.parse(eventStartDate);
+            Date endDate = dateFormat.parse(eventEndDate);
+            Date currentDate = dateFormat.parse(getCurrentDate());
+
+            // Check if we're within the event date range
+            boolean isWithinEventDates = (currentDate.equals(startDate) || currentDate.after(startDate)) &&
+                    (currentDate.equals(endDate) || currentDate.before(endDate));
+
+            if (isWithinEventDates) {
+                String dayKey = findDayKeyForCurrentDate();
+                Log.d(TAG, "Within multi-day event date range. Current day key: " + dayKey);
+
+                // You could perform additional initialization here if needed
+            } else {
+                Log.d(TAG, "Current date is outside the multi-day event range.");
+            }
+        } catch (ParseException e) {
+            Log.e(TAG, "Error initializing multi-day event handling", e);
         }
     }
 
@@ -149,19 +215,259 @@ public class ParticipantsFragment extends Fragment {
         filterButton = view.findViewById(R.id.filter_button);
         exportButton = view.findViewById(R.id.export_button);
 
-        // Add refresh button if not already in layout
-        refreshButton = view.findViewById(R.id.refresh_button);
-        if (refreshButton == null) {
-            // If refresh button doesn't exist in layout, you might need to add it
-            Log.d(TAG, "Refresh button not found in layout");
-        }
     }
 
     private void setupRecyclerView() {
         adapter = new ParticipantsAdapter(getContext());
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        recyclerView.addItemDecoration(new DividerItemDecoration(getContext(), DividerItemDecoration.VERTICAL));
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
+        // Removed the divider decoration since our layout styling handles visual separation
         recyclerView.setAdapter(adapter);
+    }
+
+    private void fetchEventName() {
+        if (eventId == null || eventId.isEmpty()) {
+            Log.e(TAG, "Cannot fetch event name: eventId is null or empty");
+            return;
+        }
+
+        // Extract the event key from the full path if needed
+        String eventKey;
+        if (eventId.contains("/")) {
+            String[] parts = eventId.split("/");
+            eventKey = parts[parts.length - 1];
+        } else {
+            eventKey = eventId;
+        }
+
+        // Use only Realtime Database for fetching event name
+        DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventKey);
+        eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists() && dataSnapshot.hasChild("title")) {
+                    eventName = dataSnapshot.child("title").getValue(String.class);
+                    Log.d(TAG, "Fetched event name from Realtime DB: " + eventName);
+                } else {
+                    Log.d(TAG, "No event title found in Realtime Database");
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error fetching event name from Realtime DB: " + error.getMessage());
+            }
+        });
+    }
+
+
+    // Add this method to ParticipantsFragment class
+    private void loadParticipantsForTeacherSection() {
+        if (eventId == null || eventId.isEmpty()) {
+            Log.e(TAG, "Event ID is null or empty");
+            noParticipantsText.setVisibility(View.VISIBLE);
+            recyclerView.setVisibility(View.GONE);
+            return;
+        }
+
+        Log.d(TAG, "Loading participants for event: " + eventId + " filtered by teacher's section");
+
+        // Show loading indicator
+        Toast.makeText(getContext(), "Loading participants for your section...", Toast.LENGTH_SHORT).show();
+
+        // First get the current teacher's year level and section
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "No user logged in");
+            Toast.makeText(getContext(), "Please log in to view section participants", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String userEmail = currentUser.getEmail();
+        DatabaseReference teachersRef = FirebaseDatabase.getInstance().getReference("teachers");
+
+        teachersRef.orderByChild("email").equalTo(userEmail).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    for (DataSnapshot teacherSnapshot : snapshot.getChildren()) {
+                        // Get year level (grade) and section from database
+                        String yearLevel = teacherSnapshot.child("year_level_advisor").getValue(String.class);
+                        String section = teacherSnapshot.child("section").getValue(String.class);
+
+                        Log.d(TAG, "Teacher year level: " + yearLevel + ", section: " + section);
+
+                        if (yearLevel != null && !yearLevel.isEmpty() && section != null && !section.isEmpty()) {
+                            // Now load students matching this teacher's year level and section
+                            loadFilteredParticipants(yearLevel, section);
+                        } else {
+                            // No year level or section assigned, fall back to loading all participants
+                            Log.d(TAG, "Teacher has no year level or section assigned, loading all participants");
+                            loadParticipants();
+                        }
+                    }
+                } else {
+                    // No teacher record found, fall back to loading all participants
+                    Log.e(TAG, "No teacher record found for email: " + userEmail);
+                    loadParticipants();
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error fetching teacher data: " + error.getMessage());
+                Toast.makeText(getContext(), "Error loading teacher data", Toast.LENGTH_SHORT).show();
+                // Fall back to loading all participants
+                loadParticipants();
+            }
+        });
+    }
+
+    // Add this method to load participants filtered by teacher's section
+    private void loadFilteredParticipants(String teacherYearLevel, String teacherSection) {
+        // Extract the event key from the full path
+        String eventKey = eventId;
+        if (eventId.contains("/")) {
+            String[] parts = eventId.split("/");
+            eventKey = parts[parts.length - 1];
+        }
+
+        Log.d(TAG, "Loading participants for event: " + eventKey +
+                " filtered by Grade " + teacherYearLevel + ", Section " + teacherSection);
+
+        // Use the same database reference as where your student data is coming from
+        DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
+
+        String finalEventKey = eventKey;
+        studentsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                participantList.clear();
+                int count = 0;
+
+                for (DataSnapshot studentSnapshot : dataSnapshot.getChildren()) {
+                    // Get student ID for debugging
+                    String studentId = studentSnapshot.getKey();
+
+                    // Check if student grade level and section match the teacher's
+                    String studentYearLevel = studentSnapshot.child("yearLevel").getValue(String.class);
+                    String studentSection = studentSnapshot.child("section").getValue(String.class);
+
+                    // Format comparison - handle "Grade X" vs "X" format (similar to TeacherDashboard)
+                    boolean yearLevelMatches = false;
+                    if (studentYearLevel != null) {
+                        // Match either exactly, or "Grade X" format with just "X"
+                        yearLevelMatches = studentYearLevel.equals(teacherYearLevel) ||
+                                studentYearLevel.equals("Grade " + teacherYearLevel) ||
+                                (teacherYearLevel.startsWith("Grade ") &&
+                                        studentYearLevel.equals(teacherYearLevel.substring(6)));
+                    }
+
+                    // Check if section matches
+                    boolean sectionMatches = (studentSection != null && studentSection.equals(teacherSection));
+
+                    // If student doesn't match teacher's year level and section, skip this student
+                    if (!yearLevelMatches || !sectionMatches) {
+                        Log.d(TAG, "Student " + studentId + " doesn't match teacher's section - skipping");
+                        continue;
+                    }
+
+                    Log.d(TAG, "Student " + studentId + " matches teacher's section - checking for event ticket");
+
+                    // Get student name first - try different paths where name might be stored
+                    String studentName = "Unknown";
+                    if (studentSnapshot.hasChild("name")) {
+                        studentName = studentSnapshot.child("name").getValue(String.class);
+                    } else if (studentSnapshot.hasChild("studentName")) {
+                        studentName = studentSnapshot.child("studentName").getValue(String.class);
+                    } else if (studentSnapshot.hasChild("userName")) {
+                        studentName = studentSnapshot.child("userName").getValue(String.class);
+                    } else if (studentSnapshot.hasChild("fullName")) {
+                        studentName = studentSnapshot.child("fullName").getValue(String.class);
+                    } else if (studentSnapshot.hasChild("displayName")) {
+                        studentName = studentSnapshot.child("displayName").getValue(String.class);
+                    }
+
+                    // Get student section
+                    String studentSectionDisplay = "Unknown Section";
+                    if (studentSnapshot.hasChild("section")) {
+                        studentSectionDisplay = studentSnapshot.child("section").getValue(String.class);
+                    } else if (studentSnapshot.hasChild("studentSection")) {
+                        studentSectionDisplay = studentSnapshot.child("studentSection").getValue(String.class);
+                    } else if (studentSnapshot.hasChild("class")) {
+                        studentSectionDisplay = studentSnapshot.child("class").getValue(String.class);
+                    }
+
+                    if (studentSnapshot.hasChild("tickets")) {
+                        DataSnapshot ticketsSnapshot = studentSnapshot.child("tickets");
+
+                        // Check if this student has a ticket for this event
+                        for (DataSnapshot ticketSnapshot : ticketsSnapshot.getChildren()) {
+                            String ticketKey = ticketSnapshot.getKey();
+
+                            boolean isMatchingTicket = false;
+
+                            // Method 1: Check if ticket key matches the event key
+                            if (finalEventKey.equals(ticketKey)) {
+                                isMatchingTicket = true;
+                                Log.d(TAG, "Found matching ticket by key: " + ticketKey);
+                            }
+
+                            // Method 2: Look for an eventUID field in the ticket
+                            if (!isMatchingTicket && ticketSnapshot.hasChild("eventUID")) {
+                                String ticketEventUID = ticketSnapshot.child("eventUID").getValue(String.class);
+                                if (eventId.equals(ticketEventUID) || finalEventKey.equals(ticketEventUID)) {
+                                    isMatchingTicket = true;
+                                    Log.d(TAG, "Found matching ticket by eventUID field: " + ticketEventUID);
+                                }
+                            }
+
+                            if (isMatchingTicket) {
+                                // Create a participant from this student with ticket
+                                Participant participant = new Participant();
+                                participant.setId(studentId);
+                                participant.setName(studentName);
+                                participant.setSection(studentSectionDisplay);
+                                participant.setTicketRef(ticketKey);
+
+                                // Get attendance data based on multi-day or single-day event
+                                processAttendanceData(participant, ticketSnapshot);
+
+                                participantList.add(participant);
+                                count++;
+                                Log.d(TAG, "Added participant: " + participant.getName() +
+                                        " with status: " + participant.getStatus());
+                            }
+                        }
+                    }
+                }
+
+                Log.d(TAG, "Total section participants found: " + count);
+
+                if (participantList.isEmpty()) {
+                    Log.d(TAG, "No participants from your section found for this event");
+                    noParticipantsText.setVisibility(View.VISIBLE);
+                    recyclerView.setVisibility(View.GONE);
+                } else {
+                    Log.d(TAG, "Section participants loaded: " + participantList.size());
+                    noParticipantsText.setVisibility(View.GONE);
+                    recyclerView.setVisibility(View.VISIBLE);
+
+                    // Check and update statuses based on current time before displaying
+                    updateAttendanceStatusForAll();
+
+                    adapter.setParticipants(participantList);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error loading section participants: " + error.getMessage());
+                Toast.makeText(getContext(), "Error loading participants: " + error.getMessage(),
+                        Toast.LENGTH_SHORT).show();
+                noParticipantsText.setVisibility(View.VISIBLE);
+                recyclerView.setVisibility(View.GONE);
+            }
+        });
     }
 
     private void loadEventDetails() {
@@ -198,7 +504,13 @@ public class ParticipantsFragment extends Fragment {
                             ", Grace: " + eventGraceTime);
 
                     // Now load participants after getting event details
-                    loadParticipants();
+                    // By default, load participants filtered by teacher's section
+                    loadParticipantsForTeacherSection();
+
+                    // Initialize multi-day event handling if applicable
+                    if (isMultiDayEvent) {
+                        initMultiDayEventHandling();
+                    }
                 } else {
                     Log.e(TAG, "Event not found: " + finalEventKey);
                     Toast.makeText(getContext(), "Event not found", Toast.LENGTH_SHORT).show();
@@ -348,7 +660,7 @@ public class ParticipantsFragment extends Fragment {
         });
     }
 
-    // Modified to better handle attendance data for multi-day events
+    // Update the processAttendanceData method to better handle multi-day events
     private void processAttendanceData(Participant participant, DataSnapshot ticketSnapshot) {
         String currentDate = getCurrentDate();
         DataSnapshot attendanceDaysSnapshot = ticketSnapshot.child("attendanceDays");
@@ -362,45 +674,43 @@ public class ParticipantsFragment extends Fragment {
         }
 
         if (isMultiDayEvent) {
-            // For multi-day events, find the current day's data
+            // For multi-day events, find the current day's data or the most recent day if current day not found
             boolean foundCurrentDay = false;
+            DataSnapshot mostRecentDaySnapshot = null;
+            String mostRecentDate = "";
 
             for (DataSnapshot daySnapshot : attendanceDaysSnapshot.getChildren()) {
-                if (daySnapshot.child("date").exists() &&
-                        currentDate.equals(daySnapshot.child("date").getValue(String.class))) {
+                if (daySnapshot.child("date").exists()) {
+                    String dayDate = daySnapshot.child("date").getValue(String.class);
 
-                    extractAttendanceData(participant, daySnapshot);
-                    foundCurrentDay = true;
-                    break;
+                    // Check if this is current day
+                    if (currentDate.equals(dayDate)) {
+                        extractAttendanceData(participant, daySnapshot);
+                        foundCurrentDay = true;
+                        break;
+                    }
+
+                    // Track the most recent day in case we don't find current day
+                    if (mostRecentDate.isEmpty() || dayDate.compareTo(mostRecentDate) > 0) {
+                        mostRecentDate = dayDate;
+                        mostRecentDaySnapshot = daySnapshot;
+                    }
                 }
             }
 
             if (!foundCurrentDay) {
-                // No data for today yet
-                participant.setTimeIn("");
-                participant.setTimeOut("");
-                participant.setStatus("Pending");
-
-                // Check if we're on a day after the start date but before the end date
-                try {
-                    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-                    Date current = dateFormat.parse(currentDate);
-                    Date startDate = dateFormat.parse(eventStartDate);
-                    Date endDate = eventEndDate != null ? dateFormat.parse(eventEndDate) : startDate;
-
-                    // If today's date is within the event span but no attendance record exists,
-                    // we should try to create it when updating statuses
-                    if ((current.after(startDate) || current.equals(startDate)) &&
-                            (current.before(endDate) || current.equals(endDate))) {
-                        Log.d(TAG, "Current date is within event span but no attendance record for: " +
-                                participant.getName());
-                    }
-                } catch (ParseException e) {
-                    Log.e(TAG, "Error parsing dates", e);
+                if (mostRecentDaySnapshot != null) {
+                    // Use the most recent day's data if current day not found
+                    extractAttendanceData(participant, mostRecentDaySnapshot);
+                } else {
+                    // No data for any day yet
+                    participant.setTimeIn("");
+                    participant.setTimeOut("");
+                    participant.setStatus("Pending");
                 }
             }
         } else {
-            // For single-day events (original logic)
+            // For single-day events
             DataSnapshot daySnapshot = attendanceDaysSnapshot.child("day_1");
             if (daySnapshot.exists()) {
                 extractAttendanceData(participant, daySnapshot);
@@ -491,6 +801,7 @@ public class ParticipantsFragment extends Fragment {
     }
 
 
+    // Update the updateAttendanceStatusForAll method to handle multi-day events
     private void updateAttendanceStatusForAll() {
         if (eventEndTime == null || eventStartTime == null) {
             Log.e(TAG, "Event time details not available for status update");
@@ -519,325 +830,86 @@ public class ParticipantsFragment extends Fragment {
             calendarThirtyMin.add(Calendar.MINUTE, 30);
             Date thirtyMinCutoffTime = calendarThirtyMin.getTime();
 
-            // For multi-day events, we need to check both the current day and previous days
-            if (isMultiDayEvent) {
-                // Check if current day has ended
-                boolean isCurrentDayEnded = isCurrentDayEnded(currentDate, currentTime);
-                boolean pastCutoffTime = currentTimeDate.after(cutoffTimeDate);
-                boolean pastThirtyMinCutoff = currentTimeDate.after(thirtyMinCutoffTime);
+            boolean eventEnded = isEventEnded(currentDate);
+            boolean pastCutoffTime = currentTimeDate.after(cutoffTimeDate);
+            boolean pastThirtyMinCutoff = currentTimeDate.after(thirtyMinCutoffTime);
 
-                Log.d(TAG, "Multi-day event - Current date: " + currentDate +
-                        ", Current day ended: " + isCurrentDayEnded +
-                        ", Past cutoff time: " + pastCutoffTime +
-                        ", Past 30-min cutoff: " + pastThirtyMinCutoff);
+            // Debug logs
+            Log.d(TAG, "Current date: " + currentDate + ", Current time: " + currentTime);
+            Log.d(TAG, "Event end time: " + eventEndTime + ", Event end date: " +
+                    (isMultiDayEvent ? eventEndDate : eventStartDate));
+            Log.d(TAG, "Is multi-day event: " + isMultiDayEvent);
+            Log.d(TAG, "Event ended: " + eventEnded + ", Past cutoff time: " + pastCutoffTime);
+            Log.d(TAG, "Past 30-min cutoff: " + pastThirtyMinCutoff);
+            Log.d(TAG, "Current day key: " + findDayKeyForCurrentDate());
 
-                if (isCurrentDayEnded && pastCutoffTime) {
-                    Log.d(TAG, "Multi-day event current day has ended and 1-hour grace period has passed. Updating attendance statuses.");
-                    updateStatusesForMultiDayEvent(currentDate);
-                } else if (isCurrentDayEnded && pastThirtyMinCutoff) {
-                    Log.d(TAG, "Multi-day event current day has ended and 30-min grace period has passed. Updating incomplete check-outs.");
-                    updateIncompleteCheckoutsForMultiDayEvent(currentDate);
-                }
-            } else {
-                // Single day event logic (unchanged)
-                boolean eventEnded = isEventEnded(currentDate);
-                boolean pastCutoffTime = currentTimeDate.after(cutoffTimeDate);
-                boolean pastThirtyMinCutoff = currentTimeDate.after(thirtyMinCutoffTime);
-
-                Log.d(TAG, "Current time: " + currentTime + ", Event end time: " + eventEndTime);
-                Log.d(TAG, "Event ended: " + eventEnded + ", Past cutoff time: " + pastCutoffTime);
-                Log.d(TAG, "Past 30-min cutoff: " + pastThirtyMinCutoff);
-
-                if (eventEnded && pastCutoffTime) {
-                    Log.d(TAG, "Event has ended and 1-hour grace period has passed. Updating attendance statuses.");
-                    updateStatusesAfterEvent();
-                } else if (eventEnded && pastThirtyMinCutoff) {
-                    Log.d(TAG, "Event has ended and 30-min grace period has passed. Updating incomplete check-outs.");
-                    updateIncompleteCheckouts();
-                } else if (eventEnded) {
-                    Log.d(TAG, "Event has ended but waiting for grace periods to update statuses.");
-                }
+            // If event has ended + 1 hour, update statuses
+            if (eventEnded && pastCutoffTime) {
+                Log.d(TAG, "Event has ended and 1-hour grace period has passed. Updating attendance statuses.");
+                updateStatusesAfterEvent();
+            } else if (eventEnded && pastThirtyMinCutoff) {
+                Log.d(TAG, "Event has ended and 30-min grace period has passed. Updating incomplete check-outs.");
+                updateIncompleteCheckouts();
+            } else if (eventEnded) {
+                Log.d(TAG, "Event has ended but waiting for grace periods to update statuses.");
             }
+
         } catch (ParseException e) {
             Log.e(TAG, "Error parsing times for status update", e);
         }
     }
 
-    // New method to check if the current day of a multi-day event has ended
-    private boolean isCurrentDayEnded(String currentDate, String currentTime) {
+    // Update the isEventEnded method to better handle multi-day events
+    private boolean isEventEnded(String currentDate) {
         try {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
             SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
 
-            // Parse dates
-            Date current = dateFormat.parse(currentDate);
-            Date startDate = dateFormat.parse(eventStartDate);
-            Date endDate = eventEndDate != null ? dateFormat.parse(eventEndDate) : startDate;
-
-            // If current date is after end date, the whole event has ended
-            if (current.after(endDate)) {
-                return true;
-            }
-
-            // If current date is before start date, event hasn't started yet
-            if (current.before(startDate)) {
-                return false;
-            }
-
-            // If we're on the end date, check if current time is after end time
-            if (current.equals(endDate)) {
-                Date endTime = timeFormat.parse(eventEndTime);
-                Date currTime = timeFormat.parse(currentTime);
-                return currTime.after(endTime);
-            }
-
-            // If we're on a day between start and end date, check if we've passed midnight
-            // (assuming each day ends at midnight if not the end date)
-            Date midnightTime = timeFormat.parse("23:59");
-            Date currTime = timeFormat.parse(currentTime);
-            return currTime.after(midnightTime);
-
-        } catch (ParseException e) {
-            Log.e(TAG, "Error checking if current day ended", e);
-            return false;
-        }
-    }
-
-    // New method to update statuses for multi-day events
-    private void updateStatusesForMultiDayEvent(String currentDate) {
-        // Extract the event key from the full path
-        String eventKey = eventId;
-        if (eventId.contains("/")) {
-            String[] parts = eventId.split("/");
-            eventKey = parts[parts.length - 1];
-        }
-
-        Log.d(TAG, "Starting updateStatusesForMultiDayEvent for date: " + currentDate + ", eventKey: " + eventKey);
-
-        DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
-
-        // For each participant
-        for (Participant participant : participantList) {
-            String studentId = participant.getId();
-            String ticketRef = participant.getTicketRef();
-
-            // Get reference to this participant's attendance days
-            DatabaseReference attendanceDaysRef = studentsRef
-                    .child(studentId)
-                    .child("tickets")
-                    .child(ticketRef)
-                    .child("attendanceDays");
-
-            // Query to get all attendance days for this participant
-            attendanceDaysRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    boolean foundCurrentDay = false;
-                    String currentDayKey = null;
-
-                    // Step 1: Find the key for the current day
-                    for (DataSnapshot daySnapshot : dataSnapshot.getChildren()) {
-                        if (daySnapshot.child("date").exists() &&
-                                currentDate.equals(daySnapshot.child("date").getValue(String.class))) {
-                            currentDayKey = daySnapshot.getKey();
-                            foundCurrentDay = true;
-                            break;
-                        }
-                    }
-
-                    // Step 2: If we found the current day's data
-                    if (foundCurrentDay && currentDayKey != null) {
-                        DataSnapshot dayData = dataSnapshot.child(currentDayKey);
-
-                        // Check if they have check-in time
-                        boolean hasCheckIn = dayData.child("in").exists() &&
-                                !dayData.child("in").getValue(String.class).isEmpty() &&
-                                !"N/A".equals(dayData.child("in").getValue(String.class));
-
-                        // Check if they have check-out time
-                        boolean hasCheckOut = dayData.child("out").exists() &&
-                                !dayData.child("out").getValue(String.class).isEmpty() &&
-                                !"N/A".equals(dayData.child("out").getValue(String.class));
-
-                        // If no check in and no check out, mark as absent
-                        if (!hasCheckIn && !hasCheckOut) {
-                            // Update status to "absent" in Firebase (lowercase to match your Firebase data structure)
-                            attendanceDaysRef.child(currentDayKey).child("attendance").setValue("absent");
-                            attendanceDaysRef.child(currentDayKey).child("status").setValue("absent");
-
-                            // Update local participant object for UI
-                            participant.setStatus("Absent");
-
-                            Log.d(TAG, "Multi-day event: Marked student " + studentId +
-                                    " as absent for day " + currentDayKey + " (no check-in or check-out)");
-                        }
-                        // If has check-in but no check-out
-                        else if (hasCheckIn && !hasCheckOut) {
-                            // Will be handled by updateIncompleteCheckoutsForMultiDayEvent
-                        }
-                    } else {
-                        // No data found for current day - may need to create it
-                        Log.d(TAG, "No attendance data found for current day: " + currentDate +
-                                " for student: " + studentId);
-
-                        // Create a new day entry with "absent" status
-                        Map<String, Object> newDayData = new HashMap<>();
-                        newDayData.put("date", currentDate);
-                        newDayData.put("attendance", "absent");
-                        newDayData.put("status", "absent");
-                        newDayData.put("in", "N/A");
-                        newDayData.put("out", "N/A");
-
-                        // Generate a new day key (day_X where X is number of existing days + 1)
-                        long dayCount = dataSnapshot.getChildrenCount();
-                        String newDayKey = "day_" + (dayCount + 1);
-
-                        attendanceDaysRef.child(newDayKey).setValue(newDayData)
-                                .addOnSuccessListener(aVoid -> {
-                                    Log.d(TAG, "Successfully added absent record for new day " +
-                                            newDayKey + " for student " + studentId);
-
-                                    // Update local participant object for UI
-                                    participant.setStatus("Absent");
-                                })
-                                .addOnFailureListener(e -> {
-                                    Log.e(TAG, "Failed to add absent record for new day", e);
-                                });
-                    }
-
-                    // Update RecyclerView adapter if needed
-                    if (adapter != null) {
-                        adapter.notifyDataSetChanged();
-                    }
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    Log.e(TAG, "Error querying attendance days", error.toException());
-                }
-            });
-        }
-    }
-
-    // New method to update incomplete checkouts for multi-day events
-    private void updateIncompleteCheckoutsForMultiDayEvent(String currentDate) {
-        Log.d(TAG, "Starting updateIncompleteCheckoutsForMultiDayEvent for date: " + currentDate);
-
-        // Extract the event key from the full path
-        String eventKey = eventId;
-        if (eventId.contains("/")) {
-            String[] parts = eventId.split("/");
-            eventKey = parts[parts.length - 1];
-        }
-
-        DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
-
-        // For each participant
-        for (Participant participant : participantList) {
-            String studentId = participant.getId();
-            String ticketRef = participant.getTicketRef();
-
-            // Get reference to this participant's attendance days
-            DatabaseReference attendanceDaysRef = studentsRef
-                    .child(studentId)
-                    .child("tickets")
-                    .child(ticketRef)
-                    .child("attendanceDays");
-
-            // Query to get all attendance days for this participant
-            attendanceDaysRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                    // Find the current day entry
-                    String currentDayKey = null;
-
-                    for (DataSnapshot daySnapshot : dataSnapshot.getChildren()) {
-                        if (daySnapshot.child("date").exists() &&
-                                currentDate.equals(daySnapshot.child("date").getValue(String.class))) {
-                            currentDayKey = daySnapshot.getKey();
-                            break;
-                        }
-                    }
-
-                    // If we found the current day
-                    if (currentDayKey != null) {
-                        DataSnapshot dayData = dataSnapshot.child(currentDayKey);
-
-                        // Check if they have check-in time but no check-out time
-                        boolean hasCheckIn = dayData.child("in").exists() &&
-                                !dayData.child("in").getValue(String.class).isEmpty() &&
-                                !"N/A".equals(dayData.child("in").getValue(String.class));
-
-                        boolean hasCheckOut = dayData.child("out").exists() &&
-                                !dayData.child("out").getValue(String.class).isEmpty() &&
-                                !"N/A".equals(dayData.child("out").getValue(String.class));
-
-                        if (hasCheckIn && !hasCheckOut) {
-                            // Update status to "absent" in Firebase
-                            attendanceDaysRef.child(currentDayKey).child("attendance").setValue("absent");
-                            attendanceDaysRef.child(currentDayKey).child("status").setValue("absent");
-
-                            // Update local participant object for UI
-                            participant.setStatus("Absent");
-
-                            Log.d(TAG, "Multi-day event: Marked student " + studentId +
-                                    " as absent for day " + currentDayKey + " (incomplete checkout)");
-                        }
-                    }
-
-                    // Update RecyclerView adapter
-                    if (adapter != null) {
-                        adapter.notifyDataSetChanged();
-                    }
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    Log.e(TAG, "Error querying attendance days", error.toException());
-                }
-            });
-        }
-    }
-
-    private boolean isEventEnded(String currentDate) {
-        try {
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Date currentDateObj = dateFormat.parse(currentDate);
+            String currentTime = getCurrentTime();
+            Date currentTimeObj = timeFormat.parse(currentTime);
 
             // For multi-day events
             if (isMultiDayEvent && eventEndDate != null) {
-                Date current = dateFormat.parse(currentDate);
-                Date endDate = dateFormat.parse(eventEndDate);
+                Date endDateObj = dateFormat.parse(eventEndDate);
 
                 // If current date is after end date, event has ended
-                if (current.after(endDate)) {
+                if (currentDateObj.after(endDateObj)) {
                     return true;
                 }
 
-                // If current date is the end date, need to check time
-                if (current.equals(endDate)) {
-                    SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
-                    Date endTime = timeFormat.parse(eventEndTime);
-                    Date currentTime = timeFormat.parse(getCurrentTime());
-                    return currentTime.after(endTime);
+                // If current date is the end date, check the time
+                if (currentDateObj.equals(endDateObj) ||
+                        (currentDateObj.getYear() == endDateObj.getYear() &&
+                                currentDateObj.getMonth() == endDateObj.getMonth() &&
+                                currentDateObj.getDate() == endDateObj.getDate())) {
+
+                    Date endTimeObj = timeFormat.parse(eventEndTime);
+                    return currentTimeObj.after(endTimeObj);
                 }
 
                 return false;
             }
             // For single-day events
             else {
-                if (!currentDate.equals(eventStartDate)) {
-                    Date current = dateFormat.parse(currentDate);
-                    Date start = dateFormat.parse(eventStartDate);
+                Date startDateObj = dateFormat.parse(eventStartDate);
 
-                    // If current date is after event date, event has ended
-                    return current.after(start);
+                // If current date is after event date, event has ended
+                if (currentDateObj.after(startDateObj)) {
+                    return true;
                 }
 
                 // If current date is event date, check the time
-                SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
-                Date endTime = timeFormat.parse(eventEndTime);
-                Date currentTime = timeFormat.parse(getCurrentTime());
-                return currentTime.after(endTime);
+                if (currentDateObj.equals(startDateObj) ||
+                        (currentDateObj.getYear() == startDateObj.getYear() &&
+                                currentDateObj.getMonth() == startDateObj.getMonth() &&
+                                currentDateObj.getDate() == startDateObj.getDate())) {
+
+                    Date endTimeObj = timeFormat.parse(eventEndTime);
+                    return currentTimeObj.after(endTimeObj);
+                }
+
+                return false;
             }
         } catch (ParseException e) {
             Log.e(TAG, "Error checking if event ended", e);
@@ -888,23 +960,16 @@ public class ParticipantsFragment extends Fragment {
         }
     }
 
-    // New method specifically for updating "pending" to "absent"
+    // Update the updatePendingToAbsentInFirebase method to handle multi-day events
     private void updatePendingToAbsentInFirebase(String studentId, String ticketRef) {
-        if (studentId == null || studentId.isEmpty()) {
-            Log.e(TAG, "Cannot update Firebase: studentId is null or empty");
-            return;
-        }
-        if (ticketRef == null || ticketRef.isEmpty()) {
-            Log.e(TAG, "Cannot update Firebase: ticketRef is null or empty");
+        if (studentId == null || studentId.isEmpty() || ticketRef == null || ticketRef.isEmpty()) {
+            Log.e(TAG, "Cannot update Firebase: studentId or ticketRef is null or empty");
             return;
         }
 
-        // For now we use "day_1" as a static key — but even that can be null if dynamically set in future
-        String dayKey = "day_1";
-        if (dayKey == null || dayKey.isEmpty()) {
-            Log.e(TAG, "Cannot update Firebase: dayKey is null or empty");
-            return;
-        }
+        // Get the appropriate day key based on the current date
+        String dayKey = findDayKeyForCurrentDate();
+        Log.d(TAG, "Updating status to Absent for student " + studentId + " on " + dayKey);
 
         // Get reference to the database
         DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
@@ -917,14 +982,47 @@ public class ParticipantsFragment extends Fragment {
                 .child("attendanceDays")
                 .child(dayKey);
 
-        // Update both attendance and status fields in Firebase
-        attendanceDaysRef.child("attendance").setValue("Absent")
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Successfully updated attendance to 'absent' for student " + studentId);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to update attendance for student " + studentId, e);
-                });
+        // Check if this node exists first
+        attendanceDaysRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    // Update both attendance and status fields in Firebase
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("attendance", "Absent");
+                    updates.put("status", "Absent");
+
+                    attendanceDaysRef.updateChildren(updates)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Successfully updated status to 'Absent' for student " +
+                                        studentId + " on " + dayKey);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to update status for student " + studentId, e);
+                            });
+                } else {
+                    // Create the day node if it doesn't exist
+                    Map<String, Object> dayData = new HashMap<>();
+                    dayData.put("attendance", "Absent");
+                    dayData.put("status", "Absent");
+                    dayData.put("date", getCurrentDate());
+
+                    attendanceDaysRef.setValue(dayData)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Created new day node with 'Absent' status for student " +
+                                        studentId + " on " + dayKey);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to create day node for student " + studentId, e);
+                            });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error checking attendance day node: " + error.getMessage());
+            }
+        });
     }
 
     // New function to handle participants who checked in but didn't check out
@@ -958,23 +1056,16 @@ public class ParticipantsFragment extends Fragment {
         }
     }
 
-    // New method specifically for updating incomplete checkouts to "absent" in Firebase
+    // Update the updateIncompleteCheckoutToAbsentInFirebase method to handle multi-day events
     private void updateIncompleteCheckoutToAbsentInFirebase(String studentId, String ticketRef) {
-        if (studentId == null || studentId.isEmpty()) {
-            Log.e(TAG, "Cannot update Firebase: studentId is null or empty");
-            return;
-        }
-        if (ticketRef == null || ticketRef.isEmpty()) {
-            Log.e(TAG, "Cannot update Firebase: ticketRef is null or empty");
+        if (studentId == null || studentId.isEmpty() || ticketRef == null || ticketRef.isEmpty()) {
+            Log.e(TAG, "Cannot update Firebase: studentId or ticketRef is null or empty");
             return;
         }
 
-        // For now we use "day_1" as a static key
-        String dayKey = "day_1";
-        if (dayKey == null || dayKey.isEmpty()) {
-            Log.e(TAG, "Cannot update Firebase: dayKey is null or empty");
-            return;
-        }
+        // Get the appropriate day key based on the current date
+        String dayKey = findDayKeyForCurrentDate();
+        Log.d(TAG, "Updating incomplete checkout to Absent for student " + studentId + " on " + dayKey);
 
         // Get reference to the database
         DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
@@ -987,27 +1078,33 @@ public class ParticipantsFragment extends Fragment {
                 .child("attendanceDays")
                 .child(dayKey);
 
-        // Update BOTH attendance AND status fields to "Absent"
-        attendanceDaysRef.child("attendance").setValue("Absent")
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Successfully updated attendance to 'Absent' for student "
-                            + studentId + " who checked in but didn't check out");
+        // Check if this node exists first
+        attendanceDaysRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists() && snapshot.hasChild("in") && !snapshot.hasChild("out")) {
+                    // Update BOTH attendance AND status fields to "Absent"
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("attendance", "Absent");
+                    updates.put("status", "Absent");
 
-                    // Also update the status field to "Absent"
-                    attendanceDaysRef.child("status").setValue("Absent")
-                            .addOnSuccessListener(aVoid2 -> {
-                                Log.d(TAG, "Successfully updated status to 'Absent' for student "
-                                        + studentId + " who checked in but didn't check out");
+                    attendanceDaysRef.updateChildren(updates)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Successfully updated status to 'Absent' for student " +
+                                        studentId + " with incomplete checkout on " + dayKey);
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "Failed to update status for student with incomplete checkout "
-                                        + studentId, e);
+                                Log.e(TAG, "Failed to update status for student with incomplete checkout " +
+                                        studentId, e);
                             });
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to update attendance for student with incomplete checkout "
-                            + studentId, e);
-                });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error checking attendance day node: " + error.getMessage());
+            }
+        });
     }
 
     // Helper method to verify event times for debugging
@@ -1032,15 +1129,31 @@ public class ParticipantsFragment extends Fragment {
         }
     }
 
-    private String findCurrentDayKey(String studentId, String eventKey) {
-        // For a multi-day event, find the correct day key based on current date
+    private String findDayKeyForCurrentDate() {
+        if (!isMultiDayEvent) {
+            return "day_1"; // For single-day events, always use day_1
+        }
+
         String currentDate = getCurrentDate();
 
-        // In a production app, you would query Firebase to find the exact day key
-        // For this implementation, we'll use a simple day_N format where N starts from 1
+        // For multi-day events, determine which day we're on
+        try {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Date startDate = dateFormat.parse(eventStartDate);
+            Date currentDateObj = dateFormat.parse(currentDate);
 
-        // Default fallback
-        return "day_1";
+            // Calculate the difference in days
+            long diffInMillies = Math.abs(currentDateObj.getTime() - startDate.getTime());
+            long diffInDays = diffInMillies / (24 * 60 * 60 * 1000);
+
+            // Add 1 because day_1 is the first day (not day_0)
+            int dayNumber = (int) diffInDays + 1;
+
+            return "day_" + dayNumber;
+        } catch (ParseException e) {
+            Log.e(TAG, "Error calculating day key for date: " + currentDate, e);
+            return "day_1"; // Fallback to day_1
+        }
     }
     private void setupListeners() {
         searchEditText.addTextChangedListener(new TextWatcher() {
@@ -1070,30 +1183,239 @@ public class ParticipantsFragment extends Fragment {
         });
 
         exportButton.setOnClickListener(v -> {
+            Log.d(TAG, "Export button clicked");
+            checkPermissionsAndExport();
+        });
+
+    }
+    private void checkPermissionsAndExport() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            // For Android 10+, we don't need WRITE_EXTERNAL_STORAGE for app-specific directories
+            exportToCSV();
+        } else {
+            // For older Android versions, check and request storage permission
             if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "Requesting WRITE_EXTERNAL_STORAGE permission");
                 ActivityCompat.requestPermissions(requireActivity(),
                         new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
                         WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
             } else {
+                Log.d(TAG, "Storage permission already granted");
                 exportToCSV();
             }
-        });
-
-        // If the refresh button exists in the layout
-        if (refreshButton != null) {
-            refreshButton.setOnClickListener(v -> {
-                refreshParticipants();
-            });
         }
     }
 
+
+    // Add this new method to update attendance status for all days in a multi-day event
+    private void updatePendingStatusesForPastDays() {
+        if (!isMultiDayEvent) {
+            Log.d(TAG, "Not a multi-day event, skipping past days check");
+            return;
+        }
+
+        String currentDate = getCurrentDate();
+        Log.d(TAG, "Checking for missed attendance on previous days before " + currentDate);
+
+        try {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Date currentDateObj = dateFormat.parse(currentDate);
+            Date startDateObj = dateFormat.parse(eventStartDate);
+            Date endDateObj = dateFormat.parse(eventEndDate);
+
+            // If current date is before the event start, nothing to do
+            if (currentDateObj.before(startDateObj)) {
+                Log.d(TAG, "Current date is before event start date, no past days to check");
+                return;
+            }
+
+            // Calculate the date range to check (from start date to yesterday)
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(currentDateObj);
+            calendar.add(Calendar.DAY_OF_MONTH, -1); // Check up to yesterday
+            Date yesterdayObj = calendar.getTime();
+
+            // If yesterday is before the event start, nothing to do
+            if (yesterdayObj.before(startDateObj)) {
+                Log.d(TAG, "No past days within event range to check");
+                return;
+            }
+
+            // Adjust end date of our check to be either yesterday or event end date, whichever is earlier
+            Date checkEndDate = endDateObj.before(yesterdayObj) ? endDateObj : yesterdayObj;
+
+            Log.d(TAG, "Will check days from " + dateFormat.format(startDateObj) +
+                    " to " + dateFormat.format(checkEndDate));
+
+            // Loop through each day from start to check end date
+            calendar.setTime(startDateObj);
+            Date checkDate = calendar.getTime();
+
+            while (!checkDate.after(checkEndDate)) {
+                String dateString = dateFormat.format(checkDate);
+                int dayNumber = calculateDayNumber(dateString);
+                String dayKey = "day_" + dayNumber;
+
+                Log.d(TAG, "Checking for missed attendance on " + dateString + " (day key: " + dayKey + ")");
+
+                // Update all participants for this day
+                updatePendingStatusesForDay(dayKey, dateString);
+
+                // Move to next day
+                calendar.add(Calendar.DAY_OF_MONTH, 1);
+                checkDate = calendar.getTime();
+            }
+
+        } catch (ParseException e) {
+            Log.e(TAG, "Error parsing dates when checking past days", e);
+        }
+    }
+
+    // Calculate day number based on date
+    private int calculateDayNumber(String dateString) {
+        try {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Date date = dateFormat.parse(dateString);
+            Date startDate = dateFormat.parse(eventStartDate);
+
+            long diffInMillies = Math.abs(date.getTime() - startDate.getTime());
+            long diffInDays = diffInMillies / (24 * 60 * 60 * 1000);
+
+            return (int) diffInDays + 1; // Day 1 is the first day
+        } catch (ParseException e) {
+            Log.e(TAG, "Error calculating day number for date: " + dateString, e);
+            return 1; // Default to day 1 if there's an error
+        }
+    }
+
+    // Update participants for a specific day
+    private void updatePendingStatusesForDay(String dayKey, String dateString) {
+        Log.d(TAG, "Processing attendance status updates for " + dayKey + " (" + dateString + ")");
+
+        // Extract the event key from the full path
+        String eventKey = eventId;
+        if (eventId.contains("/")) {
+            String[] parts = eventId.split("/");
+            eventKey = parts[parts.length - 1];
+        }
+
+        // Loop through all participants
+        for (Participant participant : participantList) {
+            // Check attendance status in Firebase first before updating
+            checkAndUpdateAttendanceForPastDay(participant.getId(), participant.getTicketRef(), dayKey, dateString);
+        }
+    }
+
+    // Check and update attendance status for a past day
+    private void checkAndUpdateAttendanceForPastDay(String studentId, String ticketRef, String dayKey, String dateString) {
+        if (studentId == null || studentId.isEmpty() || ticketRef == null || ticketRef.isEmpty()) {
+            Log.e(TAG, "Cannot check status: studentId or ticketRef is null or empty");
+            return;
+        }
+
+        DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
+        DatabaseReference attendanceDayRef = studentsRef
+                .child(studentId)
+                .child("tickets")
+                .child(ticketRef)
+                .child("attendanceDays")
+                .child(dayKey);
+
+        attendanceDayRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                // If the day node doesn't exist, need to create it with "Absent" attendance
+                if (!snapshot.exists()) {
+                    Log.d(TAG, "No attendance data for student " + studentId + " on " + dayKey +
+                            ", marking attendance as Absent");
+
+                    // Create the day node with Absent attendance (but not changing status)
+                    Map<String, Object> dayData = new HashMap<>();
+                    dayData.put("attendance", "Absent");
+                    dayData.put("date", dateString);
+                    // Note: We're not setting status to "Absent" here
+
+                    attendanceDayRef.setValue(dayData)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Created new day node with 'Absent' attendance for student " +
+                                        studentId + " on " + dayKey);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to create day node for student " + studentId, e);
+                            });
+                    return;
+                }
+
+                // If node exists but has no check-in and check-out and status is pending, update only attendance to absent
+                boolean hasCheckIn = snapshot.hasChild("in") &&
+                        snapshot.child("in").getValue(String.class) != null &&
+                        !snapshot.child("in").getValue(String.class).isEmpty();
+
+                boolean hasCheckOut = snapshot.hasChild("out") &&
+                        snapshot.child("out").getValue(String.class) != null &&
+                        !snapshot.child("out").getValue(String.class).isEmpty();
+
+                String status = "Pending";
+                if (snapshot.hasChild("attendance")) {
+                    status = snapshot.child("attendance").getValue(String.class);
+                } else if (snapshot.hasChild("status")) {
+                    status = snapshot.child("status").getValue(String.class);
+                }
+
+                if (!hasCheckIn && !hasCheckOut && status.equalsIgnoreCase("Pending")) {
+                    Log.d(TAG, "Found participant with pending status and no check-in/out on " +
+                            dayKey + ", updating attendance to Absent");
+
+                    // Update only attendance field to "Absent"
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("attendance", "Absent");
+                    // Removed: updates.put("status", "Absent");
+
+                    attendanceDayRef.updateChildren(updates)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Successfully updated attendance to 'Absent' for student " +
+                                        studentId + " on " + dayKey);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to update attendance for student " + studentId, e);
+                            });
+                } else if (hasCheckIn && !hasCheckOut) {
+                    Log.d(TAG, "Found participant with check-in but no check-out on " +
+                            dayKey + ", updating attendance to Absent");
+
+                    // Update only attendance field to "Absent" for incomplete checkout
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("attendance", "Absent");
+                    // Removed: updates.put("status", "Absent");
+
+                    attendanceDayRef.updateChildren(updates)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "Successfully updated attendance for incomplete checkout to 'Absent' for student " +
+                                        studentId + " on " + dayKey);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to update attendance for student " + studentId, e);
+                            });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error checking attendance day node: " + error.getMessage());
+            }
+        });
+    }
+
+    // Update the setupStatusUpdateChecker method to check past days too
     private void setupStatusUpdateChecker() {
+        // Initialize the status update runnable
         statusUpdateRunnable = new Runnable() {
             @Override
             public void run() {
-                // Update attendance statuses based on current time
+                Log.d(TAG, "Running scheduled attendance status update check");
                 updateAttendanceStatusForAll();
+                updatePendingStatusesForPastDays(); // Add this line to check past days
 
                 // Schedule the next update
                 statusUpdateHandler.postDelayed(this, STATUS_UPDATE_INTERVAL);
@@ -1101,9 +1423,8 @@ public class ParticipantsFragment extends Fragment {
         };
 
         // Start the periodic updates
-        statusUpdateHandler.postDelayed(statusUpdateRunnable, STATUS_UPDATE_INTERVAL);
+        statusUpdateHandler.post(statusUpdateRunnable);
     }
-
     private void showFilterDialog() {
         // Create dialog
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
@@ -1165,116 +1486,314 @@ public class ParticipantsFragment extends Fragment {
         try {
             List<Participant> dataToExport = adapter.getFilteredList();
             if (dataToExport.isEmpty()) {
+                Log.d(TAG, "No data to export");
                 Toast.makeText(getContext(), "No data to export", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Get event name to use in filename
-            String eventName = "event"; // Default value
-            // If you have the event name available, use it instead
-            // eventName = currentEventName;
+            Log.d(TAG, "Starting CSV export of " + dataToExport.size() + " participants");
 
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
-            String timestamp = sdf.format(new Date());
-            String fileName = eventName + "_participants_" + timestamp + ".csv";
+            // Use event name for filename (sanitized)
+            String sanitizedEventName = eventName.replaceAll("[^a-zA-Z0-9]", "_");
+            String baseFileName = sanitizedEventName + "_PARTICIPANTS.csv";
+            Log.d(TAG, "Base export filename: " + baseFileName);
 
-            File downloadsDir;
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                // For Android 10 and above, use app-specific storage
-                downloadsDir = new File(requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "Exports");
+            // Check if the file already exists and handle accordingly
+            checkFileExistsAndProceed(baseFileName, dataToExport);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting export process: " + e.getMessage(), e);
+            Toast.makeText(getContext(), "Error exporting data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void checkFileExistsAndProceed(String baseFileName, List<Participant> dataToExport) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            // For Android 10+, check MediaStore for existing files
+            checkFileExistsInMediaStore(baseFileName, dataToExport);
+        } else {
+            // For older Android versions, check file existence directly
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File file = new File(downloadsDir, baseFileName);
+
+            if (file.exists()) {
+                // File exists, ask user if they want to download again
+                showFileExistsDialog(baseFileName, dataToExport);
             } else {
-                // For older versions
-                downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                // File doesn't exist, proceed with export
+                writeCSVFile(baseFileName, dataToExport);
             }
+        }
+    }
 
-            if (!downloadsDir.exists()) {
-                if (!downloadsDir.mkdirs()) {
-                    Log.e(TAG, "Failed to create directory for exports");
-                    Toast.makeText(getContext(), "Failed to create directory for exports", Toast.LENGTH_SHORT).show();
+    private void checkFileExistsInMediaStore(String baseFileName, List<Participant> dataToExport) {
+        ContentResolver resolver = requireContext().getContentResolver();
+        Uri contentUri = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+
+        // Query to check if file exists
+        Cursor cursor = resolver.query(
+                contentUri,
+                new String[] { MediaStore.Downloads._ID },
+                MediaStore.Downloads.DISPLAY_NAME + "=?",
+                new String[] { baseFileName },
+                null
+        );
+
+        boolean fileExists = cursor != null && cursor.getCount() > 0;
+        if (cursor != null) cursor.close();
+
+        if (fileExists) {
+            // File exists, ask user if they want to download again
+            showFileExistsDialog(baseFileName, dataToExport);
+        } else {
+            // File doesn't exist, proceed with export
+            writeCSVFile(baseFileName, dataToExport);
+        }
+    }
+
+    private void showFileExistsDialog(String baseFileName, List<Participant> dataToExport) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        builder.setTitle("File Already Exists")
+                .setMessage("A file named '" + baseFileName + "' already exists. Do you want to download it again?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    // Get a new filename with incremented counter
+                    String newFileName = getIncrementedFileName(baseFileName);
+                    writeCSVFile(newFileName, dataToExport);
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    private String getIncrementedFileName(String baseFileName) {
+        String nameWithoutExtension = baseFileName.substring(0, baseFileName.lastIndexOf("."));
+        String extension = baseFileName.substring(baseFileName.lastIndexOf("."));
+
+        // Try to find existing files with incremented numbers
+        int counter = 2;
+        String newFileName = nameWithoutExtension + "(" + counter + ")" + extension;
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            // For Android 10+, check in MediaStore
+            ContentResolver resolver = requireContext().getContentResolver();
+
+            while (true) {
+                Cursor cursor = resolver.query(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        new String[] { MediaStore.Downloads._ID },
+                        MediaStore.Downloads.DISPLAY_NAME + "=?",
+                        new String[] { newFileName },
+                        null
+                );
+
+                boolean exists = cursor != null && cursor.getCount() > 0;
+                if (cursor != null) cursor.close();
+
+                if (!exists) break;
+
+                counter++;
+                newFileName = nameWithoutExtension + "(" + counter + ")" + extension;
+            }
+        } else {
+            // For older Android versions, check file system directly
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File newFile = new File(downloadsDir, newFileName);
+
+            while (newFile.exists()) {
+                counter++;
+                newFileName = nameWithoutExtension + "(" + counter + ")" + extension;
+                newFile = new File(downloadsDir, newFileName);
+            }
+        }
+
+        return newFileName;
+    }
+
+    private void writeCSVFile(String fileName, List<Participant> dataToExport) {
+        try {
+            Log.d(TAG, "Writing to file: " + fileName);
+            Uri fileUri;
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                // For Android 10+, use MediaStore to make the file visible in Downloads
+                ContentValues contentValues = new ContentValues();
+                contentValues.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
+                contentValues.put(MediaStore.Downloads.MIME_TYPE, "text/csv");
+                contentValues.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+                ContentResolver resolver = requireContext().getContentResolver();
+                fileUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues);
+
+                if (fileUri == null) {
+                    Log.e(TAG, "Failed to create file in Downloads");
+                    Toast.makeText(getContext(), "Failed to create file in Downloads", Toast.LENGTH_SHORT).show();
                     return;
                 }
+
+                Log.d(TAG, "File URI in Downloads: " + fileUri.toString());
+
+                // Write to the file using OutputStream
+                try (OutputStream outputStream = resolver.openOutputStream(fileUri);
+                     OutputStreamWriter writer = new OutputStreamWriter(outputStream);
+                     BufferedWriter bufferedWriter = new BufferedWriter(writer)) {
+
+                    // Write CSV header with adjusted order to match Excel's expectations
+                    bufferedWriter.write("Name,Section,Status,Time In,Time Out\n");
+                    Log.d(TAG, "CSV header written");
+
+                    // Write data for each participant
+                    int writtenRows = 0;
+                    for (Participant participant : dataToExport) {
+                        StringBuilder row = new StringBuilder();
+
+                        // Process name - escape quotes and enclose in quotes
+                        String name = participant.getName() != null ? participant.getName() : "";
+                        // Replace any double quotes with two double quotes (Excel standard for escaping quotes)
+                        name = name.replace("\"", "\"\"");
+                        row.append("\"").append(name).append("\"");
+                        row.append(",");
+
+                        // Process section - escape quotes and enclose in quotes
+                        String section = participant.getSection() != null ? participant.getSection() : "";
+                        section = section.replace("\"", "\"\"");
+                        row.append("\"").append(section).append("\"");
+                        row.append(",");
+
+                        // Status - escape quotes and enclose in quotes
+                        String status = participant.getStatus() != null ? participant.getStatus() : "";
+                        status = status.replace("\"", "\"\"");
+                        row.append("\"").append(status).append("\"");
+                        row.append(",");
+
+                        // Time In - escape quotes and enclose in quotes
+                        String timeIn = participant.getTimeIn() != null ? participant.getTimeIn() : "";
+                        timeIn = timeIn.replace("\"", "\"\"");
+                        row.append("\"").append(timeIn).append("\"");
+                        row.append(",");
+
+                        // Time Out - escape quotes and enclose in quotes
+                        String timeOut = participant.getTimeOut() != null ? participant.getTimeOut() : "";
+                        timeOut = timeOut.replace("\"", "\"\"");
+                        row.append("\"").append(timeOut).append("\"");
+
+                        row.append("\n");
+                        bufferedWriter.write(row.toString());
+                        writtenRows++;
+                    }
+
+                    Log.d(TAG, "CSV file successfully written with " + writtenRows + " rows of data");
+                }
+
+                // Display path that user can easily access
+                String userFriendlyPath = Environment.DIRECTORY_DOWNLOADS + "/" + fileName;
+                showExportSuccessDialog(userFriendlyPath, fileUri);
+
+            } else {
+                // For older versions, use the old method
+                File exportDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                Log.d(TAG, "Export directory (pre-Android 10): " + exportDir.getAbsolutePath());
+
+                if (!exportDir.exists()) {
+                    boolean created = exportDir.mkdirs();
+                    Log.d(TAG, "Created export directory: " + created);
+                }
+
+                File file = new File(exportDir, fileName);
+                Log.d(TAG, "Full export file path: " + file.getAbsolutePath());
+
+                // Create the file
+                boolean fileCreated = file.createNewFile();
+                Log.d(TAG, "File created: " + fileCreated);
+
+                FileWriter writer = new FileWriter(file);
+
+                // Write CSV header with consistent order
+                writer.append("Name,Section,Status,Time In,Time Out\n");
+                Log.d(TAG, "CSV header written");
+
+                // Write data for each participant
+                int writtenRows = 0;
+                for (Participant participant : dataToExport) {
+                    StringBuilder row = new StringBuilder();
+
+                    // Process name - escape quotes and enclose in quotes
+                    String name = participant.getName() != null ? participant.getName() : "";
+                    // Replace any double quotes with two double quotes (Excel standard for escaping quotes)
+                    name = name.replace("\"", "\"\"");
+                    row.append("\"").append(name).append("\"");
+                    row.append(",");
+
+                    // Process section - escape quotes and enclose in quotes
+                    String section = participant.getSection() != null ? participant.getSection() : "";
+                    section = section.replace("\"", "\"\"");
+                    row.append("\"").append(section).append("\"");
+                    row.append(",");
+
+                    // Status - escape quotes and enclose in quotes
+                    String status = participant.getStatus() != null ? participant.getStatus() : "";
+                    status = status.replace("\"", "\"\"");
+                    row.append("\"").append(status).append("\"");
+                    row.append(",");
+
+                    // Time In - escape quotes and enclose in quotes
+                    String timeIn = participant.getTimeIn() != null ? participant.getTimeIn() : "";
+                    timeIn = timeIn.replace("\"", "\"\"");
+                    row.append("\"").append(timeIn).append("\"");
+                    row.append(",");
+
+                    // Time Out - escape quotes and enclose in quotes
+                    String timeOut = participant.getTimeOut() != null ? participant.getTimeOut() : "";
+                    timeOut = timeOut.replace("\"", "\"\"");
+                    row.append("\"").append(timeOut).append("\"");
+
+                    row.append("\n");
+                    writer.append(row.toString());
+                    writtenRows++;
+                }
+
+                writer.flush();
+                writer.close();
+                Log.d(TAG, "CSV file successfully written with " + writtenRows + " rows of data");
+
+                // Create file URI for sharing
+                fileUri = FileProvider.getUriForFile(
+                        requireContext(),
+                        requireContext().getApplicationContext().getPackageName() + ".provider",
+                        file
+                );
+
+                showExportSuccessDialog(file.getAbsolutePath(), fileUri);
             }
-
-            File file = new File(downloadsDir, fileName);
-            FileWriter writer = new FileWriter(file);
-
-            // Write CSV header
-            writer.append("Student ID,Name,Section,Status,Check In,Check Out\n");
-
-            // Write data rows
-            for (Participant participant : dataToExport) {
-                writer.append(participant.getId())
-                        .append(",")
-                        .append(escapeCSV(participant.getName()))
-                        .append(",")
-                        .append(escapeCSV(participant.getSection()))
-                        .append(",")
-                        .append(participant.getStatus())
-                        .append(",")
-                        .append(participant.getTimeIn().isEmpty() ? "N/A" : participant.getTimeIn())
-                        .append(",")
-                        .append(participant.getTimeOut().isEmpty() ? "N/A" : participant.getTimeOut())
-                        .append("\n");
-            }
-
-            writer.flush();
-            writer.close();
-
-            // Show success message
-            Toast.makeText(getContext(), "Exported to " + file.getAbsolutePath(), Toast.LENGTH_LONG).show();
-
-            // Share the file
-            shareCSVFile(file);
 
         } catch (IOException e) {
-            Log.e(TAG, "Error exporting to CSV: " + e.getMessage());
-            Toast.makeText(getContext(), "Error exporting to CSV: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "Error exporting data: " + e.getMessage(), e);
+            Toast.makeText(getContext(), "Error exporting data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    private String escapeCSV(String data) {
-        if (data == null) {
-            return "";
-        }
-
-        // Replace any double quotes with two double quotes
-        String escaped = data.replace("\"", "\"\"");
-
-        // If the data contains commas, newlines, or quotes, enclose it in quotes
-        if (escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n")) {
-            escaped = "\"" + escaped + "\"";
-        }
-
-        return escaped;
+    private void showExportSuccessDialog(String filePath, Uri fileUri) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        builder.setTitle("Export Successful")
+                .setMessage("File saved to: " + filePath + "\n\nYou can find it in your Downloads folder.")
+                .setPositiveButton("Share", (dialog, which) -> shareCSVFile(fileUri))
+                .setNegativeButton("OK", null)
+                .show();
+        Log.d(TAG, "Export success dialog shown");
     }
 
-    private void shareCSVFile(File file) {
-        Uri contentUri = FileProvider.getUriForFile(
-                requireContext(),
-                requireContext().getPackageName() + ".fileprovider",
-                file);
+    private void shareCSVFile(Uri fileUri) {
+        try {
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("text/csv");
+            shareIntent.putExtra(Intent.EXTRA_SUBJECT, eventName + " Participants Data");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, fileUri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-        Intent shareIntent = new Intent();
-        shareIntent.setAction(Intent.ACTION_SEND);
-        shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
-        shareIntent.setType("text/csv");
-        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-        startActivity(Intent.createChooser(shareIntent, "Share CSV file via"));
-    }
-
-    private void refreshParticipants() {
-        // Show loading indicator
-        Toast.makeText(getContext(), "Refreshing participants list...", Toast.LENGTH_SHORT).show();
-
-        // Clear search field
-        searchEditText.setText("");
-
-        // Reload participants
-        loadParticipants();
-
-        // Update attendance statuses
-        updateAttendanceStatusForAll();
+            Log.d(TAG, "Starting share intent");
+            startActivity(Intent.createChooser(shareIntent, "Share via"));
+        } catch (Exception e) {
+            Log.e(TAG, "Error sharing file: " + e.getMessage(), e);
+            Toast.makeText(getContext(), "Error sharing file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private String getCurrentDate() {
