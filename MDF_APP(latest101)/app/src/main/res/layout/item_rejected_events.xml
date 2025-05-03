@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cardview_container"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/_155sdp"
+    android:layout_marginTop="@dimen/_2sdp"
+    android:layout_margin="@dimen/_5sdp"
+    android:layout_marginBottom="@dimen/_2sdp"
+    android:elevation="4dp"
+    app:cardCornerRadius="10dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:layout_gravity="center_horizontal"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent">
+
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="@dimen/_120sdp"
+            android:layout_height="@dimen/_120sdp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="@dimen/_110sdp"
+                android:layout_height="@dimen/_110sdp"
+                android:elevation="5dp"
+                app:cardCornerRadius="10dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.466"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <TextView
+                    android:id="@+id/dayOfMonth"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="@dimen/_10sdp"
+                    android:text="5"
+                    android:textSize="@dimen/_30ssp"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextView
+                    android:id="@+id/month"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="@dimen/_50sdp"
+                    android:text="Oct"
+                    android:textSize="@dimen/_30ssp"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+            </androidx.cardview.widget.CardView>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/_120sdp"
+            android:layout_marginStart="@dimen/_120sdp">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardView"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/_70sdp"
+                android:layout_marginLeft="@dimen/_2sdp"
+                android:layout_marginTop="@dimen/_6sdp"
+                android:layout_marginRight="@dimen/_6sdp"
+                app:cardCornerRadius="10dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="@dimen/_5sdp">
+
+                    <TextView
+                        android:id="@+id/organizer_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CCS"
+                        android:textSize="@dimen/_15ssp"
+                        android:textStyle="bold"
+                        android:fontFamily="@font/host_grotesk_bold"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/eventName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="General Assembly"
+                        android:textSize="@dimen/_10ssp"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/organizer_name" />
+
+                    <ImageView
+                        android:id="@+id/ic_location"
+                        android:layout_width="@dimen/_9sdp"
+                        android:layout_height="@dimen/_10sdp"
+                        android:src="@drawable/ic_location"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/eventName"
+                        app:layout_constraintVertical_bias="0.962" />
+
+                    <TextView
+                        android:id="@+id/venue"
+                        android:layout_width="40dp"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        android:singleLine="true"
+                        android:maxLines="1"
+                        android:layout_marginLeft="@dimen/_2sdp"
+                        android:text="Multi-Purpose Hall"
+                        android:textSize="@dimen/_7ssp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toEndOf="@+id/ic_location"
+                        app:layout_constraintTop_toBottomOf="@+id/eventName"
+                        app:layout_constraintVertical_bias="1.0" />
+
+
+
+                    <TextView
+                        android:id="@+id/event_created"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_16sdp"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        android:text="Created on : 10-01-2024"
+                        android:textSize="@dimen/_7ssp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/eventName" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.cardview.widget.CardView>
+
+            <TextView
+                android:id="@+id/startDate"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/_4ssp"
+                android:layout_marginTop="@dimen/_15ssp"
+                android:text="Start: 10-05-2024"
+                android:textSize="@dimen/_6ssp"
+                android:fontFamily="@font/host_grotesk_regular"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/cardView"
+                app:layout_constraintEnd_toStartOf="@+id/startTime" />
+
+            <TextView
+                android:id="@+id/startTime"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_15sdp"
+                android:text="1:00 PM"
+                android:textSize="@dimen/_6ssp"
+                android:gravity="right"
+                android:paddingEnd="@dimen/_15sdp"
+                android:fontFamily="@font/host_grotesk_regular"
+                app:layout_constraintStart_toEndOf="@+id/startDate"
+                app:layout_constraintTop_toBottomOf="@+id/cardView"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+
+            <TextView
+                android:id="@+id/endDate"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/_4sdp"
+                android:layout_marginTop="@dimen/_2sdp"
+                android:gravity=""
+                android:text="End: 10-05-2024"
+                android:textSize="@dimen/_6ssp"
+                android:fontFamily="@font/host_grotesk_regular"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/startDate"
+                app:layout_constraintEnd_toStartOf="@+id/endTime"
+                app:layout_constraintVertical_bias="0.111" />
+
+            <TextView
+                android:id="@+id/endTime"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_2sdp"
+                android:text="5:00 PM"
+                android:gravity="right"
+                android:paddingEnd="@dimen/_15sdp"
+                android:textSize="@dimen/_6ssp"
+                android:fontFamily="@font/host_grotesk_regular"
+                app:layout_constraintStart_toEndOf="@+id/endDate"
+                app:layout_constraintTop_toBottomOf="@+id/startTime"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintVertical_bias="0.0" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0.9dp"
+            android:background="@android:color/darker_gray"
+            app:layout_constraintTop_toBottomOf="@+id/line"
+            android:layout_marginTop="@dimen/_122sdp"
+            android:layout_marginBottom="@dimen/_10sdp" />
+
+        <TextView
+            android:id="@+id/rejected_txt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="Rejected"
+            android:textColor="@color/red"
+            android:textSize="@dimen/_12ssp"
+            android:layout_marginTop="@dimen/_125sdp"/>
+
+        <TextView
+            android:id="@+id/rejection_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/_142sdp"
+            android:layout_marginBottom="@dimen/_5sdp"
+            android:text="10-04-2024"
+            android:textColor="@color/red"
+            android:textSize="@dimen/_6ssp" />
+
+    </androidx.cardview.widget.CardView>
