@@ -71,19 +71,12 @@ public class ParticipantsAdapter extends RecyclerView.Adapter<ParticipantsAdapte
         holder.timeOutTextView.setText(participant.getTimeOut() != null ? participant.getTimeOut() : "");
         holder.statusTextView.setText(participant.getStatus() != null ? participant.getStatus() : "");
 
-        // Use the 12-hour formatted times
-        holder.timeInTextView.setText(participant.getTimeIn());
-        holder.timeOutTextView.setText(participant.getTimeOut());
-
         // Set status background color
         if (participant.getStatus() != null && "Present".equalsIgnoreCase(participant.getStatus())) {
             holder.statusTextView.setBackgroundResource(R.drawable.status_present_background);
         } else if (participant.getStatus() != null && "Absent".equalsIgnoreCase(participant.getStatus())) {
             holder.statusTextView.setBackgroundResource(R.drawable.status_absent_background);
-        } else if (participant.getStatus() != null && "Late".equalsIgnoreCase(participant.getStatus())) {
-            holder.statusTextView.setBackgroundResource(R.drawable.status_late_background);
-        }
-        else {
+        } else {
             holder.statusTextView.setBackgroundColor(Color.GRAY);
         }
     }

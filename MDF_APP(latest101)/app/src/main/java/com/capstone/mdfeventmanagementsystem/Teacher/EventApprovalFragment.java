@@ -20,6 +20,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
@@ -30,7 +31,7 @@ public class EventApprovalFragment extends Fragment {
     private static final String TAG = "EventApprovalTest";
     private RecyclerView recyclerView;
     private LinearLayout emptyContainer;
-    private List<Event> pendingApprovalEvents = new ArrayList<>();
+    private List<Event> eventsToDisplay = new ArrayList<>(); // Renamed from pendingApprovalEvents
     private EventApprovalAdapter adapter;
     private DatabaseReference eventProposalsRef;
 
@@ -48,7 +49,7 @@ public class EventApprovalFragment extends Fragment {
         // Set up RecyclerView
         Log.d(TAG, "onCreateView: Setting up RecyclerView");
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapter = new EventApprovalAdapter(getContext(), pendingApprovalEvents);
+        adapter = new EventApprovalAdapter(getContext(), eventsToDisplay);
         recyclerView.setAdapter(adapter);
 
         // Show the empty state by default
@@ -61,8 +62,8 @@ public class EventApprovalFragment extends Fragment {
         initFirebase();
 
         // Fetch data
-        Log.d(TAG, "onCreateView: Starting to fetch pending events from Firebase");
-        fetchPendingEvents();
+        Log.d(TAG, "onCreateView: Starting to fetch events from Firebase");
+        fetchEvents();
 
         Log.d(TAG, "onCreateView: Fragment view creation completed");
         return view;
@@ -77,16 +78,18 @@ public class EventApprovalFragment extends Fragment {
     }
 
     /**
-     * Fetches events that are pending approval from Firebase Realtime Database
+     * Fetches events that are pending approval or recently rejected from Firebase Realtime Database
      * Listens for real-time updates to the data
      */
-    private void fetchPendingEvents() {
-        Log.d(TAG, "fetchPendingEvents: Setting up listener for pending events");
-        eventProposalsRef.orderByChild("status").equalTo("pending").addValueEventListener(new ValueEventListener() {
+    private void fetchEvents() {
+        Log.d(TAG, "fetchEvents: Setting up listener for events");
+
+        // Modified to fetch both pending and rejected events
+        eventProposalsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 Log.d(TAG, "onDataChange: Data received from Firebase");
-                pendingApprovalEvents.clear();
+                eventsToDisplay.clear();
                 Log.d(TAG, "onDataChange: Cleared existing event list");
 
                 int count = 0;
@@ -94,26 +97,78 @@ public class EventApprovalFragment extends Fragment {
                     count++;
                     Log.d(TAG, "onDataChange: Processing event snapshot #" + count);
 
-                    Event event = eventSnapshot.getValue(Event.class);
+                    try {
+                        // Extract status first to filter
+                        String status = eventSnapshot.child("status").exists() ?
+                                String.valueOf(eventSnapshot.child("status").getValue()) : "pending";
 
-                    // Make sure to set the event ID from the Firebase key and ensure status is set
-                    if (event != null) {
-                        String eventId = eventSnapshot.getKey();
-                        Log.d(TAG, "onDataChange: Adding event with ID: " + eventId);
-                        event.setEventId(eventId);
+                        // Only include pending or rejected events
+                        if (status.equals("pending") || status.equals("rejected")) {
+                            // Manually extract and convert fields from the snapshot
+                            Event event = new Event();
+                            String eventId = eventSnapshot.getKey();
+                            event.setEventId(eventId);
 
-                        // Ensure the status is "pending"
-                        if (event.getStatus() == null) {
-                            event.setStatus("pending");
+                            // Handle each field with proper type conversion
+                            if (eventSnapshot.child("eventName").exists()) {
+                                event.setEventName(String.valueOf(eventSnapshot.child("eventName").getValue()));
+                            }
+                            if (eventSnapshot.child("description").exists()) {
+                                event.setDescription(String.valueOf(eventSnapshot.child("description").getValue()));
+                            }
+                            if (eventSnapshot.child("venue").exists()) {
+                                event.setVenue(String.valueOf(eventSnapshot.child("venue").getValue()));
+                            }
+                            if (eventSnapshot.child("startDate").exists()) {
+                                event.setStartDate(String.valueOf(eventSnapshot.child("startDate").getValue()));
+                            }
+                            if (eventSnapshot.child("endDate").exists()) {
+                                event.setEndDate(String.valueOf(eventSnapshot.child("endDate").getValue()));
+                            }
+                            if (eventSnapshot.child("startTime").exists()) {
+                                event.setStartTime(String.valueOf(eventSnapshot.child("startTime").getValue()));
+                            }
+                            if (eventSnapshot.child("endTime").exists()) {
+                                event.setEndTime(String.valueOf(eventSnapshot.child("endTime").getValue()));
+                            }
+                            if (eventSnapshot.child("dateCreated").exists()) {
+                                event.setDateCreated(String.valueOf(eventSnapshot.child("dateCreated").getValue()));
+                            }
+
+                            // Set status
+                            event.setStatus(status);
+
+                            if (eventSnapshot.child("photoUrl").exists()) {
+                                event.setPhotoUrl(String.valueOf(eventSnapshot.child("photoUrl").getValue()));
+                            }
+                            if (eventSnapshot.child("eventType").exists()) {
+                                event.setEventType(String.valueOf(eventSnapshot.child("eventType").getValue()));
+                            }
+                            if (eventSnapshot.child("eventFor").exists()) {
+                                event.setEventFor(String.valueOf(eventSnapshot.child("eventFor").getValue()));
+                            }
+                            if (eventSnapshot.child("eventSpan").exists()) {
+                                event.setEventSpan(String.valueOf(eventSnapshot.child("eventSpan").getValue()));
+                            }
+                            if (eventSnapshot.child("graceTime").exists()) {
+                                event.setGraceTime(String.valueOf(eventSnapshot.child("graceTime").getValue()));
+                            }
+                            if (eventSnapshot.child("rejectionReason").exists()) {
+                                event.setRejectionReason(String.valueOf(eventSnapshot.child("rejectionReason").getValue()));
+                            }
+                            if (eventSnapshot.child("userId").exists()) {
+                                event.setUserId(String.valueOf(eventSnapshot.child("userId").getValue()));
+                            }
+
+                            Log.d(TAG, "onDataChange: Adding event with ID: " + eventId + ", status: " + status);
+                            eventsToDisplay.add(event);
                         }
-
-                        pendingApprovalEvents.add(event);
-                    } else {
-                        Log.w(TAG, "onDataChange: Received null event from snapshot");
+                    } catch (Exception e) {
+                        Log.e(TAG, "onDataChange: Error processing event: " + e.getMessage());
                     }
                 }
 
-                Log.d(TAG, "onDataChange: Processed " + count + " events, found " + pendingApprovalEvents.size() + " pending events");
+                Log.d(TAG, "onDataChange: Processed " + count + " events, found " + eventsToDisplay.size() + " events to display");
 
                 // Update UI based on whether we have events or not
                 Log.d(TAG, "onDataChange: Updating UI with fetched events");
@@ -122,7 +177,7 @@ public class EventApprovalFragment extends Fragment {
 
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
-                Log.e(TAG, "onCancelled: Error fetching pending events: " + databaseError.getMessage());
+                Log.e(TAG, "onCancelled: Error fetching events: " + databaseError.getMessage());
                 Log.e(TAG, "onCancelled: Error details: " + databaseError.getDetails());
 
                 // Show empty state if there's an error
@@ -131,29 +186,29 @@ public class EventApprovalFragment extends Fragment {
                 emptyContainer.setVisibility(View.VISIBLE);
             }
         });
-        Log.d(TAG, "fetchPendingEvents: Firebase listener setup completed");
+        Log.d(TAG, "fetchEvents: Firebase listener setup completed");
     }
 
     /**
-     * Updates the UI based on whether we have events pending approval or not
+     * Updates the UI based on whether we have events to display or not
      */
     private void updateUI() {
-        Log.d(TAG, "updateUI: Updating UI based on event list size: " + pendingApprovalEvents.size());
+        Log.d(TAG, "updateUI: Updating UI based on event list size: " + eventsToDisplay.size());
 
-        if (pendingApprovalEvents.isEmpty()) {
-            // No pending events, show empty state
-            Log.d(TAG, "updateUI: No pending events, showing empty state");
+        if (eventsToDisplay.isEmpty()) {
+            // No events, show empty state
+            Log.d(TAG, "updateUI: No events to display, showing empty state");
             recyclerView.setVisibility(View.GONE);
             emptyContainer.setVisibility(View.VISIBLE);
         } else {
-            // We have pending events, show the list
-            Log.d(TAG, "updateUI: Found " + pendingApprovalEvents.size() + " pending events, showing recycler view");
+            // We have events, show the list
+            Log.d(TAG, "updateUI: Found " + eventsToDisplay.size() + " events, showing recycler view");
             recyclerView.setVisibility(View.VISIBLE);
             emptyContainer.setVisibility(View.GONE);
 
             // Notify adapter of data change
             Log.d(TAG, "updateUI: Updating adapter with new events");
-            adapter.updateEvents(pendingApprovalEvents);
+            adapter.updateEvents(eventsToDisplay);
         }
     }
 
@@ -161,20 +216,20 @@ public class EventApprovalFragment extends Fragment {
      * Public method that can be called from activity to update the list manually
      * This can be useful if you need to refresh the data from outside the fragment
      */
-    public void updatePendingApprovalEvents(List<Event> events) {
-        Log.d(TAG, "updatePendingApprovalEvents: Manual update called from external source");
+    public void updateEvents(List<Event> events) {
+        Log.d(TAG, "updateEvents: Manual update called from external source");
 
         if (events != null && !events.isEmpty()) {
-            Log.d(TAG, "updatePendingApprovalEvents: Received " + events.size() + " events");
-            pendingApprovalEvents.clear();
-            pendingApprovalEvents.addAll(events);
+            Log.d(TAG, "updateEvents: Received " + events.size() + " events");
+            eventsToDisplay.clear();
+            eventsToDisplay.addAll(events);
 
             // Update the UI
-            Log.d(TAG, "updatePendingApprovalEvents: Updating UI with manually provided events");
+            Log.d(TAG, "updateEvents: Updating UI with manually provided events");
             updateUI();
         } else {
             // Keep showing empty view
-            Log.d(TAG, "updatePendingApprovalEvents: Received null or empty events list");
+            Log.d(TAG, "updateEvents: Received null or empty events list");
             recyclerView.setVisibility(View.GONE);
             emptyContainer.setVisibility(View.VISIBLE);
         }
@@ -184,6 +239,8 @@ public class EventApprovalFragment extends Fragment {
     public void onResume() {
         super.onResume();
         Log.d(TAG, "onResume: Fragment resumed");
+        // Refresh data when returning to this fragment
+        fetchEvents();
     }
 
     @Override

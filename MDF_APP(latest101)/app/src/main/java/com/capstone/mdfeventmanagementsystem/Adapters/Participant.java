@@ -9,6 +9,7 @@ public class Participant {
     private String status;
     private String timeIn24; // Original 24-hour format for calculations
     private String timeOut24; // Original 24-hour format for calculations
+
     private String ticketRef;  // Added this field properly
 
     public Participant() {

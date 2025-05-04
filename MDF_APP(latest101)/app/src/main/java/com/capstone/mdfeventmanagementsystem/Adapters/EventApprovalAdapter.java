@@ -1,12 +1,13 @@
 package com.capstone.mdfeventmanagementsystem.Adapters;
 
 import android.content.Context;
+import android.content.Intent;
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.ImageView;
-
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
@@ -14,17 +15,18 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.capstone.mdfeventmanagementsystem.Models.Event;
 import com.capstone.mdfeventmanagementsystem.R;
+import com.capstone.mdfeventmanagementsystem.Teacher.EventApprovalInside;
 
 import java.util.List;
 
 public class EventApprovalAdapter extends RecyclerView.Adapter<EventApprovalAdapter.EventViewHolder> {
 
-    private List<Event> pendingEvents;
+    private List<Event> events; // Renamed from pendingEvents to events
     private Context context;
 
-    public EventApprovalAdapter(Context context, List<Event> pendingEvents) {
+    public EventApprovalAdapter(Context context, List<Event> events) {
         this.context = context;
-        this.pendingEvents = pendingEvents;
+        this.events = events;
     }
 
     @NonNull
@@ -36,7 +38,7 @@ public class EventApprovalAdapter extends RecyclerView.Adapter<EventApprovalAdap
 
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
-        Event event = pendingEvents.get(position);
+        Event event = events.get(position);
 
         // Set event data to views
         holder.eventNameText.setText(event.getEventName());
@@ -53,16 +55,65 @@ public class EventApprovalAdapter extends RecyclerView.Adapter<EventApprovalAdap
         // Set date created
         holder.dateCreatedText.setText("Posted: " + event.getDateCreated());
 
-        // Since we're in the EventApprovalAdapter and we're only showing pending events,
-        // we can safely make the status indicator visible for all events
+        // Make the status indicator visible
         holder.statusIndicator.setVisibility(View.VISIBLE);
 
-        // No need to update the text as it's already set to "PENDING" in the layout
+        // NEW: Visual indicator for rejected events
+        if ("rejected".equals(event.getStatus())) {
+            // If we have a status text view inside the status indicator, we can set it
+            TextView statusText = holder.statusIndicator.findViewById(R.id.status_text);
+            if (statusText != null) {
+                statusText.setText("Rejected");
+            }
+
+            // Change the card's background color to indicate rejection
+            holder.statusIndicator.setCardBackgroundColor(Color.parseColor("#FF0000")); // Light red
+        } else {
+            // Reset to default color for pending events
+            TextView statusText = holder.statusIndicator.findViewById(R.id.status_text);
+            if (statusText != null) {
+                statusText.setText("Pending");
+            }
+
+            // Use default color for pending
+            holder.statusIndicator.setCardBackgroundColor(Color.parseColor("#FFC107")); // Amber
+        }
+
+        // Set click listener on the card view
+        holder.itemView.setOnClickListener(view -> {
+            // Create intent to open EventApprovalInside activity
+            Intent intent = new Intent(context, EventApprovalInside.class);
+
+            // Pass event data to the activity
+            intent.putExtra("EVENT_ID", event.getEventId());
+            intent.putExtra("EVENT_NAME", event.getEventName());
+            intent.putExtra("EVENT_DESCRIPTION", event.getDescription());
+            intent.putExtra("EVENT_VENUE", event.getVenue());
+            intent.putExtra("EVENT_START_DATE", event.getStartDate());
+            intent.putExtra("EVENT_END_DATE", event.getEndDate());
+            intent.putExtra("EVENT_START_TIME", event.getStartTime());
+            intent.putExtra("EVENT_END_TIME", event.getEndTime());
+            intent.putExtra("EVENT_DATE_CREATED", event.getDateCreated());
+            intent.putExtra("EVENT_STATUS", event.getStatus());
+            intent.putExtra("EVENT_PHOTO_URL", event.getPhotoUrl());
+            intent.putExtra("EVENT_TYPE", event.getEventType());
+            intent.putExtra("EVENT_FOR", event.getEventFor());
+            intent.putExtra("EVENT_SPAN", event.getEventSpan());
+            intent.putExtra("EVENT_GRACE_TIME", event.getGraceTime());
+
+            // Add rejection reason if available
+            if (event.getRejectionReason() != null && !event.getRejectionReason().isEmpty()) {
+                intent.putExtra("EVENT_REJECTION_REASON", event.getRejectionReason());
+            }
+
+            // Start the activity
+            context.startActivity(intent);
+        });
     }
 
     @Override
     public int getItemCount() {
-        return pendingEvents != null ? pendingEvents.size() : 0;
+        return events != null ? events.size() : 0;
     }
 
     // Helper method to extract day from date string (assuming format is "MM-DD-YYYY")
@@ -104,7 +155,7 @@ public class EventApprovalAdapter extends RecyclerView.Adapter<EventApprovalAdap
     }
 
     public void updateEvents(List<Event> newEvents) {
-        this.pendingEvents = newEvents;
+        this.events = newEvents;
         notifyDataSetChanged();
     }
 
@@ -134,9 +185,6 @@ public class EventApprovalAdapter extends RecyclerView.Adapter<EventApprovalAdap
             endTimeText = itemView.findViewById(R.id.endTime);
             dateCreatedText = itemView.findViewById(R.id.dateCreated);
             statusIndicator = itemView.findViewById(R.id.status_indicator);
-
-            // We don't need to get the TextView inside statusIndicator
-            // The text is already set in the layout
         }
     }
 }

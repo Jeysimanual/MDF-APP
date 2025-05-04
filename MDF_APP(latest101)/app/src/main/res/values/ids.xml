@@ -4,4 +4,5 @@
     <item name="radio_late" type="id" />
     <item name="radio_ongoing" type="id" />
     <item name="radio_pending" type="id" />
+    <item name="endDateLabel" type="id" />
 </resources>

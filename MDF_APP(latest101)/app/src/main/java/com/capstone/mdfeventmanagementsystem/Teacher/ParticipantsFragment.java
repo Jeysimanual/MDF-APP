@@ -19,7 +19,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -83,6 +85,15 @@ public class ParticipantsFragment extends Fragment {
     private String eventGraceTime;
     private boolean isMultiDayEvent = false;
     private boolean isFilteringBySection = true; // Start with filtering by section
+
+    // Multi-day event variables
+    private HorizontalScrollView dayTabsScroll;
+    private LinearLayout dayTabsContainer;
+    private TextView eventDateText;
+    private int selectedDayIndex = 0; // Default to day 1 (index 0)
+    private List<Date> eventDates = new ArrayList<>();
+    private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+    private SimpleDateFormat displayDateFormat = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
 
     // Handler for automatic status updates
     private Handler statusUpdateHandler = new Handler();
@@ -157,12 +168,14 @@ public class ParticipantsFragment extends Fragment {
                     // Check if this is a multi-day event
                     if (eventStartDate != null && eventEndDate != null && !eventStartDate.equals(eventEndDate)) {
                         isMultiDayEvent = true;
+                        setupMultiDayEvent();
                     }
 
                     // Update UI if needed
                     if (getActivity() != null) {
                         getActivity().runOnUiThread(() -> {
                             // You could update any UI elements that display the event name here
+                            setupDayTabsVisibility();
                         });
                     }
                 } else {
@@ -208,7 +221,6 @@ public class ParticipantsFragment extends Fragment {
             }
         });
 
-
         setupListeners();
         setupStatusUpdateChecker();
 
@@ -230,35 +242,6 @@ public class ParticipantsFragment extends Fragment {
         }
     }
 
-    // This method will initialize the handling of multi-day events
-    private void initMultiDayEventHandling() {
-        if (!isMultiDayEvent) {
-            return;
-        }
-
-        try {
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-            Date startDate = dateFormat.parse(eventStartDate);
-            Date endDate = dateFormat.parse(eventEndDate);
-            Date currentDate = dateFormat.parse(getCurrentDate());
-
-            // Check if we're within the event date range
-            boolean isWithinEventDates = (currentDate.equals(startDate) || currentDate.after(startDate)) &&
-                    (currentDate.equals(endDate) || currentDate.before(endDate));
-
-            if (isWithinEventDates) {
-                String dayKey = findDayKeyForCurrentDate();
-                Log.d(TAG, "Within multi-day event date range. Current day key: " + dayKey);
-
-                // You could perform additional initialization here if needed
-            } else {
-                Log.d(TAG, "Current date is outside the multi-day event range.");
-            }
-        } catch (ParseException e) {
-            Log.e(TAG, "Error initializing multi-day event handling", e);
-        }
-    }
-
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -275,6 +258,136 @@ public class ParticipantsFragment extends Fragment {
         filterButton = view.findViewById(R.id.filter_button);
         exportButton = view.findViewById(R.id.export_button);
 
+        // Initialize multi-day event views
+        dayTabsScroll = view.findViewById(R.id.day_tabs_scroll);
+        dayTabsContainer = view.findViewById(R.id.day_tabs_container);
+        eventDateText = view.findViewById(R.id.event_date_text);
+    }
+
+    /**
+     * Sets up the day tabs visibility based on multi-day event status
+     */
+    private void setupDayTabsVisibility() {
+        if (isMultiDayEvent) {
+            dayTabsScroll.setVisibility(View.VISIBLE);
+            eventDateText.setVisibility(View.VISIBLE);
+        } else {
+            dayTabsScroll.setVisibility(View.GONE);
+            eventDateText.setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * Setup multi-day event by calculating all dates between start and end dates
+     */
+    private void setupMultiDayEvent() {
+        try {
+            Date startDate = dateFormat.parse(eventStartDate);
+            Date endDate = dateFormat.parse(eventEndDate);
+
+            if (startDate != null && endDate != null) {
+                eventDates.clear();
+
+                // Add all dates between start and end dates (inclusive)
+                Calendar calendar = Calendar.getInstance();
+                calendar.setTime(startDate);
+
+                while (!calendar.getTime().after(endDate)) {
+                    eventDates.add(calendar.getTime());
+                    calendar.add(Calendar.DAY_OF_MONTH, 1);
+                }
+
+                // Find which day of the event is today (if within event dates)
+                Date today = new Date();
+                String todayStr = dateFormat.format(today);
+
+                boolean foundTodayInEventDates = false;
+                for (int i = 0; i < eventDates.size(); i++) {
+                    String dateStr = dateFormat.format(eventDates.get(i));
+                    if (dateStr.equals(todayStr)) {
+                        selectedDayIndex = i;
+                        foundTodayInEventDates = true;
+                        Log.d(TAG, "Found today in event dates at index " + i);
+                        break;
+                    }
+                }
+
+                // If today is not within event dates, select first day by default
+                if (!foundTodayInEventDates) {
+                    Log.d(TAG, "Today is not within event dates, selecting first day by default");
+                    selectedDayIndex = 0;
+                }
+
+                Log.d(TAG, "Set up multi-day event with " + eventDates.size() + " days, selected day index: " + selectedDayIndex);
+
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(this::createDayTabs);
+                }
+            }
+        } catch (ParseException e) {
+            Log.e(TAG, "Error parsing event dates", e);
+        }
+    }
+
+    /**
+     * Create day tabs for multi-day events
+     */
+    /**
+     * Create day tabs for multi-day events
+     */
+    private void createDayTabs() {
+        dayTabsContainer.removeAllViews();
+
+        for (int i = 0; i < eventDates.size(); i++) {
+            final int dayIndex = i;
+            Date date = eventDates.get(i);
+            View dayTab = LayoutInflater.from(getContext()).inflate(R.layout.layout_day_tab, dayTabsContainer, false);
+
+            TextView dayNumberText = dayTab.findViewById(R.id.day_number_text);
+            TextView dayDateText = dayTab.findViewById(R.id.day_date_text);
+
+            dayNumberText.setText("Day " + (i + 1));
+            dayDateText.setText(displayDateFormat.format(date));
+
+            // Set selected state for current day
+            dayTab.setSelected(i == selectedDayIndex);
+
+            // Add click listener
+            dayTab.setOnClickListener(v -> {
+                // Update selected state
+                for (int j = 0; j < dayTabsContainer.getChildCount(); j++) {
+                    dayTabsContainer.getChildAt(j).setSelected(j == dayIndex);
+                }
+
+                // Update selected day index
+                selectedDayIndex = dayIndex;
+                updateEventDateDisplay();
+
+                // Log that we're changing day
+                Log.d(TAG, "Changing to day " + (selectedDayIndex + 1));
+
+                // Reload participants for selected day with fresh data
+                if (isFilteringBySection) {
+                    loadParticipantsForTeacherSection();
+                } else {
+                    loadParticipants();
+                }
+            });
+
+            dayTabsContainer.addView(dayTab);
+        }
+
+        updateEventDateDisplay();
+    }
+
+    /**
+     * Update the event date display based on selected day
+     */
+    private void updateEventDateDisplay() {
+        if (eventDates.size() > selectedDayIndex) {
+            Date selectedDate = eventDates.get(selectedDayIndex);
+            eventDateText.setText("Selected Date: " + displayDateFormat.format(selectedDate));
+        }
     }
 
     private void setupRecyclerView() {
@@ -319,6 +432,48 @@ public class ParticipantsFragment extends Fragment {
         });
     }
 
+    /**
+     * This method will initialize the handling of multi-day events
+     */
+    private void initMultiDayEventHandling() {
+        if (!isMultiDayEvent) {
+            return;
+        }
+
+        try {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Date startDate = dateFormat.parse(eventStartDate);
+            Date endDate = dateFormat.parse(eventEndDate);
+            Date currentDate = dateFormat.parse(getCurrentDate());
+
+            // Check if we're within the event date range
+            boolean isWithinEventDates = (currentDate.equals(startDate) || currentDate.after(startDate)) &&
+                    (currentDate.equals(endDate) || currentDate.before(endDate));
+
+            if (isWithinEventDates) {
+                String dayKey = findDayKeyForCurrentDate();
+                Log.d(TAG, "Within multi-day event date range. Current day key: " + dayKey);
+
+                // Setup day tabs if they're not already set up
+                if (eventDates.isEmpty()) {
+                    setupMultiDayEvent();
+                }
+            } else {
+                Log.d(TAG, "Current date is outside the multi-day event range.");
+            }
+        } catch (ParseException e) {
+            Log.e(TAG, "Error initializing multi-day event handling", e);
+        }
+    }
+
+    /**
+     * Get the current date in yyyy-MM-dd format
+     */
+
+    /**
+     * Find the day key for the current date
+     * Returns "day1", "day2", etc. based on event start date
+     */
 
     // Add this method to ParticipantsFragment class
     private void loadParticipantsForTeacherSection() {
@@ -329,7 +484,7 @@ public class ParticipantsFragment extends Fragment {
             return;
         }
 
-        Log.d(TAG, "Loading participants for event: " + eventId + " filtered by teacher's section");
+        Log.d(TAG, "Loading participants for event: " + eventId + " filtered by teacher's section for day " + (selectedDayIndex + 1));
 
         // Show loading indicator
         Toast.makeText(getContext(), "Loading participants for your section...", Toast.LENGTH_SHORT).show();
@@ -559,18 +714,24 @@ public class ParticipantsFragment extends Fragment {
                     String eventSpan = snapshot.child("eventSpan").getValue(String.class);
                     isMultiDayEvent = "multi-day".equals(eventSpan);
 
+                    // Alternative check for multi-day events if eventSpan is not available
+                    if (eventStartDate != null && eventEndDate != null && !eventStartDate.equals(eventEndDate)) {
+                        isMultiDayEvent = true;
+                    }
+
                     Log.d(TAG, "Event details loaded - Start: " + eventStartDate + " " + eventStartTime +
                             ", End: " + (eventEndDate != null ? eventEndDate : eventStartDate) + " " + eventEndTime +
-                            ", Grace: " + eventGraceTime);
+                            ", Grace: " + eventGraceTime + ", Multi-day: " + isMultiDayEvent);
+
+                    // Initialize multi-day event handling if applicable
+                    if (isMultiDayEvent) {
+                        setupMultiDayEvent();
+                        setupDayTabsVisibility();
+                    }
 
                     // Now load participants after getting event details
                     // By default, load participants filtered by teacher's section
                     loadParticipantsForTeacherSection();
-
-                    // Initialize multi-day event handling if applicable
-                    if (isMultiDayEvent) {
-                        initMultiDayEventHandling();
-                    }
                 } else {
                     Log.e(TAG, "Event not found: " + finalEventKey);
                     Toast.makeText(getContext(), "Event not found", Toast.LENGTH_SHORT).show();
@@ -584,7 +745,6 @@ public class ParticipantsFragment extends Fragment {
             }
         });
     }
-
     private void loadParticipants() {
         if (eventId == null || eventId.isEmpty()) {
             Log.e(TAG, "Event ID is null or empty");
@@ -593,7 +753,7 @@ public class ParticipantsFragment extends Fragment {
             return;
         }
 
-        Log.d(TAG, "Loading participants for event: " + eventId);
+        Log.d(TAG, "Loading participants for event: " + eventId + " for day " + (selectedDayIndex + 1));
 
         // Show loading indicator
         Toast.makeText(getContext(), "Loading participants...", Toast.LENGTH_SHORT).show();
@@ -720,9 +880,8 @@ public class ParticipantsFragment extends Fragment {
         });
     }
 
-    // Update the processAttendanceData method to better handle multi-day events
+    // Update the processAttendanceData method to handle day-specific attendance data
     private void processAttendanceData(Participant participant, DataSnapshot ticketSnapshot) {
-        String currentDate = getCurrentDate();
         DataSnapshot attendanceDaysSnapshot = ticketSnapshot.child("attendanceDays");
 
         if (!attendanceDaysSnapshot.exists()) {
@@ -734,40 +893,22 @@ public class ParticipantsFragment extends Fragment {
         }
 
         if (isMultiDayEvent) {
-            // For multi-day events, find the current day's data or the most recent day if current day not found
-            boolean foundCurrentDay = false;
-            DataSnapshot mostRecentDaySnapshot = null;
-            String mostRecentDate = "";
+            // For multi-day events, use the currently selected day from the tab
+            String dayKey = "day_" + (selectedDayIndex + 1);
+            Log.d(TAG, "Processing attendance for day: " + dayKey + " (index: " + selectedDayIndex + ")");
 
-            for (DataSnapshot daySnapshot : attendanceDaysSnapshot.getChildren()) {
-                if (daySnapshot.child("date").exists()) {
-                    String dayDate = daySnapshot.child("date").getValue(String.class);
+            // Get attendance data for the selected day
+            DataSnapshot selectedDaySnapshot = attendanceDaysSnapshot.child(dayKey);
 
-                    // Check if this is current day
-                    if (currentDate.equals(dayDate)) {
-                        extractAttendanceData(participant, daySnapshot);
-                        foundCurrentDay = true;
-                        break;
-                    }
-
-                    // Track the most recent day in case we don't find current day
-                    if (mostRecentDate.isEmpty() || dayDate.compareTo(mostRecentDate) > 0) {
-                        mostRecentDate = dayDate;
-                        mostRecentDaySnapshot = daySnapshot;
-                    }
-                }
-            }
-
-            if (!foundCurrentDay) {
-                if (mostRecentDaySnapshot != null) {
-                    // Use the most recent day's data if current day not found
-                    extractAttendanceData(participant, mostRecentDaySnapshot);
-                } else {
-                    // No data for any day yet
-                    participant.setTimeIn("");
-                    participant.setTimeOut("");
-                    participant.setStatus("Pending");
-                }
+            if (selectedDaySnapshot.exists()) {
+                // There is data for this day
+                extractAttendanceData(participant, selectedDaySnapshot);
+            } else {
+                // No data for this day - set to pending
+                participant.setTimeIn("");
+                participant.setTimeOut("");
+                participant.setStatus("Pending");
+                Log.d(TAG, "No attendance data for " + participant.getName() + " on " + dayKey);
             }
         } else {
             // For single-day events
@@ -903,7 +1044,6 @@ public class ParticipantsFragment extends Fragment {
     }
 
 
-    // Update the updateAttendanceStatusForAll method to handle multi-day events
     private void updateAttendanceStatusForAll() {
         if (eventEndTime == null || eventStartTime == null) {
             Log.e(TAG, "Event time details not available for status update");
@@ -932,35 +1072,53 @@ public class ParticipantsFragment extends Fragment {
             calendarThirtyMin.add(Calendar.MINUTE, 30);
             Date thirtyMinCutoffTime = calendarThirtyMin.getTime();
 
-            boolean eventEnded = isEventEnded(currentDate);
+            // For multi-day events, check if the selected day has ended, not just the current date
+            boolean selectedDayHasEnded = false;
+
+            if (isMultiDayEvent && eventDates.size() > selectedDayIndex) {
+                // Get the date of the selected day
+                Date selectedDate = eventDates.get(selectedDayIndex);
+                String selectedDateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(selectedDate);
+
+                // Check if current date is after the selected day
+                if (currentDate.compareTo(selectedDateStr) > 0) {
+                    selectedDayHasEnded = true;
+                }
+                // If it's the same day as selected, check if current time is after event end time
+                else if (currentDate.equals(selectedDateStr) && currentTimeDate.after(endTimeDate)) {
+                    selectedDayHasEnded = true;
+                }
+            } else {
+                // For single-day event, use normal isEventEnded logic
+                selectedDayHasEnded = isEventEnded(currentDate);
+            }
+
             boolean pastCutoffTime = currentTimeDate.after(cutoffTimeDate);
             boolean pastThirtyMinCutoff = currentTimeDate.after(thirtyMinCutoffTime);
 
             // Debug logs
             Log.d(TAG, "Current date: " + currentDate + ", Current time: " + currentTime);
-            Log.d(TAG, "Event end time: " + eventEndTime + ", Event end date: " +
-                    (isMultiDayEvent ? eventEndDate : eventStartDate));
+            Log.d(TAG, "Selected day index: " + selectedDayIndex);
+            Log.d(TAG, "Event end time: " + eventEndTime);
             Log.d(TAG, "Is multi-day event: " + isMultiDayEvent);
-            Log.d(TAG, "Event ended: " + eventEnded + ", Past cutoff time: " + pastCutoffTime);
+            Log.d(TAG, "Selected day has ended: " + selectedDayHasEnded + ", Past cutoff time: " + pastCutoffTime);
             Log.d(TAG, "Past 30-min cutoff: " + pastThirtyMinCutoff);
-            Log.d(TAG, "Current day key: " + findDayKeyForCurrentDate());
 
             // If event has ended + 1 hour, update statuses
-            if (eventEnded && pastCutoffTime) {
-                Log.d(TAG, "Event has ended and 1-hour grace period has passed. Updating attendance statuses.");
+            if (selectedDayHasEnded && pastCutoffTime) {
+                Log.d(TAG, "Selected day has ended and 1-hour grace period has passed. Updating attendance statuses.");
                 updateStatusesAfterEvent();
-            } else if (eventEnded && pastThirtyMinCutoff) {
-                Log.d(TAG, "Event has ended and 30-min grace period has passed. Updating incomplete check-outs.");
+            } else if (selectedDayHasEnded && pastThirtyMinCutoff) {
+                Log.d(TAG, "Selected day has ended and 30-min grace period has passed. Updating incomplete check-outs.");
                 updateIncompleteCheckouts();
-            } else if (eventEnded) {
-                Log.d(TAG, "Event has ended but waiting for grace periods to update statuses.");
+            } else if (selectedDayHasEnded) {
+                Log.d(TAG, "Selected day has ended but waiting for grace periods to update statuses.");
             }
 
         } catch (ParseException e) {
             Log.e(TAG, "Error parsing times for status update", e);
         }
     }
-
     // Update the isEventEnded method to better handle multi-day events
     private boolean isEventEnded(String currentDate) {
         try {
@@ -1041,7 +1199,7 @@ public class ParticipantsFragment extends Fragment {
                     ", TimeIn: " + (timeIn.isEmpty() ? "empty" : timeIn) +
                     ", TimeOut: " + (timeOut.isEmpty() ? "empty" : timeOut));
 
-            // Check if status is lowercase "pending" (matching Firebase value)
+            // Check if status is "Pending" (no check-in, no check-out)
             if ((currentStatus.equalsIgnoreCase("Pending") || currentStatus.equalsIgnoreCase("pending"))
                     && timeIn.isEmpty() && timeOut.isEmpty()) {
 
@@ -1052,6 +1210,19 @@ public class ParticipantsFragment extends Fragment {
                 updatePendingToAbsentInFirebase(participant.getId(), participant.getTicketRef());
 
                 Log.d(TAG, "Changed status from pending to absent for student " +
+                        participant.getId() + " after event end + 1 hour");
+            }
+            // ADDING THIS NEW CONDITION: Check if status is "Ongoing" (has check-in but no check-out)
+            else if ((currentStatus.equalsIgnoreCase("Ongoing") || currentStatus.equalsIgnoreCase("ongoing"))
+                    && !timeIn.isEmpty() && timeOut.isEmpty()) {
+
+                // Mark status as "absent" for display
+                participant.setStatus("Absent");
+
+                // Update in Firebase
+                updateIncompleteCheckoutToAbsentInFirebase(participant.getId(), participant.getTicketRef());
+
+                Log.d(TAG, "Changed status from ongoing to absent for student " +
                         participant.getId() + " after event end + 1 hour");
             }
         }
@@ -1069,8 +1240,9 @@ public class ParticipantsFragment extends Fragment {
             return;
         }
 
-        // Get the appropriate day key based on the current date
-        String dayKey = findDayKeyForCurrentDate();
+        // Use the selected day index for multi-day events
+        String dayKey = "day_" + (selectedDayIndex + 1);
+
         Log.d(TAG, "Updating status to Absent for student " + studentId + " on " + dayKey);
 
         // Get reference to the database
@@ -1092,7 +1264,6 @@ public class ParticipantsFragment extends Fragment {
                     // Update both attendance and status fields in Firebase
                     Map<String, Object> updates = new HashMap<>();
                     updates.put("attendance", "Absent");
-                    updates.put("status", "Absent");
 
                     attendanceDaysRef.updateChildren(updates)
                             .addOnSuccessListener(aVoid -> {
@@ -1106,8 +1277,15 @@ public class ParticipantsFragment extends Fragment {
                     // Create the day node if it doesn't exist
                     Map<String, Object> dayData = new HashMap<>();
                     dayData.put("attendance", "Absent");
-                    dayData.put("status", "Absent");
-                    dayData.put("date", getCurrentDate());
+
+                    // If we have the date for this day, include it
+                    if (eventDates.size() > selectedDayIndex) {
+                        Date selectedDate = eventDates.get(selectedDayIndex);
+                        String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(selectedDate);
+                        dayData.put("date", dateStr);
+                    } else {
+                        dayData.put("date", getCurrentDate());
+                    }
 
                     attendanceDaysRef.setValue(dayData)
                             .addOnSuccessListener(aVoid -> {
@@ -1165,8 +1343,9 @@ public class ParticipantsFragment extends Fragment {
             return;
         }
 
-        // Get the appropriate day key based on the current date
-        String dayKey = findDayKeyForCurrentDate();
+        // Use the selected day index for multi-day events
+        String dayKey = "day_" + (selectedDayIndex + 1);
+
         Log.d(TAG, "Updating incomplete checkout to Absent for student " + studentId + " on " + dayKey);
 
         // Get reference to the database
@@ -1188,7 +1367,6 @@ public class ParticipantsFragment extends Fragment {
                     // Update BOTH attendance AND status fields to "Absent"
                     Map<String, Object> updates = new HashMap<>();
                     updates.put("attendance", "Absent");
-                    updates.put("status", "Absent");
 
                     attendanceDaysRef.updateChildren(updates)
                             .addOnSuccessListener(aVoid -> {

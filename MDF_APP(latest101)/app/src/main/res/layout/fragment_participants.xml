@@ -48,6 +48,39 @@
             android:drawablePadding="4dp" />
     </LinearLayout>
 
+    <!-- Day selector for multi-day events -->
+    <HorizontalScrollView
+        android:id="@+id/day_tabs_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_8sdp"
+        android:scrollbars="none"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/search_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:id="@+id/day_tabs_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <!-- Day tabs will be added here programmatically -->
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Event date display -->
+    <TextView
+        android:id="@+id/event_date_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_4sdp"
+        android:textSize="@dimen/_12ssp"
+        android:textStyle="italic"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/day_tabs_scroll"
+        app:layout_constraintStart_toStartOf="parent" />
+
     <!-- Table container with horizontal scroll -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
@@ -55,7 +88,7 @@
         android:layout_margin="@dimen/_8sdp"
         app:cardCornerRadius="@dimen/_8sdp"
         app:cardElevation="@dimen/_4sdp"
-        app:layout_constraintTop_toBottomOf="@id/search_container"
+        app:layout_constraintTop_toBottomOf="@id/event_date_text"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">

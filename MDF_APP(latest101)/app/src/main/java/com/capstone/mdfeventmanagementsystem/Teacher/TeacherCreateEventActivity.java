@@ -34,9 +34,11 @@ import com.capstone.mdfeventmanagementsystem.Utilities.BaseActivity;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.card.MaterialCardView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
@@ -301,30 +303,35 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     (view, selectedYear, selectedMonth, selectedDay) -> {
                         // Format the date
                         calendar.set(selectedYear, selectedMonth, selectedDay);
-                        SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
-                        String formattedDate = dateFormat.format(calendar.getTime());
 
-                        // Set the selected date to the field
-                        dateField.setText(formattedDate);
+                        // Format for display (keep the original format for UI)
+                        SimpleDateFormat displayFormat = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
+                        String displayDate = displayFormat.format(calendar.getTime());
+
+                        // Format for storage (use yyyy-MM-dd format)
+                        SimpleDateFormat storageFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+                        String storageDate = storageFormat.format(calendar.getTime());
+
+                        // Set the selected date to the field (for display purposes)
+                        dateField.setText(displayDate);
 
                         // If this is the start date and single day event is selected,
                         // set the end date to the same value
                         if (dateField.getId() == R.id.startDate && radioSingleDayEvent.isChecked()) {
-                            endDateField.setText(formattedDate);
+                            endDateField.setText(displayDate);
                         }
 
-                        // Store date information
+                        // Store date information in the required format
                         if (dateField.getId() == R.id.startDate) {
-                            eventData.put("startDate", formattedDate);
+                            eventData.put("startDate", storageDate);
                         } else if (dateField.getId() == R.id.endDate) {
-                            eventData.put("endDate", formattedDate);
+                            eventData.put("endDate", storageDate);
                         }
                     }, year, month, day);
 
             datePickerDialog.show();
         });
     }
-
     private void setupTimePicker(final EditText timeField, final String hint) {
         timeField.setHint(hint);
 
@@ -337,20 +344,24 @@ public class TeacherCreateEventActivity extends BaseActivity {
             // Time Picker Dialog
             TimePickerDialog timePickerDialog = new TimePickerDialog(TeacherCreateEventActivity.this,
                     (view, selectedHour, selectedMinute) -> {
-                        // Format the time
+                        // Format the time for display (12-hour format with AM/PM)
                         calendar.set(Calendar.HOUR_OF_DAY, selectedHour);
                         calendar.set(Calendar.MINUTE, selectedMinute);
-                        SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a", Locale.US);
-                        String formattedTime = timeFormat.format(calendar.getTime());
+                        SimpleDateFormat displayTimeFormat = new SimpleDateFormat("hh:mm a", Locale.US);
+                        String displayTime = displayTimeFormat.format(calendar.getTime());
 
-                        // Set the selected time to the field
-                        timeField.setText(formattedTime);
+                        // Format the time for storage (24-hour format without AM/PM)
+                        SimpleDateFormat storageTimeFormat = new SimpleDateFormat("HH:mm", Locale.US);
+                        String storageTime = storageTimeFormat.format(calendar.getTime());
 
-                        // Store time information
+                        // Set the selected time to the field (for display)
+                        timeField.setText(displayTime);
+
+                        // Store time information (without AM/PM)
                         if (timeField.getId() == R.id.startTime) {
-                            eventData.put("startTime", formattedTime);
+                            eventData.put("startTime", storageTime);
                         } else if (timeField.getId() == R.id.endTime) {
-                            eventData.put("endTime", formattedTime);
+                            eventData.put("endTime", storageTime);
                         }
                     }, hour, minute, false);
 
@@ -381,23 +392,21 @@ public class TeacherCreateEventActivity extends BaseActivity {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedOption = graceTimeOptions[position];
 
-                // Extract numeric value (0 for None, or the minutes value)
-                int graceTimeMinutes;
+                // Store the grace time value
                 if (selectedOption.equals("None")) {
-                    graceTimeMinutes = 0;
+                    // Store "none" instead of 0
+                    eventData.put("graceTime", "none");
                 } else {
                     // Extract the number from format like "15 min"
-                    graceTimeMinutes = Integer.parseInt(selectedOption.split(" ")[0]);
+                    int graceTimeMinutes = Integer.parseInt(selectedOption.split(" ")[0]);
+                    eventData.put("graceTime", graceTimeMinutes);
                 }
-
-                // Save to event data
-                eventData.put("graceTime", graceTimeMinutes);
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                // Default to 0 minutes (None)
-                eventData.put("graceTime", 0);
+                // Default to "none" instead of 0 minutes
+                eventData.put("graceTime", "none");
             }
         });
     }
@@ -592,13 +601,54 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
         // Event Type and Event For are already saved in the spinner listeners
 
-        // Add timestamp and status
+        // Add timestamp
         eventData.put("createdAt", System.currentTimeMillis());
 
-        // Add the creator's ID if user is authenticated
+        // Instead of using Firebase Auth UID, we'll use the teacher's ID
         if (FirebaseAuth.getInstance().getCurrentUser() != null) {
-            eventData.put("createdBy", FirebaseAuth.getInstance().getCurrentUser().getUid());
+            String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+            // Query the teachers node to find the teacher with matching email
+            findTeacherIdByEmail(userEmail);
+        } else {
+            // Handle the case when the user is not authenticated
+            Toast.makeText(this, "You must be logged in to create an event", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * Method to find a teacher's ID by their email address
+     * @param email The email of the logged-in teacher
+     */
+    private void findTeacherIdByEmail(String email) {
+        DatabaseReference teachersRef = FirebaseDatabase.getInstance().getReference("teachers");
+
+        teachersRef.orderByChild("email").equalTo(email).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    // We found the teacher with this email
+                    for (DataSnapshot teacherSnapshot : dataSnapshot.getChildren()) {
+                        // Get the teacher's ID (key)
+                        String teacherId = teacherSnapshot.getKey();
+                        // Add the teacher ID to the event data
+                        eventData.put("createdBy", teacherId);
+                        break; // Just take the first match (should be only one)
+                    }
+                } else {
+                    // No teacher found with this email
+                    Toast.makeText(TeacherCreateEventActivity.this,
+                            "Could not find your teacher profile. Please contact support.",
+                            Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Toast.makeText(TeacherCreateEventActivity.this,
+                        "Error finding teacher profile: " + databaseError.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void uploadFilesAndSaveEvent() {
@@ -608,6 +658,53 @@ public class TeacherCreateEventActivity extends BaseActivity {
         // Show a progress message
         Toast.makeText(this, "Uploading files and creating event...", Toast.LENGTH_SHORT).show();
 
+        // Check if we have the teacherId in eventData
+        if (!eventData.containsKey("createdBy")) {
+            // Try to get it again before continuing
+            if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+                String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+
+                // Query the teachers node to find the teacher with matching email
+                DatabaseReference teachersRef = FirebaseDatabase.getInstance().getReference("teachers");
+                teachersRef.orderByChild("email").equalTo(userEmail).addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                        if (dataSnapshot.exists()) {
+                            for (DataSnapshot teacherSnapshot : dataSnapshot.getChildren()) {
+                                String teacherId = teacherSnapshot.getKey();
+                                eventData.put("createdBy", teacherId);
+                                // Now continue with the upload
+                                proceedWithUpload();
+                            }
+                        } else {
+                            // No teacher found with this email
+                            createButton.setEnabled(true);
+                            Toast.makeText(TeacherCreateEventActivity.this,
+                                    "Could not find your teacher profile. Please contact support.",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+                        createButton.setEnabled(true);
+                        Toast.makeText(TeacherCreateEventActivity.this,
+                                "Error finding teacher profile: " + databaseError.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+            } else {
+                // User not authenticated
+                createButton.setEnabled(true);
+                Toast.makeText(this, "You must be logged in to create an event", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            // We already have the teacher ID, proceed with upload
+            proceedWithUpload();
+        }
+    }
+
+    private void proceedWithUpload() {
         // Generate a unique key for the new event
         String eventId = eventProposalRef.push().getKey();
 
@@ -629,14 +726,13 @@ public class TeacherCreateEventActivity extends BaseActivity {
         long currentTimeMillis = System.currentTimeMillis();
         eventData.put("timestamp", currentTimeMillis);
 
-        // Format current date as string - Updated format to "Month DD, YYYY"
+        // Format current date as string
         SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.US);
         String currentDate = dateFormat.format(new Date(currentTimeMillis));
         eventData.put("dateCreated", currentDate);
 
         // Upload cover photo to Firebase Storage
         if (coverPhotoUri != null) {
-            // Extract event name from the eventData map or use a default value
             String eventName = eventData.containsKey("eventName") ?
                     eventData.get("eventName").toString() :
                     "event_" + eventId;
