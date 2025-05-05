@@ -117,9 +117,25 @@ public class EventApprovalAdapter extends RecyclerView.Adapter<EventApprovalAdap
     }
 
     // Helper method to extract day from date string (assuming format is "MM-DD-YYYY")
+    // Update these methods in your EventApprovalAdapter class:
+
+    // Helper method to extract day from date string (handling both "MM-dd-yyyy" and "yyyy-MM-dd" formats)
     private String extractDayOfMonth(String dateString) {
-        if (dateString != null && dateString.length() >= 5) {
-            String[] parts = dateString.split("-");
+        if (dateString == null || dateString.isEmpty()) {
+            return "";
+        }
+
+        String[] parts;
+        // Check which format we're dealing with
+        if (dateString.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            // Format is yyyy-MM-dd
+            parts = dateString.split("-");
+            if (parts.length >= 3) {
+                return parts[2]; // Day is the third part
+            }
+        } else if (dateString.matches("\\d{2}-\\d{2}-\\d{4}")) {
+            // Format is MM-dd-yyyy
+            parts = dateString.split("-");
             if (parts.length >= 2) {
                 return parts[1]; // Day is the second part
             }
@@ -127,31 +143,44 @@ public class EventApprovalAdapter extends RecyclerView.Adapter<EventApprovalAdap
         return "";
     }
 
-    // Helper method to extract month from date string (assuming format is "MM-DD-YYYY")
+    // Helper method to extract month from date string (handling both formats)
     private String extractMonth(String dateString) {
-        if (dateString != null && dateString.length() >= 2) {
+        if (dateString == null || dateString.isEmpty()) {
+            return "";
+        }
+
+        String monthPart = "";
+        // Check which format we're dealing with
+        if (dateString.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            // Format is yyyy-MM-dd
+            String[] parts = dateString.split("-");
+            if (parts.length >= 2) {
+                monthPart = parts[1]; // Month is the second part
+            }
+        } else if (dateString.matches("\\d{2}-\\d{2}-\\d{4}")) {
+            // Format is MM-dd-yyyy
             String[] parts = dateString.split("-");
             if (parts.length >= 1) {
-                // Convert month number to month name
-                String monthNumber = parts[0];
-                switch (monthNumber) {
-                    case "01": return "Jan";
-                    case "02": return "Feb";
-                    case "03": return "Mar";
-                    case "04": return "Apr";
-                    case "05": return "May";
-                    case "06": return "Jun";
-                    case "07": return "Jul";
-                    case "08": return "Aug";
-                    case "09": return "Sep";
-                    case "10": return "Oct";
-                    case "11": return "Nov";
-                    case "12": return "Dec";
-                    default: return "";
-                }
+                monthPart = parts[0]; // Month is the first part
             }
         }
-        return "";
+
+        // Convert month number to month name
+        switch (monthPart) {
+            case "01": return "Jan";
+            case "02": return "Feb";
+            case "03": return "Mar";
+            case "04": return "Apr";
+            case "05": return "May";
+            case "06": return "Jun";
+            case "07": return "Jul";
+            case "08": return "Aug";
+            case "09": return "Sep";
+            case "10": return "Oct";
+            case "11": return "Nov";
+            case "12": return "Dec";
+            default: return "";
+        }
     }
 
     public void updateEvents(List<Event> newEvents) {

@@ -25,6 +25,11 @@ import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 import com.squareup.picasso.Picasso;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 public class EventApprovalInside extends AppCompatActivity {
 
     private static final String TAG = "EventApprovalInside";
@@ -53,6 +58,7 @@ public class EventApprovalInside extends AppCompatActivity {
     private String eventId;
     private String eventStatus;
     private String eventName;
+    private DatabaseReference eventProposalsRef;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -62,6 +68,9 @@ public class EventApprovalInside extends AppCompatActivity {
         setContentView(R.layout.activity_event_approval_inside);
 
         Log.d(TAG, "onCreate: Initializing EventApprovalInside activity");
+
+        // Initialize Firebase Database reference
+        eventProposalsRef = FirebaseDatabase.getInstance().getReference("eventProposals");
 
         // Set up window insets
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.fragment_event_approval_inside_container), (v, insets) -> {
@@ -76,8 +85,8 @@ public class EventApprovalInside extends AppCompatActivity {
         // Get data from Intent
         receiveIntentData();
 
-        // Display event data
-        displayEventData();
+        // Fetch event data from Firebase
+        fetchEventDataFromDatabase();
     }
 
     private void initializeViews() {
@@ -121,151 +130,306 @@ public class EventApprovalInside extends AppCompatActivity {
         }
     }
 
-    private void displayEventData() {
-        Log.d(TAG, "displayEventData: Setting event data to views");
+    private void fetchEventDataFromDatabase() {
+        Log.d(TAG, "fetchEventDataFromDatabase: Fetching event data from Firebase for event ID: " + eventId);
+
+        if (eventId != null && !eventId.isEmpty()) {
+            // Query the database for the specific event by its ID
+            eventProposalsRef.child(eventId).addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.exists()) {
+                        Log.d(TAG, "onDataChange: Event data found in database");
+                        displayEventDataFromDatabase(dataSnapshot);
+                    } else {
+                        Log.d(TAG, "onDataChange: Event not found in database with ID: " + eventId);
+                        // Try using intent data as fallback
+                        displayEventDataFromIntent();
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    Log.e(TAG, "fetchEventDataFromDatabase: Database error: ", databaseError.toException());
+                    // Use intent data as fallback
+                    displayEventDataFromIntent();
+                }
+            });
+        } else if (eventName != null && !eventName.isEmpty()) {
+            // If eventId is null but eventName is available, query by name
+            Log.d(TAG, "fetchEventDataFromDatabase: Trying to fetch by event name: " + eventName);
+
+            Query query = eventProposalsRef.orderByChild("eventName").equalTo(eventName);
+            query.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.exists() && dataSnapshot.getChildrenCount() > 0) {
+                        // Get the first matching event
+                        DataSnapshot firstEvent = dataSnapshot.getChildren().iterator().next();
+                        Log.d(TAG, "onDataChange: Event found by name: " + eventName);
+                        displayEventDataFromDatabase(firstEvent);
+                    } else {
+                        Log.d(TAG, "onDataChange: Event not found by name: " + eventName);
+                        // Use intent data as fallback
+                        displayEventDataFromIntent();
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    Log.e(TAG, "Query by name cancelled", databaseError.toException());
+                    // Use intent data as fallback
+                    displayEventDataFromIntent();
+                }
+            });
+        } else {
+            Log.e(TAG, "fetchEventDataFromDatabase: Both event ID and name are null or empty");
+            // Use intent data as fallback
+            displayEventDataFromIntent();
+        }
+    }
+
+    private void displayEventDataFromDatabase(DataSnapshot dataSnapshot) {
+        Log.d(TAG, "displayEventDataFromDatabase: Setting event data from database");
+
+        // Extract event data from database snapshot
+        String name = dataSnapshot.child("eventName").getValue(String.class);
+        String description = dataSnapshot.child("eventDescription").getValue(String.class);
+        String venue = dataSnapshot.child("venue").getValue(String.class);
+        String startDate = dataSnapshot.child("dateCreated").getValue(String.class);
+        String endDate = dataSnapshot.child("endDate").getValue(String.class);
+        String startTime = dataSnapshot.child("startTime").getValue(String.class);
+        String endTime = dataSnapshot.child("endTime").getValue(String.class);
+        String eventSpan = dataSnapshot.child("eventSpan").getValue(String.class);
+        String graceTime = dataSnapshot.child("graceTime").getValue(String.class);
+        String eventType = dataSnapshot.child("eventType").getValue(String.class);
+        String eventFor = dataSnapshot.child("eventFor").getValue(String.class);
+        String photoUrl = dataSnapshot.child("eventPhotoUrl").getValue(String.class);
+        String status = dataSnapshot.child("status").getValue(String.class);
+        String reason = dataSnapshot.child("reason").getValue(String.class);
+
+        // Set event data to views
+        setEventDataToViews(name, description, venue, startDate, endDate, startTime, endTime,
+                eventSpan, graceTime, eventType, eventFor, photoUrl, status, reason);
+    }
+
+    private void displayEventDataFromIntent() {
+        Log.d(TAG, "displayEventDataFromIntent: Using intent data as fallback");
 
         Intent intent = getIntent();
         if (intent != null) {
-            // Set text to views
-            String eventName = intent.getStringExtra("EVENT_NAME");
-            if (eventName != null && !eventName.isEmpty()) {
-                eventNameText.setText(eventName);
-            }
-
-            String eventDescription = intent.getStringExtra("EVENT_DESCRIPTION");
-            if (eventDescription != null && !eventDescription.isEmpty()) {
-                eventDescriptionText.setText(eventDescription);
-            }
-
-            // Get start date, end date, and venue
+            // Extract data from intent
+            String name = intent.getStringExtra("EVENT_NAME");
+            String description = intent.getStringExtra("EVENT_DESCRIPTION");
+            String venue = intent.getStringExtra("EVENT_VENUE");
             String startDate = intent.getStringExtra("EVENT_START_DATE");
             String endDate = intent.getStringExtra("EVENT_END_DATE");
-            String venue = intent.getStringExtra("EVENT_VENUE");
-
-            // Handle start date
-            if (startDate != null && !startDate.isEmpty()) {
-                startDateText.setText(startDate);
-            }
-
-            // Handle venue - make sure it's visible and set
-            if (venue != null && !venue.isEmpty() && !venue.equalsIgnoreCase("linga")) {
-                venueText.setText(venue);
-                venueText.setVisibility(View.VISIBLE);
-                venueLabel.setVisibility(View.VISIBLE);
-            } else {
-                venueText.setVisibility(View.GONE);
-                venueLabel.setVisibility(View.GONE);
-            }
-
-            // Check if event is a single day event
-            if (startDate != null && endDate != null && startDate.equals(endDate)) {
-                // It's a single day event, hide the end date section
-                endDateLabel.setVisibility(View.GONE);
-                endDateText.setVisibility(View.GONE);
-            } else {
-                // It's a multi-day event, show both dates
-                endDateLabel.setVisibility(View.VISIBLE);
-                endDateText.setVisibility(View.VISIBLE);
-                if (endDate != null && !endDate.isEmpty()) {
-                    endDateText.setText(endDate);
-                } else {
-                    endDateText.setText("Not specified");
-                }
-            }
-
-            // Set time values
             String startTime = intent.getStringExtra("EVENT_START_TIME");
             String endTime = intent.getStringExtra("EVENT_END_TIME");
-
-            if (startTime != null && !startTime.isEmpty()) {
-                startTimeText.setText(startTime);
-            } else {
-                startTimeText.setText("Not specified");
-            }
-
-            if (endTime != null && !endTime.isEmpty() && !endTime.equalsIgnoreCase("linga")) {
-                endTimeText.setText(endTime);
-            } else {
-                endTimeText.setText("Not specified");
-            }
-
-            // Additional fields
             String eventSpan = intent.getStringExtra("EVENT_SPAN");
-            if (eventSpan != null && !eventSpan.isEmpty()) {
-                eventSpanText.setText(eventSpan);
-            } else {
-                eventSpanText.setText("Single-day");
-            }
-
             String graceTime = intent.getStringExtra("EVENT_GRACE_TIME");
-            if (graceTime != null && !graceTime.isEmpty()) {
-                graceTimeText.setText(graceTime);
-            } else {
-                graceTimeText.setText("0");
-            }
-
             String eventType = intent.getStringExtra("EVENT_TYPE");
-            if (eventType != null && !eventType.isEmpty()) {
-                eventTypeText.setText(eventType);
-            } else {
-                eventTypeText.setText("Other");
-            }
-
             String eventFor = intent.getStringExtra("EVENT_FOR");
-            if (eventFor != null && !eventFor.isEmpty()) {
-                eventForText.setText(eventFor);
-            } else {
-                eventForText.setText("All");
-            }
-
-            // Load image if available
             String photoUrl = intent.getStringExtra("EVENT_PHOTO_URL");
-            if (photoUrl != null && !photoUrl.isEmpty()) {
-                try {
-                    Picasso.get().load(photoUrl).placeholder(R.drawable.placeholder_image).into(eventPhotoUrlImage);
-                } catch (Exception e) {
-                    Log.e(TAG, "displayEventData: Error loading image", e);
-                    eventPhotoUrlImage.setImageResource(R.drawable.placeholder_image);
+            String reason = intent.getStringExtra("EVENT_REJECTION_REASON");
+
+            // Set event data to views
+            setEventDataToViews(name, description, venue, startDate, endDate, startTime, endTime,
+                    eventSpan, graceTime, eventType, eventFor, photoUrl, eventStatus, reason);
+        }
+    }
+
+    private void setEventDataToViews(String name, String description, String venue,
+                                     String startDate, String endDate, String startTime, String endTime,
+                                     String eventSpan, String graceTime, String eventType,
+                                     String eventFor, String photoUrl, String status, String reason) {
+
+        Log.d(TAG, "setEventDataToViews: Setting extracted data to views");
+
+        // Set event name
+        if (name != null && !name.isEmpty()) {
+            eventNameText.setText(name);
+        }
+
+        // Set event description
+        if (description != null && !description.isEmpty()) {
+            eventDescriptionText.setText(description);
+        }
+
+        // Format and set start date in YYYY-MM-DD format to match end date
+        if (startDate != null && !startDate.isEmpty()) {
+            try {
+                // Try to parse the date if it's in a different format
+                SimpleDateFormat inputFormat;
+                if (startDate.contains(",")) {
+                    // Format like "May 05, 2025"
+                    inputFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.US);
+                } else if (startDate.contains("/")) {
+                    // Format like "05/05/2025"
+                    inputFormat = new SimpleDateFormat("MM/dd/yyyy", Locale.US);
+                } else {
+                    // Assume it's already in YYYY-MM-DD format
+                    inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
                 }
+
+                Date date = inputFormat.parse(startDate);
+                if (date != null) {
+                    SimpleDateFormat outputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+                    String formattedStartDate = outputFormat.format(date);
+                    startDateText.setText(formattedStartDate);
+                } else {
+                    startDateText.setText(startDate); // Fallback to original
+                }
+            } catch (ParseException e) {
+                Log.e(TAG, "Error parsing start date: " + e.getMessage());
+                startDateText.setText(startDate); // Fallback to original
+            }
+        }
+
+        // Always show venue section
+        venueText.setVisibility(View.VISIBLE);
+        venueLabel.setVisibility(View.VISIBLE);
+
+        // Set venue text
+        if (venue != null && !venue.isEmpty() && !venue.equalsIgnoreCase("")) {
+            venueText.setText(venue);
+        } else {
+            // Set a default value when venue is not specified
+            venueText.setText("Not specified");
+        }
+
+        // Handle single/multi-day event display
+        if (startDate != null && endDate != null && startDate.equals(endDate)) {
+            // Single day event
+            endDateLabel.setVisibility(View.GONE);
+            endDateText.setVisibility(View.GONE);
+        } else {
+            // Multi-day event
+            endDateLabel.setVisibility(View.VISIBLE);
+            endDateText.setVisibility(View.VISIBLE);
+            if (endDate != null && !endDate.isEmpty()) {
+                endDateText.setText(endDate);
             } else {
+                endDateText.setText("Not specified");
+            }
+        }
+
+        // Format and set start time with AM/PM
+        if (startTime != null && !startTime.isEmpty()) {
+            // Check if time already contains AM/PM
+            if (!startTime.contains("AM") && !startTime.contains("PM") &&
+                    !startTime.contains("am") && !startTime.contains("pm")) {
+                try {
+                    // Try to parse hour to determine AM/PM
+                    String[] timeParts = startTime.split(":");
+                    if (timeParts.length > 0) {
+                        int hour = Integer.parseInt(timeParts[0]);
+                        if (hour >= 12) {
+                            startTime += " PM";
+                        } else {
+                            startTime += " AM";
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error formatting start time: " + e.getMessage());
+                }
+            }
+            startTimeText.setText(startTime);
+        } else {
+            startTimeText.setText("Not specified");
+        }
+
+        // Format and set end time with AM/PM
+        if (endTime != null && !endTime.isEmpty() && !endTime.equalsIgnoreCase("")) {
+            // Check if time already contains AM/PM
+            if (!endTime.contains("AM") && !endTime.contains("PM") &&
+                    !endTime.contains("am") && !endTime.contains("pm")) {
+                try {
+                    // Try to parse hour to determine AM/PM
+                    String[] timeParts = endTime.split(":");
+                    if (timeParts.length > 0) {
+                        int hour = Integer.parseInt(timeParts[0]);
+                        if (hour >= 12) {
+                            endTime += " PM";
+                        } else {
+                            endTime += " AM";
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error formatting end time: " + e.getMessage());
+                }
+            }
+            endTimeText.setText(endTime);
+        } else {
+            endTimeText.setText("Not specified");
+        }
+
+        // Set additional event details
+        if (eventSpan != null && !eventSpan.isEmpty()) {
+            eventSpanText.setText(eventSpan);
+        } else {
+            eventSpanText.setText("Single-day");
+        }
+
+        if (graceTime != null && !graceTime.isEmpty() && !graceTime.equalsIgnoreCase("null")) {
+            graceTimeText.setText(graceTime);
+        } else {
+            graceTimeText.setText("none");
+        }
+
+        if (eventType != null && !eventType.isEmpty()) {
+            eventTypeText.setText(eventType);
+        } else {
+            eventTypeText.setText("Other");
+        }
+
+        if (eventFor != null && !eventFor.isEmpty()) {
+            eventForText.setText(eventFor);
+        } else {
+            eventForText.setText("All");
+        }
+
+        // Load event image
+        if (photoUrl != null && !photoUrl.isEmpty()) {
+            try {
+                Picasso.get().load(photoUrl).placeholder(R.drawable.placeholder_image).into(eventPhotoUrlImage);
+            } catch (Exception e) {
+                Log.e(TAG, "setEventDataToViews: Error loading image", e);
                 eventPhotoUrlImage.setImageResource(R.drawable.placeholder_image);
             }
-
-            // Handle event rejection status and reason
-            handleEventRejectionStatus();
+        } else {
+            eventPhotoUrlImage.setImageResource(R.drawable.placeholder_image);
         }
+
+        // Handle rejection status and reason
+        handleRejectionStatus(status, reason);
     }
 
     /**
      * Handles the display of rejection reason when event status is "rejected"
-     * Shows the rejection container with the reason fetched from the database/intent
      */
-    private void handleEventRejectionStatus() {
-        Log.d(TAG, "handleEventRejectionStatus: Checking if event is rejected");
+    private void handleRejectionStatus(String status, String reason) {
+        Log.d(TAG, "handleRejectionStatus: Checking if event is rejected");
 
         // Default hide the rejection container
         reasonContainer.setVisibility(View.GONE);
 
         // Check if event status is "rejected"
-        if (eventStatus != null && eventStatus.equalsIgnoreCase("rejected")) {
-            Log.d(TAG, "handleEventRejectionStatus: Event is rejected, showing reason container");
+        if (status != null && status.equalsIgnoreCase("rejected")) {
+            Log.d(TAG, "handleRejectionStatus: Event is rejected");
 
-            // First check if rejection reason is in intent
-            Intent intent = getIntent();
-            String reasonOfRejection = intent.getStringExtra("EVENT_REJECTION_REASON");
-
-            // If reason is in intent, display it
-            if (reasonOfRejection != null && !reasonOfRejection.isEmpty()) {
+            if (reason != null && !reason.isEmpty()) {
                 reasonContainer.setVisibility(View.VISIBLE);
-                reasonText.setText(reasonOfRejection);
-                Log.d(TAG, "handleEventRejectionStatus: Rejection reason set from intent: " + reasonOfRejection);
+                reasonText.setText(reason);
+                Log.d(TAG, "handleRejectionStatus: Showing rejection reason: " + reason);
             } else {
-                // If not in intent, fetch from Firebase
-                fetchRejectionReasonFromDatabase();
+                // If no reason provided but status is rejected, show default message
+                reasonContainer.setVisibility(View.VISIBLE);
+                reasonText.setText("No specific reason provided");
+                Log.d(TAG, "handleRejectionStatus: No rejection reason found");
             }
         }
     }
-
     /**
      * Fetches the rejection reason from Firebase Realtime Database
      * Modified to correctly query the eventProposals node based on eventId
