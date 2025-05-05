@@ -262,6 +262,49 @@
                     app:layout_constraintTop_toTopOf="@+id/eventTypeSpinner"
                     app:layout_constraintVertical_bias="0.0" />
 
+                <!-- Specify Event Type Field (Initially Hidden) -->
+                <TextView
+                    android:id="@+id/specifyEventTypeLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Specify Event Type "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/eventTypeSpinner"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:id="@+id/specifyEventTypeAsterisk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:visibility="gone"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/specifyEventTypeLabel"
+                    app:layout_constraintStart_toEndOf="@id/specifyEventTypeLabel" />
+
+                <EditText
+                    android:id="@+id/specifyEventTypeField"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/edit_text_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:hint="Enter specific event type"
+                    android:inputType="text"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/specifyEventTypeLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
                 <!-- Event Is For Field -->
                 <TextView
                     android:id="@+id/eventForLabel"
@@ -272,7 +315,7 @@
                     android:textSize="14sp"
                     android:textColor="@android:color/black"
                     android:fontFamily="@font/host_grotesk_medium"
-                    app:layout_constraintTop_toBottomOf="@id/eventTypeSpinner"
+                    app:layout_constraintTop_toBottomOf="@id/specifyEventTypeField"
                     app:layout_constraintStart_toStartOf="parent" />
 
                 <TextView

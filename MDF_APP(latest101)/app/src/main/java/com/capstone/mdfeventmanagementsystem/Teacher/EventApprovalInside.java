@@ -1,12 +1,17 @@
 package com.capstone.mdfeventmanagementsystem.Teacher;
 
 import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.webkit.MimeTypeMap;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -49,6 +54,9 @@ public class EventApprovalInside extends AppCompatActivity {
     private ImageView eventPhotoUrlImage;
     private MaterialCardView reasonContainer;
     private TextView reasonText;
+    private CardView proposalCardView;
+    private Button viewProposalButton;
+    private Button resubmitEventButton; // New button for resubmitting events
 
     // Labels for visibility control
     private TextView endDateLabel;
@@ -58,6 +66,7 @@ public class EventApprovalInside extends AppCompatActivity {
     private String eventId;
     private String eventStatus;
     private String eventName;
+    private String proposalDocUrl;
     private DatabaseReference eventProposalsRef;
 
     @SuppressLint("MissingInflatedId")
@@ -87,6 +96,12 @@ public class EventApprovalInside extends AppCompatActivity {
 
         // Fetch event data from Firebase
         fetchEventDataFromDatabase();
+
+        // Set up proposal document button click listener
+        setupProposalButtonListener();
+
+        // Set up resubmit button click listener
+        setupResubmitButtonListener();
     }
 
     private void initializeViews() {
@@ -107,6 +122,9 @@ public class EventApprovalInside extends AppCompatActivity {
         eventPhotoUrlImage = findViewById(R.id.eventPhotoUrl);
         reasonContainer = findViewById(R.id.reason_container);
         reasonText = findViewById(R.id.reason_text);
+        proposalCardView = findViewById(R.id.proposalCardView);
+        viewProposalButton = findViewById(R.id.viewProposalButton);
+        resubmitEventButton = findViewById(R.id.resubmitEventButton); // Initialize the resubmit button
 
         // Find labels for visibility control
         endDateLabel = findViewById(R.id.textView17); // This is the "Event End:" label in your XML
@@ -125,6 +143,12 @@ public class EventApprovalInside extends AppCompatActivity {
 
             Log.d(TAG, "receiveIntentData: Received event with ID: " + eventId +
                     ", name: " + eventName + " and status: " + eventStatus);
+
+            // Check if status is rejected to show resubmit button
+            if (eventStatus != null && eventStatus.equalsIgnoreCase("rejected")) {
+                resubmitEventButton.setVisibility(View.VISIBLE);
+                Log.d(TAG, "receiveIntentData: Event is rejected, showing resubmit button");
+            }
         } else {
             Log.e(TAG, "receiveIntentData: Intent is null");
         }
@@ -208,6 +232,28 @@ public class EventApprovalInside extends AppCompatActivity {
         String status = dataSnapshot.child("status").getValue(String.class);
         String reason = dataSnapshot.child("reason").getValue(String.class);
 
+        // Update event status from database
+        eventStatus = status;
+
+        // Get the proposal document URL
+        proposalDocUrl = dataSnapshot.child("eventProposal").getValue(String.class);
+
+        // Check if proposal document URL exists
+        if (proposalDocUrl != null && !proposalDocUrl.isEmpty()) {
+            proposalCardView.setVisibility(View.VISIBLE);
+            Log.d(TAG, "displayEventDataFromDatabase: Found proposal document URL: " + proposalDocUrl);
+        } else {
+            // Try alternative field name
+            proposalDocUrl = dataSnapshot.child("eventProposalUrl").getValue(String.class);
+            if (proposalDocUrl != null && !proposalDocUrl.isEmpty()) {
+                proposalCardView.setVisibility(View.VISIBLE);
+                Log.d(TAG, "displayEventDataFromDatabase: Found proposal document URL from alternative field: " + proposalDocUrl);
+            } else {
+                proposalCardView.setVisibility(View.GONE);
+                Log.d(TAG, "displayEventDataFromDatabase: No proposal document URL found");
+            }
+        }
+
         // Set event data to views
         setEventDataToViews(name, description, venue, startDate, endDate, startTime, endTime,
                 eventSpan, graceTime, eventType, eventFor, photoUrl, status, reason);
@@ -232,6 +278,16 @@ public class EventApprovalInside extends AppCompatActivity {
             String eventFor = intent.getStringExtra("EVENT_FOR");
             String photoUrl = intent.getStringExtra("EVENT_PHOTO_URL");
             String reason = intent.getStringExtra("EVENT_REJECTION_REASON");
+            proposalDocUrl = intent.getStringExtra("EVENT_PROPOSAL_URL");
+
+            // Check if proposal URL exists
+            if (proposalDocUrl != null && !proposalDocUrl.isEmpty()) {
+                proposalCardView.setVisibility(View.VISIBLE);
+                Log.d(TAG, "displayEventDataFromIntent: Found proposal document URL from intent: " + proposalDocUrl);
+            } else {
+                proposalCardView.setVisibility(View.GONE);
+                Log.d(TAG, "displayEventDataFromIntent: No proposal document URL found in intent");
+            }
 
             // Set event data to views
             setEventDataToViews(name, description, venue, startDate, endDate, startTime, endTime,
@@ -407,6 +463,7 @@ public class EventApprovalInside extends AppCompatActivity {
 
     /**
      * Handles the display of rejection reason when event status is "rejected"
+     * and shows the resubmit button
      */
     private void handleRejectionStatus(String status, String reason) {
         Log.d(TAG, "handleRejectionStatus: Checking if event is rejected");
@@ -414,9 +471,16 @@ public class EventApprovalInside extends AppCompatActivity {
         // Default hide the rejection container
         reasonContainer.setVisibility(View.GONE);
 
+        // Default hide the resubmit button
+        resubmitEventButton.setVisibility(View.GONE);
+
         // Check if event status is "rejected"
         if (status != null && status.equalsIgnoreCase("rejected")) {
             Log.d(TAG, "handleRejectionStatus: Event is rejected");
+
+            // Show the resubmit button for rejected events
+            resubmitEventButton.setVisibility(View.VISIBLE);
+            Log.d(TAG, "handleRejectionStatus: Showing resubmit button");
 
             if (reason != null && !reason.isEmpty()) {
                 reasonContainer.setVisibility(View.VISIBLE);
@@ -430,161 +494,281 @@ public class EventApprovalInside extends AppCompatActivity {
             }
         }
     }
+
     /**
-     * Fetches the rejection reason from Firebase Realtime Database
-     * Modified to correctly query the eventProposals node based on eventId
+     * Set up the click listener for the proposal document button
      */
-    private void fetchRejectionReasonFromDatabase() {
-        Log.d(TAG, "fetchRejectionReasonFromDatabase: Fetching rejection reason for event ID: " + eventId);
+    private void setupProposalButtonListener() {
+        viewProposalButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openProposalDocument();
+            }
+        });
+    }
+
+    /**
+     * Set up the click listener for the resubmit event button
+     */
+    private void setupResubmitButtonListener() {
+        resubmitEventButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                navigateToCreateEventActivity();
+            }
+        });
+    }
+
+    /**
+     * Navigate to TeacherCreateEventActivity with the event data for resubmission
+     */
+    private void navigateToCreateEventActivity() {
+        Log.d(TAG, "navigateToCreateEventActivity: Navigating to TeacherCreateEventActivity for resubmission");
+
+        Intent intent = new Intent(EventApprovalInside.this, TeacherCreateEventActivity.class);
+
+        // Pass event data to pre-fill the form
+        intent.putExtra("IS_RESUBMISSION", true);
+        intent.putExtra("EVENT_ID", eventId);
+        intent.putExtra("EVENT_NAME", eventNameText.getText().toString());
+        intent.putExtra("EVENT_DESCRIPTION", eventDescriptionText.getText().toString());
+        intent.putExtra("EVENT_VENUE", venueText.getText().toString());
+        intent.putExtra("EVENT_START_DATE", startDateText.getText().toString());
+        intent.putExtra("EVENT_END_DATE", endDateText.getText().toString());
+        intent.putExtra("EVENT_START_TIME", startTimeText.getText().toString());
+        intent.putExtra("EVENT_END_TIME", endTimeText.getText().toString());
+        intent.putExtra("EVENT_SPAN", eventSpanText.getText().toString());
+        intent.putExtra("EVENT_GRACE_TIME", graceTimeText.getText().toString());
+        intent.putExtra("EVENT_TYPE", eventTypeText.getText().toString());
+        intent.putExtra("EVENT_FOR", eventForText.getText().toString());
+        intent.putExtra("EVENT_PROPOSAL_URL", proposalDocUrl);
+
+        // Start the activity
+        startActivity(intent);
+
+        // Show a toast message
+        Toast.makeText(EventApprovalInside.this,
+                "Resubmitting event: " + eventNameText.getText().toString(),
+                Toast.LENGTH_SHORT).show();
+    }
+
+
+    /**
+     * Open the proposal document in a browser or PDF viewer
+     */
+    private void openProposalDocument() {
+        Log.d(TAG, "openProposalDocument: Attempting to open proposal document");
+
+        if (proposalDocUrl != null && !proposalDocUrl.isEmpty()) {
+            try {
+                // Create an intent to view the document
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+
+                // Ensure the URL has proper encoding
+                String encodedUrl = proposalDocUrl;
+                if (!proposalDocUrl.startsWith("http://") && !proposalDocUrl.startsWith("https://")) {
+                    // Add https if missing
+                    encodedUrl = "https://" + proposalDocUrl;
+                }
+
+                // Set the proper MIME type based on file extension
+                String mimeType = getMimeTypeFromUrl(encodedUrl);
+                if (mimeType != null) {
+                    intent.setDataAndType(Uri.parse(encodedUrl), mimeType);
+                    Log.d(TAG, "openProposalDocument: Setting MIME type: " + mimeType);
+                } else {
+                    intent.setData(Uri.parse(encodedUrl));
+                }
+
+                // Add flags to start activity in a new task
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                // Try to open with specific app first
+                try {
+                    startActivity(intent);
+                    Log.d(TAG, "openProposalDocument: Opening document with specific handler: " + encodedUrl);
+                    return;
+                } catch (ActivityNotFoundException specificAppNotFound) {
+                    Log.d(TAG, "openProposalDocument: No specific app found, trying browser");
+                }
+
+                // If no specific app to handle the document, try with browser
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW);
+                browserIntent.setData(Uri.parse(encodedUrl));
+                browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                try {
+                    startActivity(browserIntent);
+                    Log.d(TAG, "openProposalDocument: Opening in browser: " + encodedUrl);
+                } catch (ActivityNotFoundException browserNotFound) {
+                    Toast.makeText(EventApprovalInside.this,
+                            "No application found to open this document. Please install an appropriate viewer or browser.",
+                            Toast.LENGTH_LONG).show();
+                    Log.e(TAG, "openProposalDocument: No application found to handle URL at all");
+                }
+
+            } catch (Exception e) {
+                Toast.makeText(EventApprovalInside.this,
+                        "Error opening document: " + e.getMessage(),
+                        Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "openProposalDocument: Error opening document", e);
+            }
+        } else {
+            // No proposal URL available
+            Toast.makeText(EventApprovalInside.this,
+                    "No proposal document available for this event",
+                    Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "openProposalDocument: No proposal document URL available");
+
+            // Try fetching the proposal URL again from Firebase
+            fetchProposalUrlFromFirebase();
+        }
+    }
+
+    /**
+     * Get MIME type based on file extension in URL
+     * @param url The document URL
+     * @return The MIME type string or null if unknown
+     */
+    private String getMimeTypeFromUrl(String url) {
+        String extension = MimeTypeMap.getFileExtensionFromUrl(url);
+        if (extension != null && !extension.isEmpty()) {
+            String mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.toLowerCase());
+            if (mimeType != null && !mimeType.isEmpty()) {
+                return mimeType;
+            }
+        }
+
+        // Handle common document types that might not be properly detected
+        if (url.toLowerCase().endsWith(".pdf")) {
+            return "application/pdf";
+        } else if (url.toLowerCase().endsWith(".doc") || url.toLowerCase().endsWith(".docx")) {
+            return "application/msword";
+        } else if (url.toLowerCase().endsWith(".xls") || url.toLowerCase().endsWith(".xlsx")) {
+            return "application/vnd.ms-excel";
+        } else if (url.toLowerCase().endsWith(".ppt") || url.toLowerCase().endsWith(".pptx")) {
+            return "application/vnd.ms-powerpoint";
+        } else if (url.toLowerCase().endsWith(".txt")) {
+            return "text/plain";
+        }
+        // If we can't determine the type, return null to let the system decide
+        return null;
+    }
+    /**
+     * Fetch the proposal URL from Firebase if it wasn't found initially
+     */
+    private void fetchProposalUrlFromFirebase() {
+        Log.d(TAG, "fetchProposalUrlFromFirebase: Attempting to fetch proposal URL from Firebase");
 
         if (eventId != null && !eventId.isEmpty()) {
-            // Initialize Firebase Database reference - pointing to eventProposals node
-            DatabaseReference databaseRef = FirebaseDatabase.getInstance().getReference("eventProposals");
-
-            // Query the database for the specific event by its ID
-            databaseRef.child(eventId).addListenerForSingleValueEvent(new ValueEventListener() {
+            eventProposalsRef.child(eventId).addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     if (dataSnapshot.exists()) {
-                        // Try to get the reason field
-                        String reasonFromDb = dataSnapshot.child("reason").getValue(String.class);
+                        // Try different potential field names for the proposal URL
+                        String url = dataSnapshot.child("eventProposal").getValue(String.class);
 
-                        if (reasonFromDb != null && !reasonFromDb.isEmpty()) {
-                            reasonContainer.setVisibility(View.VISIBLE);
-                            reasonText.setText(reasonFromDb);
-                            Log.d(TAG, "fetchRejectionReasonFromDatabase: Reason loaded from database: " + reasonFromDb);
+                        if (url == null || url.isEmpty()) {
+                            url = dataSnapshot.child("eventProposalUrl").getValue(String.class);
+                        }
+
+                        if (url == null || url.isEmpty()) {
+                            url = dataSnapshot.child("proposalUrl").getValue(String.class);
+                        }
+
+                        if (url == null || url.isEmpty()) {
+                            url = dataSnapshot.child("proposalDocUrl").getValue(String.class);
+                        }
+
+                        if (url != null && !url.isEmpty()) {
+                            proposalDocUrl = url;
+                            proposalCardView.setVisibility(View.VISIBLE);
+                            Log.d(TAG, "fetchProposalUrlFromFirebase: Found proposal URL: " + proposalDocUrl);
+
+                            // Try opening the document again
+                            openProposalDocument();
                         } else {
-                            Log.d(TAG, "fetchRejectionReasonFromDatabase: No rejection reason found in database");
-                            // Even if no reason, show container with default message
-                            reasonContainer.setVisibility(View.VISIBLE);
-                            reasonText.setText("No specific reason provided");
+                            Log.d(TAG, "fetchProposalUrlFromFirebase: No proposal URL found in database");
+                            Toast.makeText(EventApprovalInside.this,
+                                    "No proposal document found for this event",
+                                    Toast.LENGTH_SHORT).show();
                         }
                     } else {
-                        Log.d(TAG, "fetchRejectionReasonFromDatabase: Event not found in database");
-                        // Try alternative path as fallback - directly with event ID
-                        DatabaseReference rootRef = FirebaseDatabase.getInstance().getReference();
-                        rootRef.child(eventId).addListenerForSingleValueEvent(new ValueEventListener() {
-                            @Override
-                            public void onDataChange(DataSnapshot fallbackSnapshot) {
-                                if (fallbackSnapshot.exists()) {
-                                    String fallbackReason = fallbackSnapshot.child("reason").getValue(String.class);
-                                    if (fallbackReason != null && !fallbackReason.isEmpty()) {
-                                        reasonContainer.setVisibility(View.VISIBLE);
-                                        reasonText.setText(fallbackReason);
-                                        Log.d(TAG, "Fallback: Reason loaded from database: " + fallbackReason);
-                                    } else {
-                                        // As another fallback, try to get the reason directly from the event name
-                                        tryFetchByEventName();
-                                    }
-                                } else {
-                                    // As another fallback, try to get the reason directly from the event name
-                                    tryFetchByEventName();
-                                }
-                            }
-
-                            @Override
-                            public void onCancelled(DatabaseError databaseError) {
-                                Log.e(TAG, "Fallback query cancelled", databaseError.toException());
-                                tryFetchByEventName();
-                            }
-                        });
+                        Log.d(TAG, "fetchProposalUrlFromFirebase: Event not found in database");
+                        Toast.makeText(EventApprovalInside.this,
+                                "Could not find event information",
+                                Toast.LENGTH_SHORT).show();
                     }
                 }
 
                 @Override
                 public void onCancelled(DatabaseError databaseError) {
-                    Log.e(TAG, "fetchRejectionReasonFromDatabase: Database error: ", databaseError.toException());
-                    reasonContainer.setVisibility(View.GONE);
+                    Log.e(TAG, "fetchProposalUrlFromFirebase: Database error", databaseError.toException());
+                    Toast.makeText(EventApprovalInside.this,
+                            "Database error: " + databaseError.getMessage(),
+                            Toast.LENGTH_SHORT).show();
                 }
             });
         } else if (eventName != null && !eventName.isEmpty()) {
-            // If eventId is null but eventName is available, try with event name
-            tryFetchByEventName();
-        } else {
-            Log.e(TAG, "fetchRejectionReasonFromDatabase: Both event ID and name are null or empty");
-            reasonContainer.setVisibility(View.GONE);
-        }
-    }
+            // Try finding the event by name if ID is not available
+            Query query = eventProposalsRef.orderByChild("eventName").equalTo(eventName);
+            query.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    if (dataSnapshot.exists() && dataSnapshot.getChildrenCount() > 0) {
+                        // Get the first matching event
+                        DataSnapshot firstEvent = dataSnapshot.getChildren().iterator().next();
 
-    /**
-     * Additional method to try fetching rejection reason by event name
-     * Used as a fallback when eventId-based query fails
-     */
-    private void tryFetchByEventName() {
-        if (eventName == null || eventName.isEmpty()) {
-            Log.e(TAG, "tryFetchByEventName: Event name is null or empty");
-            reasonContainer.setVisibility(View.GONE);
-            return;
-        }
+                        // Try different potential field names for the proposal URL
+                        String url = firstEvent.child("eventProposal").getValue(String.class);
 
-        Log.d(TAG, "tryFetchByEventName: Trying to fetch rejection reason for event name: " + eventName);
-
-        // Initialize Firebase Database reference
-        DatabaseReference rootRef = FirebaseDatabase.getInstance().getReference();
-
-        // Query the eventProposals node for matching eventName
-        DatabaseReference proposalsRef = rootRef.child("eventProposals");
-
-        Query query = proposalsRef.orderByChild("eventName").equalTo(eventName);
-        query.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                boolean reasonFound = false;
-
-                for (DataSnapshot eventSnapshot : dataSnapshot.getChildren()) {
-                    String status = eventSnapshot.child("status").getValue(String.class);
-                    if (status != null && status.equalsIgnoreCase("rejected")) {
-                        String reasonFromDb = eventSnapshot.child("reason").getValue(String.class);
-                        if (reasonFromDb != null && !reasonFromDb.isEmpty()) {
-                            reasonContainer.setVisibility(View.VISIBLE);
-                            reasonText.setText(reasonFromDb);
-                            reasonFound = true;
-                            Log.d(TAG, "tryFetchByEventName: Reason found: " + reasonFromDb);
-                            break;
+                        if (url == null || url.isEmpty()) {
+                            url = firstEvent.child("eventProposalUrl").getValue(String.class);
                         }
+
+                        if (url == null || url.isEmpty()) {
+                            url = firstEvent.child("proposalUrl").getValue(String.class);
+                        }
+
+                        if (url == null || url.isEmpty()) {
+                            url = firstEvent.child("proposalDocUrl").getValue(String.class);
+                        }
+
+                        if (url != null && !url.isEmpty()) {
+                            proposalDocUrl = url;
+                            proposalCardView.setVisibility(View.VISIBLE);
+                            Log.d(TAG, "fetchProposalUrlFromFirebase: Found proposal URL by name search: " + proposalDocUrl);
+
+                            // Try opening the document again
+                            openProposalDocument();
+                        } else {
+                            Log.d(TAG, "fetchProposalUrlFromFirebase: No proposal URL found by name search");
+                            Toast.makeText(EventApprovalInside.this,
+                                    "No proposal document found for this event",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Log.d(TAG, "fetchProposalUrlFromFirebase: No event found by name: " + eventName);
+                        Toast.makeText(EventApprovalInside.this,
+                                "Could not find event information",
+                                Toast.LENGTH_SHORT).show();
                     }
                 }
 
-                if (!reasonFound) {
-                    // Last attempt - try direct path with event name
-                    rootRef.child(eventName).addListenerForSingleValueEvent(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot directSnapshot) {
-                            if (directSnapshot.exists()) {
-                                String directReason = directSnapshot.child("reason").getValue(String.class);
-                                if (directReason != null && !directReason.isEmpty()) {
-                                    reasonContainer.setVisibility(View.VISIBLE);
-                                    reasonText.setText(directReason);
-                                    Log.d(TAG, "Direct path: Reason found: " + directReason);
-                                } else {
-                                    // Show default message
-                                    reasonContainer.setVisibility(View.VISIBLE);
-                                    reasonText.setText("No specific reason provided");
-                                    Log.d(TAG, "No reason found after all attempts");
-                                }
-                            } else {
-                                // Show default message
-                                reasonContainer.setVisibility(View.VISIBLE);
-                                reasonText.setText("No specific reason provided");
-                                Log.d(TAG, "No reason found after all attempts");
-                            }
-                        }
-
-                        @Override
-                        public void onCancelled(DatabaseError databaseError) {
-                            Log.e(TAG, "Direct path query cancelled", databaseError.toException());
-                            reasonContainer.setVisibility(View.VISIBLE);
-                            reasonText.setText("No specific reason provided");
-                        }
-                    });
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                    Log.e(TAG, "fetchProposalUrlFromFirebase: Database error in name query", databaseError.toException());
+                    Toast.makeText(EventApprovalInside.this,
+                            "Database error: " + databaseError.getMessage(),
+                            Toast.LENGTH_SHORT).show();
                 }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-                Log.e(TAG, "tryFetchByEventName: Database error: ", databaseError.toException());
-                reasonContainer.setVisibility(View.GONE);
-            }
-        });
+            });
+        } else {
+            Log.e(TAG, "fetchProposalUrlFromFirebase: No event ID or name available");
+            Toast.makeText(EventApprovalInside.this,
+                    "Event information is incomplete",
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 }
