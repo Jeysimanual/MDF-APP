@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Your existing dimension -->
+    <dimen name="fab_margin">48dp</dimen>
+
+    <!-- Adjusted dimensions for medium tablets -->
+    <dimen name="standard_padding">20dp</dimen>
+    <dimen name="small_padding">6dp</dimen>
+    <dimen name="medium_padding">12dp</dimen>
+    <dimen name="large_padding">30dp</dimen>
+    <dimen name="bottom_padding">120dp</dimen>
+
+    <dimen name="small_margin">6dp</dimen>
+    <dimen name="medium_margin">16dp</dimen>
+    <dimen name="large_margin">40dp</dimen>
+    <dimen name="nav_end_margin">32dp</dimen>
+
+    <dimen name="profile_image_size">48dp</dimen>
+    <dimen name="icon_size">32dp</dimen>
+    <dimen name="fab_icon_size">36dp</dimen>
+
+    <dimen name="tab_height">48dp</dimen>
+    <dimen name="fab_cradle_margin">12dp</dimen>
+    <dimen name="fab_cradle_corner_radius">50dp</dimen>
+
+    <!-- Text sizes -->
+    <dimen name="title_text_size">20sp</dimen>
+    <dimen name="tab_text_size">18sp</dimen>
+    <dimen name="message_text_size">14sp</dimen>
+</resources>

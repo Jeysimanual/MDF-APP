@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="exblack">#FF000000</color>
+    <color name="exwhite">#FFFFFFFF</color>
+    <color name="primary">#007BFF</color>
+    <color name="gray">#808080</color>
+    <color name="blue">#004aad</color>
+    <color name="light_gray">#88919d</color>
+
+    <color name="bg_login">#0c5725</color>
+
+
+    <color name="lavender">#8692f7</color>
+    <color name="grey">#F4EFEF</color>
+    <color name="off_white">#D9D9D9</color>
+    <color name="green">#347928</color>
+    <color name="bg_admin">#212A31</color>
+    <color name="bg_admin_btn">#2E3944</color>
+    <color name="ticket_bg">#E8E9E8</color>
+    <color name="exyellow">#F4D03F</color>
+    <color name="red">#e52d27</color>
+
+    <color name="exbg_gray">#f6f5f5</color>
+    <color name="bg_green">#246920</color>
+    <color name="bg_green_btn">#0C5725</color>
+    <color name="bg_green_nav">#C2C49B</color>
+    <color name="bg_green_bg">#DFE0DC</color>
+
+    <color name="border_gray">#CCCCCC</color>
+
+    <color name="light_red">#FFEBEE</color>
+    <color name="error_red">#E53935</color>
+
+
+    <color name="pending_color">#FFC107</color>  <!-- Amber/Yellow color for pending status -->
+    <color name="approved_color">#4CAF50</color> <!-- Green color for approved status -->
+    <color name="rejected_color">#F44336</color> <!-- Red color for rejected status -->
+
+
+    <!-- tryyy Base colors -->
+    <color name="dark_green">#175A37</color>
+    <color name="accent_green">#2ECC71</color>
+    <color name="medium_green">#7ED6A7</color>
+    <color name="light_green">#B5ECD1</color>
+    <color name="light_green_bg">#F4FBF7</color>
+
+    <!-- Text colors -->
+    <color name="text_gray">#555555</color>
+    <color name="light_text_gray">#888888</color>
+    <color name="divider_gray">#E0E0E0</color>
+
+    <!-- Standard colors -->
+    <color name="ex1white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="ex2yellow">#FFC107</color>
+    <color name="bg_gray">#F7F7F7</color>
+
+
+
+    <!-- try2 Add these to your colors.xml file -->
+    <color name="green_primary">#2e8b57</color>
+    <color name="green_dark">#1a7540</color>
+    <color name="green_light">#e8f5e9</color>
+    <color name="yellow">#ffb800</color>
+    <color name="yellow_dark">#ffa000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="text_primary">#333333</color>
+    <color name="text_secondary">#555555</color>
+    <color name="text_tertiary">#777777</color>
+    <color name="status_gradient">@drawable/status_gradient</color>
+
+    <!-- Green Theme Colors -->
+    <color name="green_medium">#2E7D32</color>
+    <color name="green_pale">#E8F5E9</color>
+
+</resources>
