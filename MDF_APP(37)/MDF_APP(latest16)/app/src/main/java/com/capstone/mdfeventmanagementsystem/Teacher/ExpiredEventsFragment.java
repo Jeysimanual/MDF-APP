@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.capstone.mdfeventmanagementsystem.Adapters.EventAdapter;
+import com.capstone.mdfeventmanagementsystem.Adapters.EventAdapterTeacher;
 import com.capstone.mdfeventmanagementsystem.R;
 import com.capstone.mdfeventmanagementsystem.Student.Event;
 
@@ -26,10 +27,10 @@ import java.util.List;
 public class ExpiredEventsFragment extends Fragment {
     private static final String TAG = "ExpiredEventsFragment";
     private RecyclerView recyclerView;
-    private EventAdapter eventAdapter;
+    private EventAdapterTeacher eventAdapterTeacher;
     private List<Event> expiredEventList;
     private TextView noEventMessage;
-    private EventAdapter.OnEventClickListener onEventClickListener;
+    private EventAdapterTeacher.OnEventClickListener onEventClickListener;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public ExpiredEventsFragment() {
@@ -39,8 +40,8 @@ public class ExpiredEventsFragment extends Fragment {
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
-        if (context instanceof EventAdapter.OnEventClickListener) {
-            onEventClickListener = (EventAdapter.OnEventClickListener) context;
+        if (context instanceof EventAdapterTeacher.OnEventClickListener) {
+            onEventClickListener = (EventAdapterTeacher.OnEventClickListener) context;
         } else {
             throw new RuntimeException(context.toString() + " must implement OnEventClickListener");
         }
@@ -62,8 +63,8 @@ public class ExpiredEventsFragment extends Fragment {
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         expiredEventList = new ArrayList<>();
 
-        eventAdapter = new EventAdapter(getContext(), expiredEventList, onEventClickListener);
-        recyclerView.setAdapter(eventAdapter);
+        eventAdapterTeacher = new EventAdapterTeacher(getContext(), expiredEventList, onEventClickListener);
+        recyclerView.setAdapter(eventAdapterTeacher);
 
         // Initially show the no events message
         noEventMessage.setVisibility(View.VISIBLE);
@@ -102,9 +103,9 @@ public class ExpiredEventsFragment extends Fragment {
         }
 
         // Update adapter
-        if (eventAdapter != null) {
-            eventAdapter.updateEventList(expiredEventList);
-            eventAdapter.notifyDataSetChanged();
+        if (eventAdapterTeacher != null) {
+            eventAdapterTeacher.updateEventList(expiredEventList);
+            eventAdapterTeacher.notifyDataSetChanged();
         }
     }
 }

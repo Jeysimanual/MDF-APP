@@ -3,6 +3,7 @@ package com.capstone.mdfeventmanagementsystem.Student;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
@@ -30,23 +31,65 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.squareup.picasso.Picasso;
+import com.squareup.picasso.Transformation;
+
+/**
+ * Circle transformation for Picasso to display profile images as circles
+ */
+class CircleTransformStudent implements Transformation {
+    @Override
+    public Bitmap transform(Bitmap source) {
+        int size = Math.min(source.getWidth(), source.getHeight());
+        int x = (source.getWidth() - size) / 2;
+        int y = (source.getHeight() - size) / 2;
+
+        Bitmap squaredBitmap = Bitmap.createBitmap(source, x, y, size, size);
+        if (squaredBitmap != source) {
+            source.recycle();
+        }
+
+        Bitmap bitmap = Bitmap.createBitmap(size, size, source.getConfig());
+        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+        android.graphics.Paint paint = new android.graphics.Paint();
+        android.graphics.BitmapShader shader = new android.graphics.BitmapShader(
+                squaredBitmap, android.graphics.Shader.TileMode.CLAMP,
+                android.graphics.Shader.TileMode.CLAMP);
+
+        paint.setShader(shader);
+        paint.setAntiAlias(true);
+
+        float r = size / 2f;
+        canvas.drawCircle(r, r, r, paint);
+
+        squaredBitmap.recycle();
+        return bitmap;
+    }
+
+    @Override
+    public String key() {
+        return "circle";
+    }
+}
 
 public class ProfileActivity extends BaseActivity {
 
     private static final String TAG = "ProfileActivity";
     private TextView txtUserName, txtUserEmail;
-    private ImageView imgProfile, btnBack;
+    private ImageView imgProfileStudent, btnBack;
     private LinearLayout btnMyInfo, btnChangePassword;
     private Button btnLogout;
     private DatabaseReference studentsRef;
+    private DatabaseReference profilesRef; // Added for student profiles
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile);
 
-        // Initialize Firebase Database reference
+        // Initialize Firebase Database references
         studentsRef = FirebaseDatabase.getInstance().getReference().child("students");
+        profilesRef = FirebaseDatabase.getInstance().getReference().child("user_profiles"); // New reference for profile images
 
         findViewById(R.id.fab_scan).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -61,7 +104,7 @@ public class ProfileActivity extends BaseActivity {
 
         txtUserName = findViewById(R.id.txtUserName);
         txtUserEmail = findViewById(R.id.txtUserEmail);
-        imgProfile = findViewById(R.id.imgProfile);
+        imgProfileStudent = findViewById(R.id.imgProfileStudent);
         btnBack = findViewById(R.id.btnBack);
         btnMyInfo = findViewById(R.id.btnMyInfo);
         btnChangePassword = findViewById(R.id.btnChangePassword);
@@ -105,9 +148,16 @@ public class ProfileActivity extends BaseActivity {
             return false;
         });
 
-        // ✅ Initialize Logout Button
+        // Initialize Logout Button
         btnLogout = findViewById(R.id.btnLogout);
         btnLogout.setOnClickListener(v -> logoutUser());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Reload profile data when returning to this screen
+        loadUserProfile();
     }
 
     private void loadUserProfile() {
@@ -119,10 +169,124 @@ public class ProfileActivity extends BaseActivity {
             // Try to fetch full name from Firebase Database
             fetchUserFullName(user.getUid(), user.getEmail());
 
-            // Load profile image if available
-            if (user.getPhotoUrl() != null) {
-                Glide.with(this).load(user.getPhotoUrl()).into(imgProfile);
+            // Check for profile image - first check student_profiles collection
+            checkProfileImage(user.getUid());
+        }
+    }
+
+    /**
+     * Checks for profile image in student_profiles collection
+     * @param uid User ID for lookup
+     */
+    private void checkProfileImage(String uid) {
+        profilesRef.child(uid).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists() && dataSnapshot.hasChild("profileImage")) {
+                    String profileImageUrl = dataSnapshot.child("profileImage").getValue(String.class);
+                    if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                        Log.d(TAG, "Found profile image in student_profiles: " + profileImageUrl);
+                        loadProfileImage(profileImageUrl);
+                    } else {
+                        // If no image in profiles, check the students collection
+                        checkStudentProfileImage(uid);
+                    }
+                } else {
+                    Log.d(TAG, "No profile image found in student_profiles, checking students collection");
+                    checkStudentProfileImage(uid);
+                }
             }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error checking student_profiles: " + error.getMessage());
+                // Fallback to students collection
+                checkStudentProfileImage(uid);
+            }
+        });
+    }
+
+    /**
+     * Checks for profile image in students collection
+     * @param uid User ID for lookup
+     */
+    private void checkStudentProfileImage(String uid) {
+        studentsRef.child(uid).child("profileImage").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    String profileImageUrl = dataSnapshot.getValue(String.class);
+                    if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                        Log.d(TAG, "Found profile image in students collection: " + profileImageUrl);
+                        loadProfileImage(profileImageUrl);
+                    } else {
+                        Log.d(TAG, "Profile image field exists but is empty");
+                        setDefaultProfileImage();
+                    }
+                } else {
+                    Log.d(TAG, "No profile image in students collection");
+                    // Check if firebase user has photo URL as last resort
+                    FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+                    if (user != null && user.getPhotoUrl() != null) {
+                        loadProfileImage(user.getPhotoUrl().toString());
+                    } else {
+                        setDefaultProfileImage();
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error checking student profile image: " + error.getMessage());
+                setDefaultProfileImage();
+            }
+        });
+    }
+
+    /**
+     * Loads profile image using Picasso with circle transformation
+     * @param imageUrl URL of the profile image
+     */
+    private void loadProfileImage(String imageUrl) {
+        if (imgProfileStudent == null) {
+            Log.e(TAG, "Cannot load profile image: ImageView is null");
+            return;
+        }
+
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            Log.d(TAG, "Loading profile image from: " + imageUrl);
+
+            // Use Picasso to load the image with transformation for circular display
+            Picasso.get()
+                    .load(imageUrl)
+                    .transform(new CircleTransformStudent()) // Use CircleTransform for circular images
+                    .placeholder(R.drawable.profile_placeholder)
+                    .error(R.drawable.profile_placeholder)
+                    .networkPolicy(com.squareup.picasso.NetworkPolicy.NO_CACHE)
+                    .memoryPolicy(com.squareup.picasso.MemoryPolicy.NO_CACHE, com.squareup.picasso.MemoryPolicy.NO_STORE)
+                    .into(imgProfileStudent, new com.squareup.picasso.Callback() {
+                        @Override
+                        public void onSuccess() {
+                            Log.d(TAG, "Profile image loaded successfully");
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            Log.e(TAG, "Error loading profile image: " + (e != null ? e.getMessage() : "unknown error"));
+                            setDefaultProfileImage();
+                        }
+                    });
+        } else {
+            setDefaultProfileImage();
+        }
+    }
+
+    /**
+     * Sets default profile image placeholder
+     */
+    private void setDefaultProfileImage() {
+        if (imgProfileStudent != null) {
+            imgProfileStudent.setImageResource(R.drawable.profile_placeholder);
         }
     }
 
@@ -243,7 +407,7 @@ public class ProfileActivity extends BaseActivity {
         }
     }
 
-    /** ✅ Handles user logout */
+    /** Handles user logout */
     private void logoutUser() {
         // Log out from Firebase Authentication
         FirebaseAuth.getInstance().signOut();

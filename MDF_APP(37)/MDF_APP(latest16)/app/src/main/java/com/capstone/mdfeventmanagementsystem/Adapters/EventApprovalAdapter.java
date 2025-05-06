@@ -32,7 +32,7 @@ public class EventApprovalAdapter extends RecyclerView.Adapter<EventApprovalAdap
     @NonNull
     @Override
     public EventViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_events, parent, false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_events_teacher, parent, false);
         return new EventViewHolder(view);
     }
 

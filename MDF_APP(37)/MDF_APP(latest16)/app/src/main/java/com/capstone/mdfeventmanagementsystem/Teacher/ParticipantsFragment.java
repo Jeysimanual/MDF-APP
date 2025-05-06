@@ -57,6 +57,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -466,6 +468,21 @@ public class ParticipantsFragment extends Fragment {
         }
     }
 
+    private void sortParticipantsByName() {
+        if (participantList != null && !participantList.isEmpty()) {
+            Log.d(TAG, "Sorting participants by name");
+            Collections.sort(participantList, new Comparator<Participant>() {
+                @Override
+                public int compare(Participant p1, Participant p2) {
+                    // Handle null names gracefully
+                    String name1 = p1.getName() != null ? p1.getName() : "";
+                    String name2 = p2.getName() != null ? p2.getName() : "";
+                    return name1.compareToIgnoreCase(name2); // Case-insensitive sorting
+                }
+            });
+        }
+    }
+
     /**
      * Get the current date in yyyy-MM-dd format
      */
@@ -669,6 +686,7 @@ public class ParticipantsFragment extends Fragment {
 
                     // Check and update statuses based on current time before displaying
                     updateAttendanceStatusForAll();
+                    sortParticipantsByName();
 
                     adapter.setParticipants(participantList);
                 }
@@ -865,6 +883,7 @@ public class ParticipantsFragment extends Fragment {
 
                     // Check and update statuses based on current time before displaying
                     updateAttendanceStatusForAll();
+                    sortParticipantsByName();
 
                     adapter.setParticipants(participantList);
                 }

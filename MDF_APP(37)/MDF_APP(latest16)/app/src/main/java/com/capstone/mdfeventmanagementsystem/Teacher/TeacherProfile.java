@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -29,6 +30,44 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.squareup.picasso.Picasso;
 
+import android.graphics.Bitmap;
+import com.squareup.picasso.Transformation;
+
+class CircleTransformOutside implements Transformation {
+    @Override
+    public Bitmap transform(Bitmap source) {
+        int size = Math.min(source.getWidth(), source.getHeight());
+        int x = (source.getWidth() - size) / 2;
+        int y = (source.getHeight() - size) / 2;
+
+        Bitmap squaredBitmap = Bitmap.createBitmap(source, x, y, size, size);
+        if (squaredBitmap != source) {
+            source.recycle();
+        }
+
+        Bitmap bitmap = Bitmap.createBitmap(size, size, source.getConfig());
+        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+        android.graphics.Paint paint = new android.graphics.Paint();
+        android.graphics.BitmapShader shader = new android.graphics.BitmapShader(
+                squaredBitmap, android.graphics.Shader.TileMode.CLAMP,
+                android.graphics.Shader.TileMode.CLAMP);
+
+        paint.setShader(shader);
+        paint.setAntiAlias(true);
+
+        float r = size / 2f;
+        canvas.drawCircle(r, r, r, paint);
+
+        squaredBitmap.recycle();
+        return bitmap;
+    }
+
+    @Override
+    public String key() {
+        return "circle";
+    }
+}
+
 public class TeacherProfile extends BaseActivity {
     private static final String TAG = "TeacherProfile";
 
@@ -37,7 +76,9 @@ public class TeacherProfile extends BaseActivity {
 
     // Added for teacher information display
     private TextView txtFullname, txtUserEmail;
+    private ImageView profileImageView; // Added ImageView for profile picture
     private DatabaseReference teachersRef;
+    private DatabaseReference profilesRef; // Added reference to teacher_profiles
     private FirebaseAuth mAuth;
 
     @Override
@@ -48,6 +89,7 @@ public class TeacherProfile extends BaseActivity {
         // Initialize Firebase components
         mAuth = FirebaseAuth.getInstance();
         teachersRef = FirebaseDatabase.getInstance().getReference().child("teachers");
+        profilesRef = FirebaseDatabase.getInstance().getReference().child("teacher_profiles"); // Initialize profiles reference
 
         findViewById(R.id.fab_create).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -108,6 +150,13 @@ public class TeacherProfile extends BaseActivity {
         });
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Reload teacher data when returning to this screen
+        loadTeacherData();
+    }
+
     private void initializeUI() {
         btnMyInfo = findViewById(R.id.btnMyInfo);
         btnChangePassword = findViewById(R.id.btnChangePassword);
@@ -116,6 +165,12 @@ public class TeacherProfile extends BaseActivity {
         // Initialize text views for teacher information
         txtFullname = findViewById(R.id.txtFullname);
         txtUserEmail = findViewById(R.id.txtUserEmail);
+
+        // Initialize profile image view
+        profileImageView = findViewById(R.id.imgProfile);
+        if (profileImageView == null) {
+            Log.e(TAG, "Profile ImageView not found in layout");
+        }
     }
 
     private void loadTeacherData() {
@@ -137,6 +192,102 @@ public class TeacherProfile extends BaseActivity {
         } else {
             // Fallback to direct UID lookup
             findTeacherByUid(uid);
+        }
+
+        // Check for profile image in teacher_profiles
+        checkProfileImage(uid);
+    }
+
+    private void checkProfileImage(String uid) {
+        profilesRef.child(uid).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists() && dataSnapshot.hasChild("profileImage")) {
+                    String profileImageUrl = dataSnapshot.child("profileImage").getValue(String.class);
+                    if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                        Log.d(TAG, "Found profile image in teacher_profiles: " + profileImageUrl);
+                        loadProfileImage(profileImageUrl);
+                    }
+                } else {
+                    Log.d(TAG, "No profile image found in teacher_profiles, checking teachers collection");
+                    // If no image in profiles, check the teachers collection
+                    checkTeacherProfileImage(uid);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error checking teacher_profiles: " + error.getMessage());
+                // Fallback to teachers collection
+                checkTeacherProfileImage(uid);
+            }
+        });
+    }
+
+    private void checkTeacherProfileImage(String uid) {
+        teachersRef.child(uid).child("profileImage").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    String profileImageUrl = dataSnapshot.getValue(String.class);
+                    if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                        Log.d(TAG, "Found profile image in teachers collection: " + profileImageUrl);
+                        loadProfileImage(profileImageUrl);
+                    } else {
+                        Log.d(TAG, "Profile image field exists but is empty");
+                        setDefaultProfileImage();
+                    }
+                } else {
+                    Log.d(TAG, "No profile image in teachers collection");
+                    setDefaultProfileImage();
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error checking teacher profile image: " + error.getMessage());
+                setDefaultProfileImage();
+            }
+        });
+    }
+
+    private void loadProfileImage(String imageUrl) {
+        if (profileImageView == null) {
+            Log.e(TAG, "Cannot load profile image: ImageView is null");
+            return;
+        }
+
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            Log.d(TAG, "Loading profile image from: " + imageUrl);
+
+            // Use Picasso to load the image with transformation for circular display
+            Picasso.get()
+                    .load(imageUrl)
+                    .transform(new CircleTransformOutside()) // Use the same CircleTransform as in TeacherInformation
+                    .placeholder(R.drawable.profile_placeholder)
+                    .error(R.drawable.profile_placeholder)
+                    .networkPolicy(com.squareup.picasso.NetworkPolicy.NO_CACHE)
+                    .memoryPolicy(com.squareup.picasso.MemoryPolicy.NO_CACHE, com.squareup.picasso.MemoryPolicy.NO_STORE)
+                    .into(profileImageView, new com.squareup.picasso.Callback() {
+                        @Override
+                        public void onSuccess() {
+                            Log.d(TAG, "Profile image loaded successfully");
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            Log.e(TAG, "Error loading profile image: " + (e != null ? e.getMessage() : "unknown error"));
+                            setDefaultProfileImage();
+                        }
+                    });
+        } else {
+            setDefaultProfileImage();
+        }
+    }
+
+    private void setDefaultProfileImage() {
+        if (profileImageView != null) {
+            profileImageView.setImageResource(R.drawable.profile_placeholder);
         }
     }
 

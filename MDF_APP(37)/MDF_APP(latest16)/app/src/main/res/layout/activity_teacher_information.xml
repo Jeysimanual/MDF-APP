@@ -6,8 +6,8 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
-    tools:context=".Student.MyInformation">
+    android:background="@color/light_blue_bg"
+    tools:context=".Teacher.TeacherInformation">
 
     <!-- Back Button -->
     <ImageView
@@ -31,14 +31,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <ImageView
-                android:layout_width="match_parent"
-                android:layout_height="@dimen/_150sdp"
-                android:src="@color/grey"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
             <androidx.cardview.widget.CardView
                 android:id="@+id/profile_holder"
                 android:layout_width="@dimen/_270sdp"
@@ -60,7 +52,7 @@
                         android:layout_marginTop="@dimen/_50sdp"
                         android:text="------"
                         android:textAlignment="center"
-                        android:textSize="@dimen/_18ssp"
+                        android:textSize="@dimen/_16ssp"
                         android:textStyle="bold"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
@@ -73,7 +65,7 @@
                         android:layout_marginTop="@dimen/_5sdp"
                         android:text="-----------------------------"
                         android:textAlignment="center"
-                        android:textSize="@dimen/_13ssp"
+                        android:textSize="@dimen/_11ssp"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintHorizontal_bias="0.0"
                         app:layout_constraintStart_toStartOf="parent"
@@ -81,20 +73,6 @@
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
-
-            <ImageButton
-                android:id="@+id/editProfileButton"
-                android:layout_width="@dimen/_20sdp"
-                android:layout_height="@dimen/_20sdp"
-                android:background="@android:color/transparent"
-                android:visibility="visible"
-                app:layout_constraintBottom_toTopOf="@+id/profile_info"
-                app:layout_constraintEnd_toEndOf="@+id/profile_info"
-                app:layout_constraintHorizontal_bias="1.0"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/profile_holder"
-                app:layout_constraintVertical_bias="1.0"
-                app:srcCompat="@drawable/ic_edit" />
 
             <androidx.cardview.widget.CardView
                 android:id="@+id/profile_info"
@@ -104,10 +82,11 @@
                 android:layout_marginBottom="@dimen/_25sdp"
                 android:elevation="4dp"
                 app:cardCornerRadius="12dp"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/profile_holder"
-                app:layout_constraintBottom_toBottomOf="parent">
+                app:layout_constraintVertical_bias="1.0">
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
@@ -122,7 +101,7 @@
                         android:fontFamily="@font/host_grotesk_extra_bold"
                         android:paddingLeft="@dimen/_6sdp"
                         android:text="Profile Information"
-                        android:textColor="@color/green"
+                        android:textColor="@color/blue"
                         android:textSize="@dimen/_13ssp"
                         android:textStyle="bold"
                         app:layout_constraintEnd_toEndOf="parent"
@@ -139,13 +118,13 @@
                         android:fontFamily="@font/host_grotesk_bold"
                         android:text="First Name :"
                         android:textSize="@dimen/_12ssp"
-                        app:layout_constraintEnd_toStartOf="@+id/firstName"
+                        app:layout_constraintEnd_toStartOf="@+id/first_Name"
                         app:layout_constraintHorizontal_bias="0.5"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/account_info_text" />
 
                     <TextView
-                        android:id="@+id/firstName"
+                        android:id="@+id/first_Name"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/_8sdp"
@@ -167,13 +146,13 @@
                         android:fontFamily="@font/host_grotesk_bold"
                         android:text="Last Name:"
                         android:textSize="@dimen/_12ssp"
-                        app:layout_constraintEnd_toStartOf="@+id/lastName"
+                        app:layout_constraintEnd_toStartOf="@+id/last_Name"
                         app:layout_constraintHorizontal_bias="0.5"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/fistName_text" />
 
                     <TextView
-                        android:id="@+id/lastName"
+                        android:id="@+id/last_Name"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/_8sdp"
@@ -187,21 +166,21 @@
                         app:layout_constraintTop_toBottomOf="@+id/fistName_text" />
 
                     <TextView
-                        android:id="@+id/idNumber_text"
+                        android:id="@+id/Number_text"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="@dimen/_15sdp"
                         android:layout_marginTop="@dimen/_8sdp"
                         android:fontFamily="@font/host_grotesk_bold"
-                        android:text="ID Number :"
+                        android:text="Contact Number :"
                         android:textSize="@dimen/_12ssp"
-                        app:layout_constraintEnd_toStartOf="@+id/idNumber"
+                        app:layout_constraintEnd_toStartOf="@+id/Number"
                         app:layout_constraintHorizontal_bias="0.5"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/lastName_text" />
+                        app:layout_constraintTop_toBottomOf="@+id/email_text" />
 
                     <TextView
-                        android:id="@+id/idNumber"
+                        android:id="@+id/Number"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/_8sdp"
@@ -211,8 +190,8 @@
                         android:textSize="@dimen/_12ssp"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintHorizontal_bias="0.5"
-                        app:layout_constraintStart_toEndOf="@+id/idNumber_text"
-                        app:layout_constraintTop_toBottomOf="@+id/lastName_text" />
+                        app:layout_constraintStart_toEndOf="@+id/Number_text"
+                        app:layout_constraintTop_toBottomOf="@+id/email_text" />
 
                     <TextView
                         android:id="@+id/email_text"
@@ -223,44 +202,46 @@
                         android:fontFamily="@font/host_grotesk_bold"
                         android:text="Email :"
                         android:textSize="@dimen/_12ssp"
-                        app:layout_constraintEnd_toStartOf="@+id/email"
+                        app:layout_constraintEnd_toStartOf="@+id/Email"
                         app:layout_constraintHorizontal_bias="0.5"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/idNumber_text" />
+                        app:layout_constraintTop_toBottomOf="@+id/lastName_text" />
 
                     <TextView
-                        android:id="@+id/email"
+                        android:id="@+id/Email"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/_8sdp"
                         android:layout_marginEnd="@dimen/_15sdp"
                         android:fontFamily="@font/host_grotesk_regular"
                         android:text="-----------------"
+                        android:textSize="@dimen/_12ssp"
                         android:singleLine="true"
                         android:maxLines="1"
                         android:ellipsize="end"
-                        android:textSize="@dimen/_12ssp"
+                        android:scrollHorizontally="true"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintHorizontal_bias="0.5"
                         app:layout_constraintStart_toEndOf="@+id/email_text"
-                        app:layout_constraintTop_toBottomOf="@+id/idNumber" />
+                        app:layout_constraintTop_toBottomOf="@+id/lastName_text" />
+
 
                     <TextView
-                        android:id="@+id/yrlvl_text"
+                        android:id="@+id/birthday_text"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="@dimen/_15sdp"
                         android:layout_marginTop="@dimen/_8sdp"
                         android:fontFamily="@font/host_grotesk_bold"
-                        android:text="Year Level :"
+                        android:text="Birthday :"
                         android:textSize="@dimen/_12ssp"
-                        app:layout_constraintEnd_toStartOf="@+id/yrlvl"
+                        app:layout_constraintEnd_toStartOf="@+id/advisor"
                         app:layout_constraintHorizontal_bias="0.5"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/email_text" />
+                        app:layout_constraintTop_toBottomOf="@+id/Number_text" />
 
                     <TextView
-                        android:id="@+id/yrlvl"
+                        android:id="@+id/birthday"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/_8sdp"
@@ -270,8 +251,36 @@
                         android:textSize="@dimen/_12ssp"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintHorizontal_bias="0.5"
-                        app:layout_constraintStart_toEndOf="@+id/yrlvl_text"
-                        app:layout_constraintTop_toBottomOf="@+id/email" />
+                        app:layout_constraintStart_toEndOf="@+id/birthday_text"
+                        app:layout_constraintTop_toBottomOf="@+id/Number_text" />
+
+                    <TextView
+                        android:id="@+id/advisor_text"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/_15sdp"
+                        android:layout_marginTop="@dimen/_8sdp"
+                        android:fontFamily="@font/host_grotesk_bold"
+                        android:text="Grade Advisor :"
+                        android:textSize="@dimen/_12ssp"
+                        app:layout_constraintEnd_toStartOf="@+id/advisor"
+                        app:layout_constraintHorizontal_bias="0.5"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/birthday_text" />
+
+                    <TextView
+                        android:id="@+id/advisor"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_8sdp"
+                        android:layout_marginEnd="@dimen/_15sdp"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        android:text="----- -"
+                        android:textSize="@dimen/_12ssp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintHorizontal_bias="0.5"
+                        app:layout_constraintStart_toEndOf="@+id/advisor_text"
+                        app:layout_constraintTop_toBottomOf="@+id/birthday_text" />
 
                     <TextView
                         android:id="@+id/section_text"
@@ -282,16 +291,16 @@
                         android:fontFamily="@font/host_grotesk_bold"
                         android:text="Section :"
                         android:textSize="@dimen/_12ssp"
-                        app:layout_constraintEnd_toStartOf="@+id/section"
+                        app:layout_constraintEnd_toStartOf="@+id/Section"
                         app:layout_constraintHorizontal_bias="0.5"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/yrlvl_text" />
+                        app:layout_constraintTop_toBottomOf="@+id/advisor_text" />
 
                     <TextView
-                        android:id="@+id/section"
+                        android:id="@+id/Section"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/_8sdp"
+                        android:layout_marginTop="12dp"
                         android:layout_marginEnd="@dimen/_15sdp"
                         android:fontFamily="@font/host_grotesk_regular"
                         android:text="-----"
@@ -299,7 +308,7 @@
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintHorizontal_bias="0.5"
                         app:layout_constraintStart_toEndOf="@+id/section_text"
-                        app:layout_constraintTop_toBottomOf="@+id/yrlvl" />
+                        app:layout_constraintTop_toBottomOf="@+id/advisor" />
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
@@ -319,7 +328,7 @@
                 app:layout_constraintTop_toTopOf="parent" />
 
             <ImageView
-                android:id="@+id/add_profile"
+                android:id="@+id/add_profile_teacher"
                 android:layout_width="@dimen/_22sdp"
                 android:layout_height="@dimen/_22sdp"
                 android:layout_marginLeft="@dimen/_50sdp"
@@ -333,6 +342,7 @@
                 app:layout_constraintHorizontal_bias="0.644"
                 app:layout_constraintStart_toStartOf="@+id/profileImageView"
                 app:layout_constraintTop_toTopOf="@+id/profileImageView" />
+
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </ScrollView>
