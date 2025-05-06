@@ -39,7 +39,8 @@
 
     <color name="pending_color">#FFC107</color>  <!-- Amber/Yellow color for pending status -->
     <color name="approved_color">#4CAF50</color> <!-- Green color for approved status -->
-    <color name="rejected_color">#F44336</color> <!-- Red color for rejected status -->
+    <color name="rejected_color">#F44336</color>
+    <color name="orange" /> <!-- Red color for rejected status -->
 
 
 </resources>

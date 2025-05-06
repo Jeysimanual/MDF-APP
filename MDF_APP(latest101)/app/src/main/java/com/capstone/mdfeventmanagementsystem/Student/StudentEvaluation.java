@@ -418,9 +418,9 @@ public class StudentEvaluation extends AppCompatActivity {
                     eventStudentRef.updateChildren(completionUpdate)
                             .addOnSuccessListener(aVoid2 -> {
                                 Log.d(RESPONSE_TAG, "Student completion status updated successfully");
-                                Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully", Toast.LENGTH_SHORT).show();
-                                hideLoading();
-                                finish();
+
+                                // Update student attendance status from Pending to Completed
+                                updateAttendanceStatus(studentId);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(RESPONSE_TAG, "Error updating event completion status: " + e.getMessage());
@@ -435,6 +435,129 @@ public class StudentEvaluation extends AppCompatActivity {
                     hideLoading();
                     submitButton.setEnabled(true);
                 });
+    }
+
+    // New method to update attendance status from "Pending" to "Completed"
+    private void updateAttendanceStatus(String studentId) {
+        Log.d(RESPONSE_TAG, "Updating attendance status for student: " + studentId + " in event: " + eventId);
+
+        // First check if the student has a ticket for this event
+        DatabaseReference ticketRef = FirebaseDatabase.getInstance()
+                .getReference("students")
+                .child(studentId)
+                .child("tickets")
+                .child(eventId);
+
+        ticketRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                if (dataSnapshot.exists()) {
+                    Log.d(RESPONSE_TAG, "Found ticket for student in event");
+
+                    // Get event data to check if it's a multi-day event
+                    DatabaseReference eventRef = FirebaseDatabase.getInstance()
+                            .getReference("events")
+                            .child(eventId);
+
+                    eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot eventSnapshot) {
+                            if (eventSnapshot.exists()) {
+                                String eventSpan = eventSnapshot.child("eventSpan").getValue(String.class);
+                                boolean isMultiDay = "multi-day".equals(eventSpan);
+
+                                Log.d(RESPONSE_TAG, "Event span: " + eventSpan + ", isMultiDay: " + isMultiDay);
+
+                                // Process based on event type (multi-day or single-day)
+                                if (isMultiDay) {
+                                    // For multi-day event, find the current day's data
+                                    String currentDate = getCurrentDate();
+                                    DataSnapshot attendanceDays = dataSnapshot.child("attendanceDays");
+
+                                    boolean foundCurrentDay = false;
+
+                                    if (attendanceDays.exists()) {
+                                        for (DataSnapshot daySnapshot : attendanceDays.getChildren()) {
+                                            if (daySnapshot.child("date").exists() &&
+                                                    currentDate.equals(daySnapshot.child("date").getValue(String.class))) {
+
+                                                String dayKey = daySnapshot.getKey();
+                                                // Update status to "Completed"
+                                                updateTicketStatus(ticketRef, dayKey, "Completed");
+                                                foundCurrentDay = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (!foundCurrentDay) {
+                                        Log.w(RESPONSE_TAG, "No attendance record found for today");
+                                        Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully", Toast.LENGTH_SHORT).show();
+                                        hideLoading();
+                                        finish();
+                                    }
+                                } else {
+                                    // For single-day event
+                                    updateTicketStatus(ticketRef, "day_1", "Completed");
+                                }
+                            } else {
+                                Log.e(RESPONSE_TAG, "Event not found in database");
+                                Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully", Toast.LENGTH_SHORT).show();
+                                hideLoading();
+                                finish();
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
+                            Log.e(RESPONSE_TAG, "Error getting event data: " + databaseError.getMessage());
+                            Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully", Toast.LENGTH_SHORT).show();
+                            hideLoading();
+                            finish();
+                        }
+                    });
+                } else {
+                    Log.w(RESPONSE_TAG, "No ticket found for student in this event");
+                    Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully", Toast.LENGTH_SHORT).show();
+                    hideLoading();
+                    finish();
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Log.e(RESPONSE_TAG, "Error checking ticket: " + databaseError.getMessage());
+                Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully", Toast.LENGTH_SHORT).show();
+                hideLoading();
+                finish();
+            }
+        });
+    }
+
+    // Helper method to update the ticket status
+    private void updateTicketStatus(DatabaseReference ticketRef, String dayKey, String newStatus) {
+        Log.d(RESPONSE_TAG, "Updating ticket status for day: " + dayKey + " to: " + newStatus);
+
+        // Update the status
+        ticketRef.child("attendanceDays").child(dayKey).child("status").setValue(newStatus)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(RESPONSE_TAG, "Successfully updated ticket status to: " + newStatus);
+                    Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully", Toast.LENGTH_SHORT).show();
+                    hideLoading();
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(RESPONSE_TAG, "Failed to update ticket status: " + e.getMessage());
+                    Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully, but status update failed", Toast.LENGTH_SHORT).show();
+                    hideLoading();
+                    finish();
+                });
+    }
+
+    // Helper method to get current date
+    private String getCurrentDate() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        return sdf.format(new Date());
     }
 
     private void showLoading() {

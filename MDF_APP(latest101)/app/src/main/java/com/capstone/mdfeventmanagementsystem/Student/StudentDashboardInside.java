@@ -13,6 +13,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
+import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
 import com.capstone.mdfeventmanagementsystem.R;
@@ -36,6 +38,8 @@ public class StudentDashboardInside extends AppCompatActivity {
 
     private TextView eventName, eventDescription, startDate, endDate, startTime, endTime, venue, eventSpan, ticketType, graceTime;
     private ImageView eventImage;
+    private TextView textViewCheckInTime, textViewCheckOutTime, textViewCurrentDay, textViewStatus;
+    private CardView attendanceStatusCard; // Added CardView for attendance status
     private Button registerButton, ticketButton, evalButton;
 
     private FirebaseAuth mAuth;
@@ -53,6 +57,9 @@ public class StudentDashboardInside extends AppCompatActivity {
         initializeViews();
         mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();
+
+        // Initially hide attendance status card
+        attendanceStatusCard.setVisibility(View.GONE);
 
         if (currentUser == null) {
             Toast.makeText(this, "User not authenticated!", Toast.LENGTH_SHORT).show();
@@ -99,6 +106,13 @@ public class StudentDashboardInside extends AppCompatActivity {
         registerButton = findViewById(R.id.registerButton);
         ticketButton = findViewById(R.id.ticketButton);
         evalButton = findViewById(R.id.evalButton);
+
+        // Initialize attendance status card
+        attendanceStatusCard = findViewById(R.id.attendanceStatusCard);
+        textViewCheckInTime = findViewById(R.id.textViewCheckInTime);
+        textViewCheckOutTime = findViewById(R.id.textViewCheckOutTime);
+        textViewCurrentDay = findViewById(R.id.textViewCurrentDay);
+        textViewStatus = findViewById(R.id.textViewStatus);
     }
 
     private void displayEventDetails() {
@@ -167,7 +181,6 @@ public class StudentDashboardInside extends AppCompatActivity {
             startActivity(ticketIntent);
         });
 
-        // Evaluation button click
         // Evaluation button click
         evalButton.setOnClickListener(v -> {
             DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
@@ -276,6 +289,8 @@ public class StudentDashboardInside extends AppCompatActivity {
                                     Log.d(TAG, "Old ticket version (" + studentTicketVersion + ") invalidated. Current version is " + currentEventVersion);
                                     Toast.makeText(this, "Event updated. Please re-register.", Toast.LENGTH_SHORT).show();
                                     updateButtonsForNonRegistered();
+                                    // Hide attendance card when ticket is invalidated
+                                    attendanceStatusCard.setVisibility(View.GONE);
                                 }).addOnFailureListener(e -> {
                                     Log.e(TAG, "Failed to remove outdated ticket: " + e.getMessage());
                                 });
@@ -283,10 +298,15 @@ public class StudentDashboardInside extends AppCompatActivity {
                                 // Valid ticket
                                 Log.d(TAG, "Ticket is valid for current version: " + currentEventVersion);
                                 updateButtonsForRegistered();
+                                // Show attendance card when ticket is valid
+                                attendanceStatusCard.setVisibility(View.VISIBLE);
+                                fetchAttendanceData(); // Fetch attendance data to update the card
                             }
                         } else {
                             // No ticket
                             updateButtonsForNonRegistered();
+                            // Hide attendance card when no ticket
+                            attendanceStatusCard.setVisibility(View.GONE);
                         }
                     } else {
                         Log.e(TAG, "Error checking ticket: " +
@@ -299,6 +319,153 @@ public class StudentDashboardInside extends AppCompatActivity {
             }
         });
     }
+
+    /**
+     * Fetch and display attendance data
+     */
+    private void fetchAttendanceData() {
+        if (eventUID == null || studentID == null) {
+            Log.e(TAG, "Event UID or Student ID is missing for attendance check");
+            updateAttendanceStatusUI("Not registered", "Not registered", "N/A", "Not Registered", R.color.red);
+            return;
+        }
+
+        DatabaseReference ticketRef = FirebaseDatabase.getInstance()
+                .getReference("students")
+                .child(studentID)
+                .child("tickets")
+                .child(eventUID);
+
+        ticketRef.get().addOnCompleteListener(ticketTask -> {
+            if (ticketTask.isSuccessful() && ticketTask.getResult().exists()) {
+                DataSnapshot ticketSnapshot = ticketTask.getResult();
+
+                // Default values
+                String checkInTime = "--:--";
+                String checkOutTime = "--:--";
+                String currentDay = "Day 1"; // Default to Day 1
+                String status = "Pending";
+                int statusColor = R.color.gray;
+
+                if (ticketSnapshot.child("attendanceDays").exists()) {
+                    DataSnapshot attendanceDaysSnapshot = ticketSnapshot.child("attendanceDays");
+
+                    // Find the current day or most recently active day
+                    String currentDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+                    DataSnapshot activeDaySnapshot = null;
+                    String activeDayKey = null;
+
+                    // First, try to find today's date in attendance days
+                    for (DataSnapshot daySnapshot : attendanceDaysSnapshot.getChildren()) {
+                        String dayDate = daySnapshot.child("date").getValue(String.class);
+                        if (currentDate.equals(dayDate)) {
+                            activeDaySnapshot = daySnapshot;
+                            activeDayKey = daySnapshot.getKey();
+                            break;
+                        }
+                    }
+
+                    // If today's date not found, look for the most recent past day with attendance data
+                    if (activeDaySnapshot == null) {
+                        Date today = new Date();
+                        Date closestDate = null;
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+
+                        for (DataSnapshot daySnapshot : attendanceDaysSnapshot.getChildren()) {
+                            String dayDate = daySnapshot.child("date").getValue(String.class);
+                            if (dayDate != null) {
+                                try {
+                                    Date snapshotDate = sdf.parse(dayDate);
+                                    if (snapshotDate.before(today) &&
+                                            (closestDate == null || snapshotDate.after(closestDate))) {
+                                        closestDate = snapshotDate;
+                                        activeDaySnapshot = daySnapshot;
+                                        activeDayKey = daySnapshot.getKey();
+                                    }
+                                } catch (ParseException e) {
+                                    Log.e(TAG, "Error parsing date: " + dayDate, e);
+                                }
+                            }
+                        }
+                    }
+
+                    // If still no match, just use the first day as fallback
+                    if (activeDaySnapshot == null && attendanceDaysSnapshot.getChildren().iterator().hasNext()) {
+                        activeDaySnapshot = attendanceDaysSnapshot.getChildren().iterator().next();
+                        activeDayKey = activeDaySnapshot.getKey();
+                    }
+
+                    // Get the actual day from the key (e.g., "day_2" -> "Day 2")
+                    if (activeDayKey != null) {
+                        currentDay = activeDayKey.replace("_", " ").toUpperCase().charAt(0) + activeDayKey.replace("_", " ").substring(1);
+                    }
+
+                    // Get check-in and check-out times
+                    if (activeDaySnapshot.child("in").exists()) {
+                        checkInTime = activeDaySnapshot.child("in").getValue(String.class);
+                    }
+
+                    if (activeDaySnapshot.child("out").exists()) {
+                        checkOutTime = activeDaySnapshot.child("out").getValue(String.class);
+                    }
+
+                    // Determine attendance status
+                    String attendanceStatus = activeDaySnapshot.child("attendance").getValue(String.class);
+
+                    if (attendanceStatus != null) {
+                        switch (attendanceStatus.toLowerCase()) {
+                            case "present":
+                                status = "Present";
+                                statusColor = R.color.green;
+                                break;
+                            case "late":
+                                status = "Late";
+                                statusColor = R.color.yellow;
+                                break;
+                            case "absent":
+                                status = "Absent";
+                                statusColor = R.color.red;
+                                break;
+                            case "pending":
+                                // If check-in exists but not check-out, status is Ongoing
+                                if (!checkInTime.equals("--:--") && checkOutTime.equals("--:--")) {
+                                    status = "Ongoing";
+                                    statusColor = R.color.blue;
+                                } else {
+                                    status = "Pending";
+                                    statusColor = R.color.gray;
+                                }
+                                break;
+                            default:
+                                status = "Pending";
+                                statusColor = R.color.gray;
+                                break;
+                        }
+                    }
+                }
+
+                // Update UI with attendance info
+                updateAttendanceStatusUI(checkInTime, checkOutTime, currentDay, status, statusColor);
+
+            } else {
+                // No ticket found - show default "Not Registered" status
+                updateAttendanceStatusUI("Not registered", "Not registered", "N/A", "Not Registered", R.color.red);
+            }
+        });
+    }
+
+    /**
+     * Update the UI elements of the attendance status card
+     */
+    private void updateAttendanceStatusUI(String checkInTime, String checkOutTime, String currentDay,
+                                          String status, int statusColorResId) {
+        textViewCheckInTime.setText(checkInTime);
+        textViewCheckOutTime.setText(checkOutTime);
+        textViewCurrentDay.setText(currentDay);
+        textViewStatus.setText(status);
+        textViewStatus.setTextColor(ContextCompat.getColor(this, statusColorResId));
+    }
+
 
     /**
      * Check if the student is eligible for the event based on year level
@@ -328,7 +495,9 @@ public class StudentDashboardInside extends AppCompatActivity {
         registerButton.setVisibility(View.GONE);
         ticketButton.setVisibility(View.VISIBLE);
         evalButton.setVisibility(View.GONE);
-        Log.d(TAG, "Student is registered. Showing ticket button.");
+        // Show attendance card for registered students
+        attendanceStatusCard.setVisibility(View.VISIBLE);
+        Log.d(TAG, "Student is registered. Showing ticket button and attendance card.");
     }
 
     /**
@@ -338,7 +507,9 @@ public class StudentDashboardInside extends AppCompatActivity {
         registerButton.setVisibility(View.VISIBLE);
         ticketButton.setVisibility(View.GONE);
         evalButton.setVisibility(View.GONE);
-        Log.d(TAG, "Student is not registered. Showing register button.");
+        // Hide attendance card for non-registered students
+        attendanceStatusCard.setVisibility(View.GONE);
+        Log.d(TAG, "Student is not registered. Showing register button and hiding attendance card.");
     }
 
     /**
@@ -348,6 +519,8 @@ public class StudentDashboardInside extends AppCompatActivity {
         registerButton.setVisibility(View.GONE);
         ticketButton.setVisibility(View.GONE);
         evalButton.setVisibility(View.GONE);
+        // Hide attendance card when all buttons are hidden
+        attendanceStatusCard.setVisibility(View.GONE);
     }
 
     /**
@@ -408,12 +581,6 @@ public class StudentDashboardInside extends AppCompatActivity {
     /**
      * Check evaluation status and update UI accordingly
      */
-    /**
-     * Check evaluation status and update UI accordingly
-     */
-    /**
-     * Check evaluation status and update UI accordingly
-     */
     private void checkEvaluationStatus() {
         DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
         DatabaseReference eventQuestionsRef = FirebaseDatabase.getInstance().getReference("eventQuestions").child(eventUID);
@@ -437,57 +604,108 @@ public class StudentDashboardInside extends AppCompatActivity {
                 return;
             }
 
-            // Student is registered, now check feedback and evaluation status
-            eventRef.get().addOnCompleteListener(eventTask -> {
-                if (eventTask.isSuccessful()) {
-                    DataSnapshot eventSnapshot = eventTask.getResult();
+            // First check if the event has valid attendance data
+            ticketRef.child("attendanceDays").get().addOnCompleteListener(attendanceTask -> {
+                if (attendanceTask.isSuccessful() && attendanceTask.getResult().exists()) {
+                    DataSnapshot attendanceDays = attendanceTask.getResult();
 
-                    // Check if user has already submitted feedback
-                    boolean feedbackSubmitted;
-                    if (eventSnapshot.child("studentsFeedback").exists()) {
-                        feedbackSubmitted = eventSnapshot.child("studentsFeedback").hasChild(studentID);
-                    } else {
-                        feedbackSubmitted = false;
+                    // Check attendance status from the ticket data
+                    String attendanceStatus = "Absent"; // Default status changed from "pending" to "Absent"
+
+                    // For multi-day events, we need to check the attendance of each day
+                    // For simplicity, if ANY day has "Present" or "Late", we'll allow evaluation
+                    boolean hasValidAttendance = false;
+                    boolean hasAttendedAnyDay = false;
+
+                    for (DataSnapshot daySnapshot : attendanceDays.getChildren()) {
+                        String status = daySnapshot.child("attendance").getValue(String.class);
+
+                        if (status != null) {
+                            // If any day has Present or Late status, student can evaluate
+                            if ("Present".equals(status) || "Late".equals(status)) {
+                                hasValidAttendance = true;
+                                attendanceStatus = status; // Store the most recent valid status
+                            }
+
+                            // Student has attended at least one day (not just Absent)
+                            if (!"Absent".equals(status)) {
+                                hasAttendedAnyDay = true;
+                            }
+                        }
                     }
 
-                    // Now check the isSubmitted flag in eventQuestions
-                    eventQuestionsRef.get().addOnCompleteListener(questionsTask -> {
-                        if (questionsTask.isSuccessful()) {
-                            DataSnapshot questionsSnapshot = questionsTask.getResult();
-                            Boolean isSubmitted = questionsSnapshot.child("isSubmitted").getValue(Boolean.class);
+                    if (!hasValidAttendance) {
+                        // No valid attendance record found - show No Evaluation instead of No Appearance
+                        evalButton.setVisibility(View.VISIBLE);
+                        evalButton.setText("No Evaluation");
+                        evalButton.setBackgroundColor(getResources().getColor(R.color.red));
+                        evalButton.setEnabled(false); // Disable the button
+                        Log.d(TAG, "Student has no valid attendance (not Present/Late). Showing 'No Evaluation'.");
+                        return;
+                    }
 
-                            evalButton.setVisibility(View.VISIBLE);
+                    // Student has valid attendance, now check feedback and evaluation status
+                    eventRef.get().addOnCompleteListener(eventTask -> {
+                        if (eventTask.isSuccessful()) {
+                            DataSnapshot eventSnapshot = eventTask.getResult();
 
-                            if (feedbackSubmitted) {
-                                // User has submitted feedback, show "View Response" button
-                                evalButton.setText("View Response");
-                                evalButton.setBackgroundColor(getResources().getColor(R.color.green));
-                                Log.d(TAG, "User has submitted feedback. Showing View Response button.");
-                            } else if (isSubmitted != null && isSubmitted) {
-                                // Event has questions ready for evaluation but user hasn't submitted
-                                evalButton.setText("ANSWER EVALUATION");
-                                evalButton.setBackgroundColor(getResources().getColor(R.color.bg_green));
-                                Log.d(TAG, "Event has ended. Evaluation not submitted yet. Showing Evaluate button.");
+                            // Check if user has already submitted feedback
+                            boolean feedbackSubmitted;
+                            if (eventSnapshot.child("studentsFeedback").exists()) {
+                                feedbackSubmitted = eventSnapshot.child("studentsFeedback").hasChild(studentID);
                             } else {
-                                // Event has ended but evaluation is not available or not submitted
-                                evalButton.setText("Event Ended");
-                                evalButton.setBackgroundColor(getResources().getColor(R.color.red));
-                                evalButton.setEnabled(false); // Disable the button since it's just informational
-                                Log.d(TAG, "Event has ended. No evaluation available. Showing red Event Ended indicator.");
+                                feedbackSubmitted = false;
                             }
+
+                            // Now check the isSubmitted flag in eventQuestions
+                            eventQuestionsRef.get().addOnCompleteListener(questionsTask -> {
+                                if (questionsTask.isSuccessful()) {
+                                    DataSnapshot questionsSnapshot = questionsTask.getResult();
+                                    Boolean isSubmitted = questionsSnapshot.child("isSubmitted").getValue(Boolean.class);
+
+                                    evalButton.setVisibility(View.VISIBLE);
+
+                                    if (feedbackSubmitted) {
+                                        // User has submitted feedback, show "View Response" button
+                                        evalButton.setText("View Response");
+                                        evalButton.setBackgroundColor(getResources().getColor(R.color.green));
+                                        evalButton.setEnabled(true);
+                                        Log.d(TAG, "User has submitted feedback. Showing View Response button.");
+                                    } else if (isSubmitted != null && isSubmitted) {
+                                        // Event has questions ready for evaluation but user hasn't submitted
+                                        evalButton.setText("ANSWER EVALUATION");
+                                        evalButton.setBackgroundColor(getResources().getColor(R.color.bg_green));
+                                        evalButton.setEnabled(true);
+                                        Log.d(TAG, "Event has ended. Evaluation not submitted yet. Showing Evaluate button.");
+                                    } else {
+                                        // Event has ended but evaluation is not available or not submitted
+                                        evalButton.setText("Event Ended");
+                                        evalButton.setBackgroundColor(getResources().getColor(R.color.red));
+                                        evalButton.setEnabled(false); // Disable the button since it's just informational
+                                        Log.d(TAG, "Event has ended. No evaluation available. Showing red Event Ended indicator.");
+                                    }
+                                } else {
+                                    Log.e(TAG, "Error checking eventQuestions: " +
+                                            (questionsTask.getException() != null ? questionsTask.getException().getMessage() : "Unknown error"));
+                                    // Handle the error state - show a disabled button
+                                    evalButton.setVisibility(View.VISIBLE);
+                                    evalButton.setText("Event Ended");
+                                    evalButton.setBackgroundColor(getResources().getColor(R.color.red));
+                                    evalButton.setEnabled(false);
+                                }
+                            });
                         } else {
-                            Log.e(TAG, "Error checking eventQuestions: " +
-                                    (questionsTask.getException() != null ? questionsTask.getException().getMessage() : "Unknown error"));
-                            // Handle the error state - show a disabled button
-                            evalButton.setVisibility(View.VISIBLE);
-                            evalButton.setText("Event Ended");
-                            evalButton.setBackgroundColor(getResources().getColor(R.color.red));
-                            evalButton.setEnabled(false);
+                            Log.e(TAG, "Error checking event data: " +
+                                    (eventTask.getException() != null ? eventTask.getException().getMessage() : "Unknown error"));
                         }
                     });
                 } else {
-                    Log.e(TAG, "Error checking event data: " +
-                            (eventTask.getException() != null ? eventTask.getException().getMessage() : "Unknown error"));
+                    // No attendance data found
+                    evalButton.setVisibility(View.VISIBLE);
+                    evalButton.setText("No Attendance Data");
+                    evalButton.setBackgroundColor(getResources().getColor(R.color.red));
+                    evalButton.setEnabled(false);
+                    Log.e(TAG, "No attendance days data found for this ticket");
                 }
             });
         });

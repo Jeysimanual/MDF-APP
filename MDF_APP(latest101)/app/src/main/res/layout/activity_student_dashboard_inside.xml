@@ -381,6 +381,164 @@
                     </androidx.constraintlayout.widget.ConstraintLayout>
                 </androidx.cardview.widget.CardView>
 
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/attendanceStatusCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/_15sdp"
+                    android:layout_marginTop="@dimen/_13sdp"
+                    android:layout_marginEnd="@dimen/_15sdp"
+                    android:elevation="4dp"
+                    app:cardCornerRadius="12dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/cardView2">
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="@dimen/_8sdp">
+
+                        <TextView
+                            android:id="@+id/attendanceStatusHeader"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/_8sdp"
+                            android:fontFamily="@font/host_grotesk_extra_bold"
+                            android:paddingLeft="@dimen/_5sdp"
+                            android:text="Attendance Status"
+                            android:textSize="@dimen/_13ssp"
+                            android:textStyle="bold"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <!-- Check-In Time -->
+                        <TextView
+                            android:id="@+id/textViewCheckInLabel"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_10sdp"
+                            android:layout_marginTop="@dimen/_10sdp"
+                            android:text="Check-In Time:"
+                            android:textSize="@dimen/_11ssp"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/attendanceStatusHeader"
+                            app:layout_constraintEnd_toStartOf="@+id/textViewCheckInTime"
+                            app:layout_constraintHorizontal_bias="0.5" />
+
+                        <TextView
+                            android:id="@+id/textViewCheckInTime"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/_10sdp"
+                            android:layout_marginEnd="@dimen/_15sdp"
+                            android:text="Not recorded"
+                            android:textSize="@dimen/_11ssp"
+                            android:paddingStart="@dimen/_20sdp"
+                            android:fontFamily="@font/host_grotesk_regular"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toEndOf="@+id/textViewCheckInLabel"
+                            app:layout_constraintTop_toBottomOf="@+id/attendanceStatusHeader"
+                            app:layout_constraintHorizontal_bias="0.5" />
+
+                        <!-- Check-Out Time -->
+                        <TextView
+                            android:id="@+id/textViewCheckOutLabel"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_10sdp"
+                            android:layout_marginTop="@dimen/_6sdp"
+                            android:text="Check-Out Time:"
+                            android:textSize="@dimen/_11ssp"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/textViewCheckInLabel"
+                            app:layout_constraintEnd_toStartOf="@+id/textViewCheckOutTime"
+                            app:layout_constraintHorizontal_bias="0.5" />
+
+                        <TextView
+                            android:id="@+id/textViewCheckOutTime"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/_6sdp"
+                            android:layout_marginEnd="@dimen/_15sdp"
+                            android:text="Not recorded"
+                            android:textSize="@dimen/_11ssp"
+                            android:paddingStart="@dimen/_20sdp"
+                            android:fontFamily="@font/host_grotesk_regular"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toEndOf="@+id/textViewCheckOutLabel"
+                            app:layout_constraintTop_toBottomOf="@+id/textViewCheckInTime"
+                            app:layout_constraintHorizontal_bias="0.5" />
+
+                        <!-- Current Day -->
+                        <TextView
+                            android:id="@+id/textViewCurrentDayLabel"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_10sdp"
+                            android:layout_marginTop="@dimen/_6sdp"
+                            android:text="Current Day:"
+                            android:textSize="@dimen/_11ssp"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/textViewCheckOutLabel"
+                            app:layout_constraintEnd_toStartOf="@+id/textViewCurrentDay"
+                            app:layout_constraintHorizontal_bias="0.5" />
+
+                        <TextView
+                            android:id="@+id/textViewCurrentDay"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/_6sdp"
+                            android:layout_marginEnd="@dimen/_15sdp"
+                            android:text="Day 1"
+                            android:textSize="@dimen/_11ssp"
+                            android:paddingStart="@dimen/_20sdp"
+                            android:fontFamily="@font/host_grotesk_regular"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toEndOf="@+id/textViewCurrentDayLabel"
+                            app:layout_constraintTop_toBottomOf="@+id/textViewCheckOutTime"
+                            app:layout_constraintHorizontal_bias="0.5" />
+
+                        <!-- Status -->
+                        <TextView
+                            android:id="@+id/textViewStatusLabel"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_10sdp"
+                            android:layout_marginTop="@dimen/_6sdp"
+                            android:text="Status:"
+                            android:textSize="@dimen/_11ssp"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/textViewCurrentDayLabel"
+                            app:layout_constraintEnd_toStartOf="@+id/textViewStatus"
+                            app:layout_constraintHorizontal_bias="0.5" />
+
+                        <TextView
+                            android:id="@+id/textViewStatus"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/_6sdp"
+                            android:layout_marginEnd="@dimen/_15sdp"
+                            android:layout_marginBottom="@dimen/_8sdp"
+                            android:text="Pending"
+                            android:textSize="@dimen/_11ssp"
+                            android:paddingStart="@dimen/_20sdp"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:textColor="@color/red"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toEndOf="@+id/textViewStatusLabel"
+                            app:layout_constraintTop_toBottomOf="@+id/textViewCurrentDay"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintHorizontal_bias="0.5" />
+
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+                </androidx.cardview.widget.CardView>
+
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -388,7 +546,7 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintHorizontal_bias="0.0"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/cardView2">
+                    app:layout_constraintTop_toBottomOf="@+id/attendanceStatusCard">
 
                     <Button
                         android:id="@+id/registerButton"
