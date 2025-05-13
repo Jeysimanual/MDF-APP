@@ -1,5 +1,6 @@
 package com.capstone.mdfeventmanagementsystem.Teacher;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -30,6 +31,7 @@ import com.bumptech.glide.Glide;
 import com.capstone.mdfeventmanagementsystem.Adapters.DuplicateEmailAdapter;
 import com.capstone.mdfeventmanagementsystem.Adapters.EmailAdapter;
 import com.capstone.mdfeventmanagementsystem.R;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -38,8 +40,10 @@ import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -47,20 +51,20 @@ public class EventDetailsFragment extends Fragment {
     private String description;
     private String photoUrl;
     private String eventUID;
-    private String eventForValue; // To store the grade level information
-    private TextView eventNameTextView, startDateTextView, endDateTextView, startTimeTextView, endTimeTextView, venueTextView, eventSpanTextView,graceTimeTextView, eventTypeTextView, eventForTextView;
+    private String eventForValue;
+    private TextView eventNameTextView, startDateTextView, endDateTextView, startTimeTextView, endTimeTextView, venueTextView, eventSpanTextView, graceTimeTextView, eventTypeTextView, eventForTextView;
     private TextView descriptionTextView;
     private ImageView photoImageView;
     private TextView ticketGeneratedTextView;
     private TextView totalCoordinatorTextView;
     private Button showCoordinatorsBtn, addCoordinatorBtn;
     private EmailAdapter emailAdapter;
-    private CardView registrationCard; // Added for hiding registration card
-
-    // Registration control components
+    private CardView registrationCard;
     private SwitchCompat registrationSwitch;
     private TextView registrationStatusText;
     private DatabaseReference eventRef;
+    private ImageButton editEventButton;
+    private boolean canEditEvent = false; // Tracks if teacher is allowed to edit
 
     public EventDetailsFragment() {
         // Required empty public constructor
@@ -91,27 +95,23 @@ public class EventDetailsFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_event_details, container, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // Initialize required views
         descriptionTextView = view.findViewById(R.id.eventDescription);
         photoImageView = view.findViewById(R.id.eventPhotoUrl);
         ticketGeneratedTextView = view.findViewById(R.id.ticket_generated);
         totalCoordinatorTextView = view.findViewById(R.id.total_coordinator);
         showCoordinatorsBtn = view.findViewById(R.id.showCoordinatorsBtn);
         addCoordinatorBtn = view.findViewById(R.id.addCoordinator);
-
-        // Initialize registration control components
         registrationSwitch = view.findViewById(R.id.registrationSwitch);
         registrationStatusText = view.findViewById(R.id.registrationStatusText);
         registrationCard = view.findViewById(R.id.registrationCard);
+        editEventButton = view.findViewById(R.id.editEventButton);
 
-        // Initialize optional additional views (if present in layout)
         try {
             eventNameTextView = view.findViewById(R.id.eventName);
             startDateTextView = view.findViewById(R.id.startDate);
@@ -124,14 +124,13 @@ public class EventDetailsFragment extends Fragment {
             eventTypeTextView = view.findViewById(R.id.eventType);
             eventForTextView = view.findViewById(R.id.eventFor);
         } catch (Exception e) {
-            // It's okay if some views are not found - they may not be in this layout
             Log.d("EventDetails", "Some optional views not found in layout: " + e.getMessage());
         }
-        // Set description if available from arguments
+
         if (description != null && descriptionTextView != null) {
             descriptionTextView.setText(description);
         }
-        // Load image from arguments if URL is available
+
         if (photoUrl != null && !photoUrl.isEmpty() && photoImageView != null) {
             Glide.with(this)
                     .load(photoUrl)
@@ -141,23 +140,136 @@ public class EventDetailsFragment extends Fragment {
         } else if (photoImageView != null) {
             photoImageView.setImageResource(R.drawable.placeholder_image);
         }
-        // Set up button click listeners
+
         if (showCoordinatorsBtn != null) {
             showCoordinatorsBtn.setOnClickListener(v -> showCoordinatorsDialog());
         }
         if (addCoordinatorBtn != null) {
             addCoordinatorBtn.setOnClickListener(v -> showAddCoordinatorDialog());
         }
-        // Fetch complete event details from Firebase
+        if (editEventButton != null) {
+            editEventButton.setOnClickListener(v -> handleEditButtonClick());
+        }
+
         if (eventUID != null && !eventUID.isEmpty()) {
             eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
             getEventDetails(eventUID);
             getTicketCount(eventUID);
             getTotalCoordinators(eventUID);
-
-            // Setup registration control
             setupRegistrationControl();
+            checkEditPermission();
         }
+    }
+
+    private void handleEditButtonClick() {
+        if (!isAdded()) return; // Ensure fragment is still attached
+
+        if (canEditEvent) {
+            // Ensure all TextViews are initialized and have values
+            if (!areTextViewsInitialized()) {
+                Toast.makeText(getContext(), "Event details are not fully loaded. Please try again.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Navigate to TeacherCreateEventActivity with event data
+            Intent intent = new Intent(getContext(), TeacherCreateEventActivity.class);
+            intent.putExtra("IS_EDITING", true);
+            intent.putExtra("EVENT_ID", eventUID);
+            intent.putExtra("EVENT_NAME", eventNameTextView != null ? eventNameTextView.getText().toString() : "");
+            intent.putExtra("EVENT_DESCRIPTION", descriptionTextView != null ? descriptionTextView.getText().toString() : "");
+            intent.putExtra("EVENT_VENUE", venueTextView != null ? venueTextView.getText().toString() : "");
+            intent.putExtra("EVENT_START_DATE", startDateTextView != null ? startDateTextView.getText().toString() : "");
+            intent.putExtra("EVENT_END_DATE", endDateTextView != null ? endDateTextView.getText().toString() : "");
+            intent.putExtra("EVENT_START_TIME", startTimeTextView != null ? startTimeTextView.getText().toString() : "");
+            intent.putExtra("EVENT_END_TIME", endTimeTextView != null ? endTimeTextView.getText().toString() : "");
+            intent.putExtra("EVENT_SPAN", eventSpanTextView != null ? eventSpanTextView.getText().toString() : "");
+            intent.putExtra("EVENT_GRACE_TIME", graceTimeTextView != null ? graceTimeTextView.getText().toString() : "");
+            intent.putExtra("EVENT_TYPE", eventTypeTextView != null ? eventTypeTextView.getText().toString() : "");
+            intent.putExtra("EVENT_FOR", eventForTextView != null ? eventForTextView.getText().toString() : "");
+            intent.putExtra("EVENT_PHOTO_URL", photoUrl);
+            startActivity(intent);
+        } else {
+            // Show confirmation dialog to request edit
+            new AlertDialog.Builder(getContext())
+                    .setTitle("Request Edit")
+                    .setMessage("Are you sure you want to request to edit this event?")
+                    .setPositiveButton("Yes", (dialog, which) -> sendEditRequest())
+                    .setNegativeButton("No", (dialog, which) -> dialog.dismiss())
+                    .setCancelable(false)
+                    .show();
+        }
+    }
+
+    private boolean areTextViewsInitialized() {
+        // Check if all required TextViews are initialized and have non-empty text
+        return (eventNameTextView != null && eventNameTextView.getText() != null && !eventNameTextView.getText().toString().isEmpty()) &&
+                (descriptionTextView != null && descriptionTextView.getText() != null) &&
+                (venueTextView != null && venueTextView.getText() != null && !venueTextView.getText().toString().isEmpty()) &&
+                (startDateTextView != null && startDateTextView.getText() != null && !startDateTextView.getText().toString().isEmpty()) &&
+                (endDateTextView != null && endDateTextView.getText() != null && !endDateTextView.getText().toString().isEmpty()) &&
+                (startTimeTextView != null && startTimeTextView.getText() != null && !startTimeTextView.getText().toString().isEmpty()) &&
+                (endTimeTextView != null && endTimeTextView.getText() != null && !endTimeTextView.getText().toString().isEmpty()) &&
+                (eventSpanTextView != null && eventSpanTextView.getText() != null && !eventSpanTextView.getText().toString().isEmpty()) &&
+                (graceTimeTextView != null && graceTimeTextView.getText() != null && !graceTimeTextView.getText().toString().isEmpty()) &&
+                (eventTypeTextView != null && eventTypeTextView.getText() != null && !eventTypeTextView.getText().toString().isEmpty()) &&
+                (eventForTextView != null && eventForTextView.getText() != null && !eventForTextView.getText().toString().isEmpty());
+    }
+
+    private void sendEditRequest() {
+        String teacherId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        DatabaseReference editRequestsRef = FirebaseDatabase.getInstance().getReference("editRequests").child(eventUID);
+
+        // Create edit request data
+        Map<String, Object> requestData = new HashMap<>();
+        requestData.put("teacherId", teacherId);
+        requestData.put("eventId", eventUID);
+        requestData.put("status", "pending");
+        requestData.put("timestamp", System.currentTimeMillis());
+
+        editRequestsRef.setValue(requestData)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Toast.makeText(getContext(), "Edit request sent to admin", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getContext(), "Failed to send edit request", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void checkEditPermission() {
+        String teacherId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        DatabaseReference editRequestsRef = FirebaseDatabase.getInstance().getReference("editRequests").child(eventUID);
+
+        editRequestsRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    String status = snapshot.child("status").getValue(String.class);
+                    String requesterId = snapshot.child("teacherId").getValue(String.class);
+                    if ("approved".equals(status) && teacherId.equals(requesterId)) {
+                        canEditEvent = true;
+                        if (editEventButton != null) {
+                            editEventButton.setImageResource(R.drawable.ic_edit); // Optional: Change icon to indicate edit is allowed
+                        }
+                    } else {
+                        canEditEvent = false;
+                        if (editEventButton != null) {
+                            editEventButton.setImageResource(R.drawable.ic_edit);
+                        }
+                    }
+                } else {
+                    canEditEvent = false;
+                    if (editEventButton != null) {
+                        editEventButton.setImageResource(R.drawable.ic_edit);
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("EditPermission", "Error checking edit permission: " + error.getMessage());
+            }
+        });
     }
 
     // New method for setting up registration control
@@ -574,6 +686,7 @@ public class EventDetailsFragment extends Fragment {
             return time24Hour; // Return original if parsing fails
         }
     }
+
     // Method to count and display number of tickets for this event
     private void getTicketCount(String eventId) {
         if (eventId == null || eventId.isEmpty() || ticketGeneratedTextView == null) {

@@ -146,6 +146,18 @@
                         android:layout_height="wrap_content"
                         android:layout_margin="@dimen/_8sdp">
 
+                        <ImageButton
+                            android:id="@+id/editEventButton"
+                            android:layout_width="@dimen/_20sdp"
+                            android:layout_height="@dimen/_20sdp"
+                            android:layout_marginTop="@dimen/_5sdp"
+                            android:layout_marginEnd="@dimen/_5sdp"
+                            android:background="@android:color/transparent"
+                            android:visibility="visible"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:srcCompat="@drawable/ic_edit" />
+
                         <TextView
                             android:id="@+id/textView14"
                             android:layout_width="match_parent"

@@ -41,7 +41,6 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
-import com.google.firebase.storage.UploadTask;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -95,6 +94,10 @@ public class TeacherCreateEventActivity extends BaseActivity {
     private FirebaseDatabase database;
     private DatabaseReference eventProposalRef;
 
+    // Edit mode flag
+    private boolean isEditing = false;
+    private String eventId;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -123,21 +126,75 @@ public class TeacherCreateEventActivity extends BaseActivity {
         initializePage2Fields();
         // Initialize page 3 form fields
         initializePage3Fields();
-        // Check if this is a resubmission
-        checkForResubmission();
-
+        // Check if this is a resubmission or edit
+        checkForResubmissionOrEdit();
 
         setupPageNavigation();
         setupBottomNavigation();
         showPage(1); // Show first page initially
     }
-    private void checkForResubmission() {
+
+    private void checkForResubmissionOrEdit() {
         Intent intent = getIntent();
-        if (intent != null && intent.getBooleanExtra("IS_RESUBMISSION", false)) {
-            // This is a resubmission, populate the fields with the passed data
-            populateFieldsForResubmission(intent);
+        if (intent != null) {
+            if (intent.getBooleanExtra("IS_EDITING", false)) {
+                // This is an edit operation
+                isEditing = true;
+                createButton.setText("Update");
+                eventId = intent.getStringExtra("EVENT_ID");
+                populateFieldsForEdit(intent);
+            } else if (intent.getBooleanExtra("IS_RESUBMISSION", false)) {
+                // This is a resubmission
+                createButton.setText("Resubmit Event");
+                populateFieldsForResubmission(intent);
+            }
         }
     }
+
+    private void populateFieldsForEdit(Intent intent) {
+        // Get the event details from the intent
+        eventId = intent.getStringExtra("EVENT_ID");
+        String eventName = intent.getStringExtra("EVENT_NAME");
+        String eventDescription = intent.getStringExtra("EVENT_DESCRIPTION");
+        String venue = intent.getStringExtra("EVENT_VENUE");
+        String startDate = intent.getStringExtra("EVENT_START_DATE");
+        String endDate = intent.getStringExtra("EVENT_END_DATE");
+        String startTime = intent.getStringExtra("EVENT_START_TIME");
+        String endTime = intent.getStringExtra("EVENT_END_TIME");
+        String eventSpan = intent.getStringExtra("EVENT_SPAN");
+        String graceTime = intent.getStringExtra("EVENT_GRACE_TIME");
+        String eventType = intent.getStringExtra("EVENT_TYPE");
+        String eventFor = intent.getStringExtra("EVENT_FOR");
+        String proposalUrl = intent.getStringExtra("EVENT_PROPOSAL_URL");
+        String photoUrl = intent.getStringExtra("EVENT_PHOTO_URL");
+
+        // Store the eventId for later use when saving
+        eventData.put("eventId", eventId);
+
+        // Populate Page 1 fields
+        populatePage1Fields(eventName, eventDescription, eventType, eventFor);
+
+        // Populate Page 2 fields
+        populatePage2Fields(venue, startDate, endDate, startTime, endTime, eventSpan, graceTime);
+
+        // For Page 3, handle existing files
+        if (proposalUrl != null && !proposalUrl.isEmpty()) {
+            eventData.put("eventProposal", proposalUrl);
+            // Display the existing proposal file name
+            String fileName = proposalUrl.substring(proposalUrl.lastIndexOf('/') + 1);
+            fileNameLabel.setText(fileName);
+        }
+
+        if (photoUrl != null && !photoUrl.isEmpty()) {
+            eventData.put("eventPhotoUrl", photoUrl);
+            // Load the existing cover photo
+            Glide.with(this)
+                    .load(photoUrl)
+                    .centerCrop()
+                    .into(uploadCoverPhoto);
+        }
+    }
+
     private void populateFieldsForResubmission(Intent intent) {
         // Get the event details from the intent
         String eventId = intent.getStringExtra("EVENT_ID");
@@ -166,10 +223,10 @@ public class TeacherCreateEventActivity extends BaseActivity {
         // For Page 3, if there's a proposal URL, we need to handle it differently
         if (proposalUrl != null && !proposalUrl.isEmpty()) {
             eventData.put("existingProposalUrl", proposalUrl);
+            // Display the existing proposal file name
+            String fileName = proposalUrl.substring(proposalUrl.lastIndexOf('/') + 1);
+            fileNameLabel.setText(fileName);
         }
-
-        // Adjust the create button text to indicate resubmission
-        createButton.setText("Resubmit Event");
     }
 
     private void populatePage1Fields(String eventName, String eventDescription, String eventType, String eventFor) {
@@ -426,7 +483,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
         setupEventForSpinner();
     }
 
-    // In the initializePage2Fields() method, change the eventType to eventSpan
     private void initializePage2Fields() {
         // Initialize Venue field
         venueField = findViewById(R.id.venue);
@@ -437,12 +493,12 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
         // Set default selection
         radioSingleDayEvent.setChecked(true);
-        eventData.put("eventSpan", "single-day");  // Changed from eventType to eventSpan
+        eventData.put("eventSpan", "single-day");
 
         // Add listeners to radio buttons
         radioSingleDayEvent.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                eventData.put("eventSpan", "single-day");  // Changed from eventType to eventSpan
+                eventData.put("eventSpan", "single-day");
                 // If single day is selected, make the end date match the start date
                 if (startDateField.getText().toString().length() > 0) {
                     endDateField.setText(startDateField.getText().toString());
@@ -452,7 +508,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
         radioMultiDayEvent.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                eventData.put("eventSpan", "multi-day");  // Changed from eventType to eventSpan
+                eventData.put("eventSpan", "multi-day");
             }
         });
 
@@ -565,11 +621,9 @@ public class TeacherCreateEventActivity extends BaseActivity {
                         }
 
                         // Format the date
-                        // Format for display (keep the original format for UI)
                         SimpleDateFormat displayFormat = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
                         String displayDate = displayFormat.format(selectedCalendar.getTime());
 
-                        // Format for storage (use yyyy-MM-dd format)
                         SimpleDateFormat storageFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
                         String storageDate = storageFormat.format(selectedCalendar.getTime());
 
@@ -587,31 +641,26 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void setDateToField(EditText dateField, String displayDate, String storageDate) {
-        // Set the selected date to the field (for display purposes)
         dateField.setText(displayDate);
 
-        // If this is the start date and single day event is selected,
-        // set the end date to the same value
         if (dateField.getId() == R.id.startDate && radioSingleDayEvent.isChecked()) {
             endDateField.setText(displayDate);
             eventData.put("endDate", storageDate);
         }
 
-        // Store date information in the required format
         if (dateField.getId() == R.id.startDate) {
             eventData.put("startDate", storageDate);
         } else if (dateField.getId() == R.id.endDate) {
             eventData.put("endDate", storageDate);
         }
     }
+
     private void checkDateAvailability(String storageDate, Calendar selectedCalendar, String displayDate, EditText dateField) {
-        // Get the selected grade level from the spinner
         String selectedGrade = eventForSpinner.getSelectedItem().toString();
         String formattedGrade = selectedGrade.equals("All Year Level") ? "All" : selectedGrade.replace(" ", "-");
 
         DatabaseReference eventsRef = database.getReference("eventProposals");
 
-        // First check if this is a valid date (not in the past)
         Calendar todayCalendar = Calendar.getInstance();
         todayCalendar.set(Calendar.HOUR_OF_DAY, 0);
         todayCalendar.set(Calendar.MINUTE, 0);
@@ -625,7 +674,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
             return;
         }
 
-        // Check for multi-day event conflicts
         eventsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
@@ -633,34 +681,32 @@ public class TeacherCreateEventActivity extends BaseActivity {
                 String conflictMessage = "Selected date has a scheduling conflict";
 
                 for (DataSnapshot eventSnapshot : dataSnapshot.getChildren()) {
+                    String eventIdFromDB = eventSnapshot.child("eventId").getValue(String.class);
+                    // Skip the current event if editing
+                    if (isEditing && eventId != null && eventId.equals(eventIdFromDB)) {
+                        continue;
+                    }
                     // Skip if this is a resubmission of the same event
-                    String eventId = eventSnapshot.child("eventId").getValue(String.class);
                     if (eventData.containsKey("originalEventId") &&
-                            eventData.get("originalEventId").equals(eventId)) {
+                            eventData.get("originalEventId").equals(eventIdFromDB)) {
                         continue;
                     }
 
-                    // Get the event's grade level
                     String eventFor = eventSnapshot.child("eventFor").getValue(String.class);
 
-                    // If there's no grade level match (including "All"), skip this event
                     if (!("All".equals(formattedGrade) || "All".equals(eventFor) || formattedGrade.equals(eventFor))) {
                         continue;
                     }
 
-                    // Get event type (single or multi-day)
                     String eventSpan = eventSnapshot.child("eventSpan").getValue(String.class);
 
-                    // For single-day events, just check the start date
                     if ("single-day".equals(eventSpan)) {
                         String existingStartDate = eventSnapshot.child("startDate").getValue(String.class);
                         if (existingStartDate != null && existingStartDate.equals(storageDate)) {
                             hasConflict = true;
                             break;
                         }
-                    }
-                    // For multi-day events, check if the selected date falls within the event's range
-                    else if ("multi-day".equals(eventSpan)) {
+                    } else if ("multi-day".equals(eventSpan)) {
                         String existingStartDate = eventSnapshot.child("startDate").getValue(String.class);
                         String existingEndDate = eventSnapshot.child("endDate").getValue(String.class);
 
@@ -671,7 +717,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
                                 Date rangeEnd = sdf.parse(existingEndDate);
                                 Date selectedDate = sdf.parse(storageDate);
 
-                                // Check if the selected date falls within the multi-day event range
                                 if ((selectedDate.equals(rangeStart) || selectedDate.after(rangeStart)) &&
                                         (selectedDate.equals(rangeEnd) || selectedDate.before(rangeEnd))) {
                                     hasConflict = true;
@@ -687,13 +732,10 @@ public class TeacherCreateEventActivity extends BaseActivity {
                 }
 
                 if (hasConflict) {
-                    // Show error message for conflict
                     Toast.makeText(TeacherCreateEventActivity.this, conflictMessage, Toast.LENGTH_LONG).show();
                 } else {
-                    // No conflict, set the date
                     setDateToField(dateField, displayDate, storageDate);
 
-                    // If this is for the current date, validate the time fields
                     if (isSameDay(selectedCalendar, Calendar.getInstance())) {
                         validateTimeForCurrentDate();
                     }
@@ -709,7 +751,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
         });
     }
 
-    // Helper function to check if two Calendar instances represent the same day
     private boolean isSameDay(Calendar cal1, Calendar cal2) {
         return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
                 cal1.get(Calendar.DAY_OF_MONTH) == cal2.get(Calendar.DAY_OF_MONTH) &&
@@ -717,31 +758,24 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void validateTimeForCurrentDate() {
-        // Clear any existing times to force validation
         startTimeField.setText("");
         endTimeField.setText("");
 
-        // Update time picker behavior for current date
         updateTimePickerForCurrentDate();
 
-        // Show a toast to inform the user
         Toast.makeText(TeacherCreateEventActivity.this,
                 "You're creating an event for today. Please select a time in the future.",
                 Toast.LENGTH_LONG).show();
     }
-    // Update the time picker to enforce future time selection for current date
+
     private void updateTimePickerForCurrentDate() {
-        // Update the existing time picker setup
         startTimeField.setOnClickListener(v -> {
-            // Get Current Time
             final Calendar calendar = Calendar.getInstance();
             int currentHour = calendar.get(Calendar.HOUR_OF_DAY);
             int currentMinute = calendar.get(Calendar.MINUTE);
 
-            // Time Picker Dialog with validation for current date
             TimePickerDialog timePickerDialog = new TimePickerDialog(TeacherCreateEventActivity.this,
                     (view, selectedHour, selectedMinute) -> {
-                        // Check if this event is for the current date
                         boolean isCurrentDate = false;
                         String startDateStr = startDateField.getText().toString();
                         if (!startDateStr.isEmpty()) {
@@ -758,7 +792,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
                             }
                         }
 
-                        // For current date events, validate that time is in the future
                         if (isCurrentDate) {
                             Calendar selectedTime = Calendar.getInstance();
                             selectedTime.set(Calendar.HOUR_OF_DAY, selectedHour);
@@ -774,26 +807,19 @@ public class TeacherCreateEventActivity extends BaseActivity {
                             }
                         }
 
-                        // Format the time for display (12-hour format with AM/PM)
                         Calendar timeCal = Calendar.getInstance();
                         timeCal.set(Calendar.HOUR_OF_DAY, selectedHour);
                         timeCal.set(Calendar.MINUTE, selectedMinute);
                         SimpleDateFormat displayTimeFormat = new SimpleDateFormat("hh:mm a", Locale.US);
                         String displayTime = displayTimeFormat.format(timeCal.getTime());
 
-                        // Format the time for storage (24-hour format without AM/PM)
                         SimpleDateFormat storageTimeFormat = new SimpleDateFormat("HH:mm", Locale.US);
                         String storageTime = storageTimeFormat.format(timeCal.getTime());
 
-                        // Set the selected time to the field (for display)
                         startTimeField.setText(displayTime);
-
-                        // Store time information
                         eventData.put("startTime", storageTime);
 
-                        // If end time is empty or before start time, update it
                         if (endTimeField.getText().toString().isEmpty()) {
-                            // Default end time to start time + 1 hour
                             Calendar endTime = Calendar.getInstance();
                             endTime.set(Calendar.HOUR_OF_DAY, selectedHour + 1);
                             endTime.set(Calendar.MINUTE, selectedMinute);
@@ -809,14 +835,11 @@ public class TeacherCreateEventActivity extends BaseActivity {
             timePickerDialog.show();
         });
 
-        // Also update end time picker
         endTimeField.setOnClickListener(v -> {
-            // Get Current Time or Start Time if set
             final Calendar calendar = Calendar.getInstance();
             int currentHour = calendar.get(Calendar.HOUR_OF_DAY);
             int currentMinute = calendar.get(Calendar.MINUTE);
 
-            // If start time is set, use it as minimum
             String startTimeStr = startTimeField.getText().toString();
             if (!startTimeStr.isEmpty()) {
                 try {
@@ -832,15 +855,12 @@ public class TeacherCreateEventActivity extends BaseActivity {
                 }
             }
 
-            // Time Picker Dialog with validation
             TimePickerDialog timePickerDialog = new TimePickerDialog(TeacherCreateEventActivity.this,
                     (view, selectedHour, selectedMinute) -> {
-                        // Check if selected end time is after start time
                         String startTimeText = startTimeField.getText().toString();
                         if (!startTimeText.isEmpty()) {
                             try {
                                 SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
-
                                 Date startTime = sdf.parse(startTimeText);
 
                                 Calendar selectedEndTime = Calendar.getInstance();
@@ -863,7 +883,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
                             }
                         }
 
-                        // Format the time
                         Calendar timeCal = Calendar.getInstance();
                         timeCal.set(Calendar.HOUR_OF_DAY, selectedHour);
                         timeCal.set(Calendar.MINUTE, selectedMinute);
@@ -874,7 +893,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
                         SimpleDateFormat storageTimeFormat = new SimpleDateFormat("HH:mm", Locale.US);
                         String storageTime = storageTimeFormat.format(timeCal.getTime());
 
-                        // Set the selected time
                         endTimeField.setText(displayTime);
                         eventData.put("endTime", storageTime);
                     }, currentHour, currentMinute, false);
@@ -882,32 +900,27 @@ public class TeacherCreateEventActivity extends BaseActivity {
             timePickerDialog.show();
         });
     }
+
     private void setupTimePicker(final EditText timeField, final String hint) {
         timeField.setHint(hint);
 
         timeField.setOnClickListener(v -> {
-            // Get Current Time
             final Calendar calendar = Calendar.getInstance();
             int hour = calendar.get(Calendar.HOUR_OF_DAY);
             int minute = calendar.get(Calendar.MINUTE);
 
-            // Time Picker Dialog
             TimePickerDialog timePickerDialog = new TimePickerDialog(TeacherCreateEventActivity.this,
                     (view, selectedHour, selectedMinute) -> {
-                        // Format the time for display (12-hour format with AM/PM)
                         calendar.set(Calendar.HOUR_OF_DAY, selectedHour);
                         calendar.set(Calendar.MINUTE, selectedMinute);
                         SimpleDateFormat displayTimeFormat = new SimpleDateFormat("hh:mm a", Locale.US);
                         String displayTime = displayTimeFormat.format(calendar.getTime());
 
-                        // Format the time for storage (24-hour format without AM/PM)
                         SimpleDateFormat storageTimeFormat = new SimpleDateFormat("HH:mm", Locale.US);
                         String storageTime = storageTimeFormat.format(calendar.getTime());
 
-                        // Set the selected time to the field (for display)
                         timeField.setText(displayTime);
 
-                        // Store time information (without AM/PM)
                         if (timeField.getId() == R.id.startTime) {
                             eventData.put("startTime", storageTime);
                         } else if (timeField.getId() == R.id.endTime) {
@@ -920,33 +933,24 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void setupGraceTimeSpinner() {
-        // Create array of grace time options
         String[] graceTimeOptions = {"None", "15 min", "30 min", "60 min", "120 min"};
 
-        // Create adapter
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
                 graceTimeOptions
         );
 
-        // Specify the layout to use when the list of choices appears
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-
-        // Apply the adapter to the spinner
         graceTimeSpinner.setAdapter(adapter);
 
-        // Set listener for selection
         graceTimeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedOption = graceTimeOptions[position];
-
-                // Store the grace time value
                 if (selectedOption.equals("None")) {
                     eventData.put("graceTime", "none");
                 } else {
-                    // Extract the number but store as string
                     String graceTimeMinutes = selectedOption.split(" ")[0];
                     eventData.put("graceTime", graceTimeMinutes);
                 }
@@ -954,17 +958,14 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                // Default to "none" instead of 0 minutes
                 eventData.put("graceTime", "none");
             }
         });
     }
 
-    // 4. Also modify validatePage2() to check date validity before proceeding
     private boolean validatePage2() {
         boolean isValid = true;
 
-        // Validate Venue
         String venue = venueField.getText().toString().trim();
         if (venue.isEmpty()) {
             venueField.setError("Venue is required");
@@ -973,13 +974,11 @@ public class TeacherCreateEventActivity extends BaseActivity {
             eventData.put("venue", venue);
         }
 
-        // Validate Event Dates
         String startDate = startDateField.getText().toString().trim();
         if (startDate.isEmpty()) {
             startDateField.setError("Start date is required");
             isValid = false;
         } else {
-            // Check if the start date is in the past
             try {
                 SimpleDateFormat sdf = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
                 Date dateSelected = sdf.parse(startDate);
@@ -999,7 +998,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     isValid = false;
                 }
 
-                // If this is the current date, perform additional time validation
                 if (isSameDay(selectedCalendar, Calendar.getInstance())) {
                     if (!validateTimeForCurrentDay()) {
                         isValid = false;
@@ -1015,7 +1013,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
             endDateField.setError("End date is required");
             isValid = false;
         } else {
-            // For multi-day events, check if end date is after start date
             if (radioMultiDayEvent.isChecked()) {
                 try {
                     SimpleDateFormat sdf = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
@@ -1033,7 +1030,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         }
 
-        // Validate Event Times
         String startTime = startTimeField.getText().toString().trim();
         if (startTime.isEmpty()) {
             startTimeField.setError("Start time is required");
@@ -1046,15 +1042,13 @@ public class TeacherCreateEventActivity extends BaseActivity {
             isValid = false;
         }
 
-        // Grace time is always selected because spinner has a default selection
-
         return isValid;
     }
 
     private boolean validateTimeForCurrentDay() {
         String startTime = startTimeField.getText().toString().trim();
         if (startTime.isEmpty()) {
-            return true; // Skip validation if no time is set yet
+            return true;
         }
 
         try {
@@ -1064,7 +1058,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
             Calendar selectedTimeCal = Calendar.getInstance();
             selectedTimeCal.setTime(selectedStartTime);
 
-            // Set the selected hour and minute, but keep today's date
             Calendar nowCal = Calendar.getInstance();
             nowCal.set(Calendar.HOUR_OF_DAY, selectedTimeCal.get(Calendar.HOUR_OF_DAY));
             nowCal.set(Calendar.MINUTE, selectedTimeCal.get(Calendar.MINUTE));
@@ -1085,18 +1078,15 @@ public class TeacherCreateEventActivity extends BaseActivity {
         return true;
     }
 
-
     private boolean validatePage3() {
         boolean isValid = true;
 
-        // Validate Cover Photo
-        if (coverPhotoUri == null) {
+        if (coverPhotoUri == null && !eventData.containsKey("eventPhotoUrl")) {
             Toast.makeText(this, "Please upload a cover photo", Toast.LENGTH_SHORT).show();
             isValid = false;
         }
 
-        // Validate Proposal File
-        if (proposalFileUri == null) {
+        if (proposalFileUri == null && !eventData.containsKey("eventProposal")) {
             Toast.makeText(this, "Please upload an event proposal", Toast.LENGTH_SHORT).show();
             isValid = false;
         }
@@ -1105,95 +1095,65 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void setupEventTypeSpinner() {
-        // Create array of event types
         String[] eventTypes = {"Seminar", "Off-Campus Activity", "Sports Event", "Other"};
 
-        // Create adapter
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
                 eventTypes
         );
 
-        // Specify the layout to use when the list of choices appears
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-
-        // Apply the adapter to the spinner
         eventTypeSpinner.setAdapter(adapter);
 
-        // Set listener for selection
         eventTypeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedEventType = eventTypes[position];
-
-                // Check if "Other" is selected
                 if (selectedEventType.equals("Other")) {
-                    // Show the specify event type fields
                     specifyEventTypeLabel.setVisibility(View.VISIBLE);
                     specifyEventTypeAsterisk.setVisibility(View.VISIBLE);
                     specifyEventTypeField.setVisibility(View.VISIBLE);
-
-                    // Clear any previous text
                     specifyEventTypeField.setText("");
-
-                    // Don't store the event type yet, wait for the user to specify it
                 } else {
-                    // Hide the specify event type fields
                     specifyEventTypeLabel.setVisibility(View.GONE);
                     specifyEventTypeAsterisk.setVisibility(View.GONE);
                     specifyEventTypeField.setVisibility(View.GONE);
-
-                    // Store the selected event type
                     eventData.put("eventType", selectedEventType);
                 }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                // Do nothing
             }
         });
     }
-    private void setupEventForSpinner() {
-        // Create array of grade levels
-        String[] gradeOptions = {"Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12","All Year Level"};
 
-        // Create adapter
+    private void setupEventForSpinner() {
+        String[] gradeOptions = {"Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12", "All Year Level"};
+
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
                 gradeOptions
         );
 
-        // Specify the layout to use when the list of choices appears
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-
-        // Apply the adapter to the spinner
         eventForSpinner.setAdapter(adapter);
 
-        // Set listener for selection
         eventForSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                // Get selected text
                 String selectedGrade = gradeOptions[position];
-
-                // Check if "All Year Level" is selected
                 if (selectedGrade.equals("All Year Level")) {
-                    // Store as "All" as requested
                     eventData.put("eventFor", "All");
                 } else {
-                    // Convert to required format (e.g., "Grade 7" to "Grade-7")
                     String formattedGrade = selectedGrade.replace(" ", "-");
-                    // Save to event data
                     eventData.put("eventFor", formattedGrade);
                 }
 
-                // If a start date is already selected, clear it to force revalidation with new grade level
                 String currentStartDate = startDateField.getText().toString().trim();
                 if (!currentStartDate.isEmpty()) {
-                    // Clear the field to prompt reselection
                     startDateField.setText("");
                     Toast.makeText(TeacherCreateEventActivity.this,
                             "Please reselect the event date to check availability for this grade level",
@@ -1203,13 +1163,11 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                // Do nothing
             }
         });
     }
 
     private void setupPageNavigation() {
-        // Page 1 -> Next Button
         nextPg1.setOnClickListener(v -> {
             if (validatePage1()) {
                 savePageOneData();
@@ -1217,20 +1175,16 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         });
 
-        // Page 2 -> Back Button
         backPg2.setOnClickListener(v -> showPage(1));
 
-        // Page 2 -> Next Button
         nextPg2.setOnClickListener(v -> {
             if (validatePage2()) {
                 showPage(3);
             }
         });
 
-        // Page 3 -> Back Button
         backPg3.setOnClickListener(v -> showPage(2));
 
-        // Page 3 -> Create Button
         createButton.setOnClickListener(v -> {
             if (validatePage3()) {
                 uploadFilesAndSaveEvent();
@@ -1241,21 +1195,20 @@ public class TeacherCreateEventActivity extends BaseActivity {
     private boolean validatePage1() {
         boolean isValid = true;
 
-        // Validate Event Name
         String eventName = eventNameField.getText().toString().trim();
         if (eventName.isEmpty()) {
             eventNameField.setError("Event name is required");
             isValid = false;
         }
 
-        // Validate Event Description
         String eventDescription = eventDescriptionField.getText().toString().trim();
-        if (eventDescription.isEmpty()) {
+        if
+
+        (eventDescription.isEmpty()) {
             eventDescriptionField.setError("Event description is required");
             isValid = false;
         }
 
-        // Validate Specified Event Type if "Other" is selected
         String selectedEventType = eventTypeSpinner.getSelectedItem().toString();
         if (selectedEventType.equals("Other")) {
             String specifiedType = specifyEventTypeField.getText().toString().trim();
@@ -1267,40 +1220,27 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
         return isValid;
     }
+
     private void savePageOneData() {
-        // Save EditText values
         eventData.put("eventName", eventNameField.getText().toString().trim());
         eventData.put("eventDescription", eventDescriptionField.getText().toString().trim());
 
-        // Handle event type based on spinner selection
         String selectedEventType = eventTypeSpinner.getSelectedItem().toString();
         if (selectedEventType.equals("Other")) {
-            // Use the specified event type
             String specifiedType = specifyEventTypeField.getText().toString().trim();
             eventData.put("eventType", specifiedType);
         }
-        // If not "Other", eventType was already set in the spinner listener
 
-        // Event For is already saved in the spinner listener
-
-        // Add timestamp
         eventData.put("createdAt", System.currentTimeMillis());
 
-        // Instead of using Firebase Auth UID, we'll use the teacher's ID
         if (FirebaseAuth.getInstance().getCurrentUser() != null) {
             String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-            // Query the teachers node to find the teacher with matching email
             findTeacherIdByEmail(userEmail);
         } else {
-            // Handle the case when the user is not authenticated
             Toast.makeText(this, "You must be logged in to create an event", Toast.LENGTH_SHORT).show();
         }
     }
 
-    /**
-     * Method to find a teacher's ID by their email address
-     * @param email The email of the logged-in teacher
-     */
     private void findTeacherIdByEmail(String email) {
         DatabaseReference teachersRef = FirebaseDatabase.getInstance().getReference("teachers");
 
@@ -1308,16 +1248,12 @@ public class TeacherCreateEventActivity extends BaseActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
-                    // We found the teacher with this email
                     for (DataSnapshot teacherSnapshot : dataSnapshot.getChildren()) {
-                        // Get the teacher's ID (key)
                         String teacherId = teacherSnapshot.getKey();
-                        // Add the teacher ID to the event data
                         eventData.put("createdBy", teacherId);
-                        break; // Just take the first match (should be only one)
+                        break;
                     }
                 } else {
-                    // No teacher found with this email
                     Toast.makeText(TeacherCreateEventActivity.this,
                             "Could not find your teacher profile. Please contact support.",
                             Toast.LENGTH_LONG).show();
@@ -1334,19 +1270,12 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void uploadFilesAndSaveEvent() {
-        // Show loading or disable buttons
         createButton.setEnabled(false);
+        Toast.makeText(this, isEditing ? "Updating event..." : "Uploading files and creating event...", Toast.LENGTH_SHORT).show();
 
-        // Show a progress message
-        Toast.makeText(this, "Uploading files and creating event...", Toast.LENGTH_SHORT).show();
-
-        // Check if we have the teacherId in eventData
         if (!eventData.containsKey("createdBy")) {
-            // Try to get it again before continuing
             if (FirebaseAuth.getInstance().getCurrentUser() != null) {
                 String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-
-                // Query the teachers node to find the teacher with matching email
                 DatabaseReference teachersRef = FirebaseDatabase.getInstance().getReference("teachers");
                 teachersRef.orderByChild("email").equalTo(userEmail).addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
@@ -1355,11 +1284,9 @@ public class TeacherCreateEventActivity extends BaseActivity {
                             for (DataSnapshot teacherSnapshot : dataSnapshot.getChildren()) {
                                 String teacherId = teacherSnapshot.getKey();
                                 eventData.put("createdBy", teacherId);
-                                // Now continue with the upload
                                 proceedWithUpload();
                             }
                         } else {
-                            // No teacher found with this email
                             createButton.setEnabled(true);
                             Toast.makeText(TeacherCreateEventActivity.this,
                                     "Could not find your teacher profile. Please contact support.",
@@ -1376,121 +1303,106 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     }
                 });
             } else {
-                // User not authenticated
                 createButton.setEnabled(true);
                 Toast.makeText(this, "You must be logged in to create an event", Toast.LENGTH_SHORT).show();
             }
         } else {
-            // We already have the teacher ID, proceed with upload
             proceedWithUpload();
         }
     }
+
     private void proceedWithUpload() {
-        // Determine if this is a resubmission
-        boolean isResubmission = eventData.containsKey("originalEventId");
-        String eventId;
+        if (isEditing) {
+            // Update existing event
+            updateEvent();
+        } else {
+            // Handle create or resubmission
+            boolean isResubmission = eventData.containsKey("originalEventId");
+            String eventId;
 
-        if (isResubmission) {
-            // For resubmission, we create a new event entry but link it to the original
-            eventId = eventProposalRef.push().getKey();
-
-            if (eventId == null) {
-                // Error generating ID
-                createButton.setEnabled(true);
-                Toast.makeText(this, "Error creating event", Toast.LENGTH_SHORT).show();
-                return;
+            if (isResubmission) {
+                eventId = eventProposalRef.push().getKey();
+                if (eventId == null) {
+                    createButton.setEnabled(true);
+                    Toast.makeText(this, "Error creating event", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                eventData.put("resubmissionOf", eventData.get("originalEventId"));
+                eventData.remove("originalEventId");
+            } else {
+                eventId = eventProposalRef.push().getKey();
+                if (eventId == null) {
+                    createButton.setEnabled(true);
+                    Toast.makeText(this, "Error creating event", Toast.LENGTH_SHORT).show();
+                    return;
+                }
             }
 
-            // Add reference to the original event
-            eventData.put("resubmissionOf", eventData.get("originalEventId"));
-            // Remove the temporary originalEventId from eventData
-            eventData.remove("originalEventId");
-        } else {
-            // Generate a unique key for the new event
-            eventId = eventProposalRef.push().getKey();
+            eventData.put("eventId", eventId);
+            eventData.put("registrationAllowed", false);
+            eventData.put("status", "pending");
 
-            if (eventId == null) {
-                // Error generating ID
+            long currentTimeMillis = System.currentTimeMillis();
+            eventData.put("timestamp", currentTimeMillis);
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.US);
+            String currentDate = dateFormat.format(new Date(currentTimeMillis));
+            eventData.put("dateCreated", currentDate);
+
+            if (coverPhotoUri != null) {
+                String eventName = eventData.containsKey("eventName") ?
+                        eventData.get("eventName").toString() :
+                        "event_" + eventId;
+                uploadCoverPhoto(eventId, eventName);
+            } else if (isResubmission) {
+                uploadEventProposal(eventId);
+            } else {
                 createButton.setEnabled(true);
-                Toast.makeText(this, "Error creating event", Toast.LENGTH_SHORT).show();
-                return;
+                Toast.makeText(this, "Please upload a cover photo", Toast.LENGTH_SHORT).show();
             }
         }
+    }
 
-        // Add the ID to the event data
-        eventData.put("eventId", eventId);
-
-        // Set the required default values
-        eventData.put("registrationAllowed", false);
-        eventData.put("status", "pending");
-
-        // Add timestamps
+    private void updateEvent() {
+        // Update timestamps
         long currentTimeMillis = System.currentTimeMillis();
         eventData.put("timestamp", currentTimeMillis);
-
-        // Format current date as string
         SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.US);
         String currentDate = dateFormat.format(new Date(currentTimeMillis));
         eventData.put("dateCreated", currentDate);
 
-        // Upload cover photo to Firebase Storage
+        // Check if a new cover photo is selected
         if (coverPhotoUri != null) {
-            String eventName = eventData.containsKey("eventName") ?
-                    eventData.get("eventName").toString() :
-                    "event_" + eventId;
-
+            String eventName = eventData.get("eventName").toString();
             uploadCoverPhoto(eventId, eventName);
-        } else if (isResubmission) {
-            // For resubmission without a new cover photo, we proceed to proposal upload
-            // but we keep the existing photo URL if available
-            uploadEventProposal(eventId);
         } else {
-            // No cover photo for a new event, check with the user
-            createButton.setEnabled(true);
-            Toast.makeText(this, "Please upload a cover photo", Toast.LENGTH_SHORT).show();
+            // Keep existing photo URL and proceed to proposal
+            uploadEventProposal(eventId);
         }
     }
-    private void uploadCoverPhoto(String eventId, String eventName) {
-        // Get the original filename from the URI
-        String originalFileName = getOriginalFileName(coverPhotoUri);
 
-        // If we couldn't get the original filename, fall back to a default name with extension
+    private void uploadCoverPhoto(String eventId, String eventName) {
+        String originalFileName = getOriginalFileName(coverPhotoUri);
         if (originalFileName == null || originalFileName.isEmpty()) {
             originalFileName = "photo." + getFileExtension(coverPhotoUri);
         }
 
-        // Create a reference to the file location in Firebase Storage using eventName as directory
-        // The path will be: eventName/originalFileName
         StorageReference coverPhotoRef = storageRef.child(eventName + "/" + originalFileName);
 
-        // Upload the file
         String finalOriginalFileName = originalFileName;
         coverPhotoRef.putFile(coverPhotoUri)
                 .addOnSuccessListener(taskSnapshot -> {
-                    // Get the download URL
                     coverPhotoRef.getDownloadUrl().addOnSuccessListener(uri -> {
-                        // Add the download URL to the event data
                         eventData.put("eventPhotoUrl", uri.toString());
-
-                        // Store the photo path for easier reference
                         eventData.put("eventPhotoPath", eventName + "/" + finalOriginalFileName);
-
-                        // Now upload the event proposal
                         uploadEventProposal(eventId);
                     });
                 })
                 .addOnFailureListener(e -> {
-                    // Enable the create button again
                     createButton.setEnabled(true);
                     Toast.makeText(TeacherCreateEventActivity.this, "Failed to upload cover photo: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
 
-    /**
-     * Method to get the original filename from a URI
-     * @param uri The URI of the file
-     * @return The original filename or null if it couldn't be determined
-     */
     private String getOriginalFileName(Uri uri) {
         String result = null;
         if (uri.getScheme().equals("content")) {
@@ -1506,7 +1418,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         }
         if (result == null) {
-            // If content resolver approach failed, try getting filename from path
             result = uri.getPath();
             int cut = result != null ? result.lastIndexOf('/') : -1;
             if (cut != -1) {
@@ -1518,98 +1429,84 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
     private void uploadEventProposal(String eventId) {
         if (proposalFileUri != null) {
-            // Get the event name from your event data
             String eventName = eventData.get("eventName").toString();
-
-            // Create a reference to the file location in Firebase Storage
-            // Path structure: eventName/event_proposal/file.pdf
             StorageReference proposalRef = storageRef.child(eventName + "/event_proposal/" + proposalFileName);
 
-            // Upload the file
             proposalRef.putFile(proposalFileUri)
                     .addOnSuccessListener(taskSnapshot -> {
-                        // Get the download URL
                         proposalRef.getDownloadUrl().addOnSuccessListener(uri -> {
-                            // Add the download URL to the event data
                             eventData.put("eventProposal", uri.toString());
-
-                            // Finally save the event data to the database
                             saveEventToFirebase(eventId);
                         });
                     })
                     .addOnFailureListener(e -> {
-                        // Enable the create button again
                         createButton.setEnabled(true);
                         Toast.makeText(TeacherCreateEventActivity.this, "Failed to upload event proposal: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     });
-        } else if (eventData.containsKey("existingProposalUrl")) {
-            // For resubmission where we're keeping the existing proposal document
-            eventData.put("eventProposal", eventData.get("existingProposalUrl"));
-            eventData.remove("existingProposalUrl"); // Remove the temporary field
+        } else if (eventData.containsKey("eventProposal") || eventData.containsKey("existingProposalUrl")) {
+            if (eventData.containsKey("existingProposalUrl")) {
+                eventData.put("eventProposal", eventData.get("existingProposalUrl"));
+                eventData.remove("existingProposalUrl");
+            }
             saveEventToFirebase(eventId);
         } else {
-            // No proposal file, ask the user to upload one
             createButton.setEnabled(true);
             Toast.makeText(this, "Please upload an event proposal", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void saveEventToFirebase(String eventId) {
-        // Check if this is a resubmission
         boolean isResubmission = eventData.containsKey("resubmissionOf");
         final String originalEventId = isResubmission ? eventData.get("resubmissionOf").toString() : null;
 
-        // For resubmissions, add additional data
         if (isResubmission) {
             eventData.put("isResubmission", true);
         }
 
-        // Save to Firebase
-        eventProposalRef.child(eventId).setValue(eventData, new DatabaseReference.CompletionListener() {
-            @Override
-            public void onComplete(DatabaseError databaseError, @NonNull DatabaseReference databaseReference) {
-                // Re-enable buttons
+        if (isEditing) {
+            // Update existing event in the events node
+            DatabaseReference eventRef = database.getReference("events").child(eventId);
+            eventRef.updateChildren(eventData, (databaseError, databaseReference) -> {
                 createButton.setEnabled(true);
-
                 if (databaseError == null) {
-                    // Success
-                    String message = isResubmission ?
-                            "Event resubmitted successfully" :
-                            "Event created successfully";
-
+                    Toast.makeText(TeacherCreateEventActivity.this, "Event updated successfully", Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(TeacherCreateEventActivity.this, TeacherEvents.class));
+                    finish();
+                } else {
+                    Toast.makeText(TeacherCreateEventActivity.this,
+                            "Failed to update event: " + databaseError.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                }
+            });
+        } else {
+            // Existing code for create/resubmission
+            eventProposalRef.child(eventId).setValue(eventData, (databaseError, databaseReference) -> {
+                createButton.setEnabled(true);
+                if (databaseError == null) {
+                    String message = isResubmission ? "Event resubmitted successfully" : "Event created successfully";
                     Toast.makeText(TeacherCreateEventActivity.this, message, Toast.LENGTH_SHORT).show();
 
-                    // If this is a resubmission, delete the original rejected event
                     if (isResubmission && originalEventId != null) {
                         deleteRejectedEvent(originalEventId);
                     }
 
-                    // Navigate to events list or dashboard
                     startActivity(new Intent(TeacherCreateEventActivity.this, TeacherEvents.class));
                     finish();
                 } else {
-                    // Failed
                     Toast.makeText(TeacherCreateEventActivity.this,
                             "Failed to " + (isResubmission ? "resubmit" : "create") + " event: " + databaseError.getMessage(),
                             Toast.LENGTH_LONG).show();
                 }
-            }
-        });
+            });
+        }
     }
 
-    /**
-     * Deletes the rejected event from Firebase when a resubmission is created
-     * @param originalEventId The ID of the original rejected event that's being resubmitted
-     */
     private void deleteRejectedEvent(String originalEventId) {
         if (originalEventId == null || originalEventId.isEmpty()) {
             return;
         }
 
-        // Get reference to the rejected event in the eventProposals collection
         DatabaseReference rejectedEventRef = database.getReference("eventProposals").child(originalEventId);
-
-        // Delete the rejected event
         rejectedEventRef.removeValue().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 Log.d("DeleteEvent", "Rejected event deleted successfully");
@@ -1621,13 +1518,9 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
     private void showPage(int page) {
         currentPage = page;
-
-        // Show correct page
         page1.setVisibility(page == 1 ? View.VISIBLE : View.GONE);
         page2.setVisibility(page == 2 ? View.VISIBLE : View.GONE);
         page3.setVisibility(page == 3 ? View.VISIBLE : View.GONE);
-
-        // Update progress indicator
         updateProgressIndicator(page);
     }
 
@@ -1639,7 +1532,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
         View connector1 = findViewById(R.id.connector1);
         View connector2 = findViewById(R.id.connector2);
 
-        // Reset all steps
         step1.setBackgroundResource(R.drawable.progress_bar_background);
         step2.setBackgroundResource(R.drawable.progress_bar_background);
         step3.setBackgroundResource(R.drawable.progress_bar_background);
@@ -1648,10 +1540,9 @@ public class TeacherCreateEventActivity extends BaseActivity {
         step2.setTextColor(getResources().getColor(R.color.gray));
         step3.setTextColor(getResources().getColor(R.color.gray));
 
-        connector1.setBackgroundColor(getResources().getColor(R.color.light_gray)); // default
-        connector2.setBackgroundColor(getResources().getColor(R.color.light_gray)); // default
+        connector1.setBackgroundColor(getResources().getColor(R.color.light_gray));
+        connector2.setBackgroundColor(getResources().getColor(R.color.light_gray));
 
-        // Update steps and lines based on current page
         if (page >= 1) {
             step1.setBackgroundResource(R.drawable.progress_bar_active);
             step1.setTextColor(getResources().getColor(android.R.color.white));
@@ -1659,19 +1550,17 @@ public class TeacherCreateEventActivity extends BaseActivity {
         if (page >= 2) {
             step2.setBackgroundResource(R.drawable.progress_bar_active);
             step2.setTextColor(getResources().getColor(android.R.color.white));
-            connector1.setBackgroundColor(getResources().getColor(R.color.primary)); // blue
+            connector1.setBackgroundColor(getResources().getColor(R.color.primary));
         }
         if (page >= 3) {
             step3.setBackgroundResource(R.drawable.progress_bar_active);
             step3.setTextColor(getResources().getColor(android.R.color.white));
-            connector2.setBackgroundColor(getResources().getColor(R.color.primary)); // blue
+            connector2.setBackgroundColor(getResources().getColor(R.color.primary));
         }
     }
 
     private void setupBottomNavigation() {
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation_teacher);
-
-        // Deselect all items
         bottomNavigationView.getMenu().setGroupCheckable(0, false, true);
         for (int i = 0; i < bottomNavigationView.getMenu().size(); i++) {
             bottomNavigationView.getMenu().getItem(i).setChecked(false);
@@ -1687,7 +1576,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
-
             if (itemId == R.id.nav_home_teacher) {
                 startActivity(new Intent(this, TeacherDashboard.class));
             } else if (itemId == R.id.nav_event_teacher) {
@@ -1697,7 +1585,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
             } else if (itemId == R.id.nav_profile_teacher) {
                 startActivity(new Intent(this, TeacherProfile.class));
             }
-
             overridePendingTransition(0, 0);
             finish();
             return true;

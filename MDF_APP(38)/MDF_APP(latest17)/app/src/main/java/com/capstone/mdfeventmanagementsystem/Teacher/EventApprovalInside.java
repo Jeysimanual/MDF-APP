@@ -9,11 +9,13 @@ import android.util.Log;
 import android.view.View;
 import android.webkit.MimeTypeMap;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.graphics.Insets;
@@ -56,7 +58,8 @@ public class EventApprovalInside extends AppCompatActivity {
     private TextView reasonText;
     private CardView proposalCardView;
     private Button viewProposalButton;
-    private Button resubmitEventButton; // New button for resubmitting events
+    private Button resubmitEventButton;
+    private ImageButton editEventButton;
 
     // Labels for visibility control
     private TextView endDateLabel;
@@ -67,6 +70,7 @@ public class EventApprovalInside extends AppCompatActivity {
     private String eventStatus;
     private String eventName;
     private String proposalDocUrl;
+    private String photoUrl;
     private DatabaseReference eventProposalsRef;
 
     @SuppressLint("MissingInflatedId")
@@ -102,12 +106,14 @@ public class EventApprovalInside extends AppCompatActivity {
 
         // Set up resubmit button click listener
         setupResubmitButtonListener();
+
+        // Set up edit event button click listener
+        setupEditEventButtonListener();
     }
 
     private void initializeViews() {
         Log.d(TAG, "initializeViews: Finding views by IDs");
 
-        // Find all views by ID
         eventNameText = findViewById(R.id.eventName);
         eventDescriptionText = findViewById(R.id.eventDescription);
         venueText = findViewById(R.id.venue);
@@ -124,17 +130,16 @@ public class EventApprovalInside extends AppCompatActivity {
         reasonText = findViewById(R.id.reason_text);
         proposalCardView = findViewById(R.id.proposalCardView);
         viewProposalButton = findViewById(R.id.viewProposalButton);
-        resubmitEventButton = findViewById(R.id.resubmitEventButton); // Initialize the resubmit button
+        resubmitEventButton = findViewById(R.id.resubmitEventButton);
+        editEventButton = findViewById(R.id.editEventButton);
 
-        // Find labels for visibility control
-        endDateLabel = findViewById(R.id.textView17); // This is the "Event End:" label in your XML
-        venueLabel = findViewById(R.id.textView18); // This is the "Event Venue:" label in your XML
+        endDateLabel = findViewById(R.id.textView17);
+        venueLabel = findViewById(R.id.textView18);
     }
 
     private void receiveIntentData() {
         Log.d(TAG, "receiveIntentData: Getting event data from intent");
 
-        // Get data from intent
         Intent intent = getIntent();
         if (intent != null) {
             eventId = intent.getStringExtra("EVENT_ID");
@@ -142,12 +147,20 @@ public class EventApprovalInside extends AppCompatActivity {
             eventName = intent.getStringExtra("EVENT_NAME");
 
             Log.d(TAG, "receiveIntentData: Received event with ID: " + eventId +
-                    ", name: " + eventName + " and status: " + eventStatus);
+                    ", name: " + eventName + ", status: " + eventStatus);
 
-            // Check if status is rejected to show resubmit button
+            // Show resubmit button for rejected events
             if (eventStatus != null && eventStatus.equalsIgnoreCase("rejected")) {
                 resubmitEventButton.setVisibility(View.VISIBLE);
+                editEventButton.setVisibility(View.GONE);
                 Log.d(TAG, "receiveIntentData: Event is rejected, showing resubmit button");
+            } else if (eventStatus != null && (eventStatus.equalsIgnoreCase("pending") || eventStatus.equalsIgnoreCase("approved"))) {
+                editEventButton.setVisibility(View.VISIBLE);
+                resubmitEventButton.setVisibility(View.GONE);
+                Log.d(TAG, "receiveIntentData: Event is editable, showing edit button");
+            } else {
+                resubmitEventButton.setVisibility(View.GONE);
+                editEventButton.setVisibility(View.GONE);
             }
         } else {
             Log.e(TAG, "receiveIntentData: Intent is null");
@@ -158,7 +171,6 @@ public class EventApprovalInside extends AppCompatActivity {
         Log.d(TAG, "fetchEventDataFromDatabase: Fetching event data from Firebase for event ID: " + eventId);
 
         if (eventId != null && !eventId.isEmpty()) {
-            // Query the database for the specific event by its ID
             eventProposalsRef.child(eventId).addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
@@ -167,7 +179,6 @@ public class EventApprovalInside extends AppCompatActivity {
                         displayEventDataFromDatabase(dataSnapshot);
                     } else {
                         Log.d(TAG, "onDataChange: Event not found in database with ID: " + eventId);
-                        // Try using intent data as fallback
                         displayEventDataFromIntent();
                     }
                 }
@@ -175,12 +186,10 @@ public class EventApprovalInside extends AppCompatActivity {
                 @Override
                 public void onCancelled(DatabaseError databaseError) {
                     Log.e(TAG, "fetchEventDataFromDatabase: Database error: ", databaseError.toException());
-                    // Use intent data as fallback
                     displayEventDataFromIntent();
                 }
             });
         } else if (eventName != null && !eventName.isEmpty()) {
-            // If eventId is null but eventName is available, query by name
             Log.d(TAG, "fetchEventDataFromDatabase: Trying to fetch by event name: " + eventName);
 
             Query query = eventProposalsRef.orderByChild("eventName").equalTo(eventName);
@@ -188,13 +197,11 @@ public class EventApprovalInside extends AppCompatActivity {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
                     if (dataSnapshot.exists() && dataSnapshot.getChildrenCount() > 0) {
-                        // Get the first matching event
                         DataSnapshot firstEvent = dataSnapshot.getChildren().iterator().next();
                         Log.d(TAG, "onDataChange: Event found by name: " + eventName);
                         displayEventDataFromDatabase(firstEvent);
                     } else {
                         Log.d(TAG, "onDataChange: Event not found by name: " + eventName);
-                        // Use intent data as fallback
                         displayEventDataFromIntent();
                     }
                 }
@@ -202,13 +209,11 @@ public class EventApprovalInside extends AppCompatActivity {
                 @Override
                 public void onCancelled(DatabaseError databaseError) {
                     Log.e(TAG, "Query by name cancelled", databaseError.toException());
-                    // Use intent data as fallback
                     displayEventDataFromIntent();
                 }
             });
         } else {
             Log.e(TAG, "fetchEventDataFromDatabase: Both event ID and name are null or empty");
-            // Use intent data as fallback
             displayEventDataFromIntent();
         }
     }
@@ -216,7 +221,6 @@ public class EventApprovalInside extends AppCompatActivity {
     private void displayEventDataFromDatabase(DataSnapshot dataSnapshot) {
         Log.d(TAG, "displayEventDataFromDatabase: Setting event data from database");
 
-        // Extract event data from database snapshot
         String name = dataSnapshot.child("eventName").getValue(String.class);
         String description = dataSnapshot.child("eventDescription").getValue(String.class);
         String venue = dataSnapshot.child("venue").getValue(String.class);
@@ -228,22 +232,17 @@ public class EventApprovalInside extends AppCompatActivity {
         String graceTime = dataSnapshot.child("graceTime").getValue(String.class);
         String eventType = dataSnapshot.child("eventType").getValue(String.class);
         String eventFor = dataSnapshot.child("eventFor").getValue(String.class);
-        String photoUrl = dataSnapshot.child("eventPhotoUrl").getValue(String.class);
+        photoUrl = dataSnapshot.child("eventPhotoUrl").getValue(String.class);
         String status = dataSnapshot.child("status").getValue(String.class);
         String reason = dataSnapshot.child("reason").getValue(String.class);
 
-        // Update event status from database
         eventStatus = status;
 
-        // Get the proposal document URL
         proposalDocUrl = dataSnapshot.child("eventProposal").getValue(String.class);
-
-        // Check if proposal document URL exists
         if (proposalDocUrl != null && !proposalDocUrl.isEmpty()) {
             proposalCardView.setVisibility(View.VISIBLE);
             Log.d(TAG, "displayEventDataFromDatabase: Found proposal document URL: " + proposalDocUrl);
         } else {
-            // Try alternative field name
             proposalDocUrl = dataSnapshot.child("eventProposalUrl").getValue(String.class);
             if (proposalDocUrl != null && !proposalDocUrl.isEmpty()) {
                 proposalCardView.setVisibility(View.VISIBLE);
@@ -254,7 +253,6 @@ public class EventApprovalInside extends AppCompatActivity {
             }
         }
 
-        // Set event data to views
         setEventDataToViews(name, description, venue, startDate, endDate, startTime, endTime,
                 eventSpan, graceTime, eventType, eventFor, photoUrl, status, reason);
     }
@@ -264,7 +262,6 @@ public class EventApprovalInside extends AppCompatActivity {
 
         Intent intent = getIntent();
         if (intent != null) {
-            // Extract data from intent
             String name = intent.getStringExtra("EVENT_NAME");
             String description = intent.getStringExtra("EVENT_DESCRIPTION");
             String venue = intent.getStringExtra("EVENT_VENUE");
@@ -276,11 +273,10 @@ public class EventApprovalInside extends AppCompatActivity {
             String graceTime = intent.getStringExtra("EVENT_GRACE_TIME");
             String eventType = intent.getStringExtra("EVENT_TYPE");
             String eventFor = intent.getStringExtra("EVENT_FOR");
-            String photoUrl = intent.getStringExtra("EVENT_PHOTO_URL");
+            photoUrl = intent.getStringExtra("EVENT_PHOTO_URL");
             String reason = intent.getStringExtra("EVENT_REJECTION_REASON");
             proposalDocUrl = intent.getStringExtra("EVENT_PROPOSAL_URL");
 
-            // Check if proposal URL exists
             if (proposalDocUrl != null && !proposalDocUrl.isEmpty()) {
                 proposalCardView.setVisibility(View.VISIBLE);
                 Log.d(TAG, "displayEventDataFromIntent: Found proposal document URL from intent: " + proposalDocUrl);
@@ -289,7 +285,6 @@ public class EventApprovalInside extends AppCompatActivity {
                 Log.d(TAG, "displayEventDataFromIntent: No proposal document URL found in intent");
             }
 
-            // Set event data to views
             setEventDataToViews(name, description, venue, startDate, endDate, startTime, endTime,
                     eventSpan, graceTime, eventType, eventFor, photoUrl, eventStatus, reason);
         }
@@ -449,6 +444,8 @@ public class EventApprovalInside extends AppCompatActivity {
         if (photoUrl != null && !photoUrl.isEmpty()) {
             try {
                 Picasso.get().load(photoUrl).placeholder(R.drawable.placeholder_image).into(eventPhotoUrlImage);
+                // Store the URL as a tag for later use
+                eventPhotoUrlImage.setTag(photoUrl);
             } catch (Exception e) {
                 Log.e(TAG, "setEventDataToViews: Error loading image", e);
                 eventPhotoUrlImage.setImageResource(R.drawable.placeholder_image);
@@ -520,6 +517,95 @@ public class EventApprovalInside extends AppCompatActivity {
     }
 
     /**
+     * Set up the click listener for the edit event button
+     */
+    private void setupEditEventButtonListener() {
+        editEventButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showEditConfirmationDialog();
+            }
+        });
+    }
+
+    /**
+     * Shows a confirmation dialog before editing an event
+     */
+    private void showEditConfirmationDialog() {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle("Confirm Edit");
+        builder.setMessage("Are you sure you want to edit this event?");
+
+        // Add buttons
+        builder.setPositiveButton("Yes", new android.content.DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(android.content.DialogInterface dialog, int which) {
+                // Update the database to set IS_EDITING flag
+                updateEventEditingStatus();
+            }
+        });
+
+        builder.setNegativeButton("No", new android.content.DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(android.content.DialogInterface dialog, int which) {
+                // User cancelled the edit operation
+                dialog.dismiss();
+            }
+        });
+
+        // Create and show the dialog
+        androidx.appcompat.app.AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    /**
+     * Update the database to set the IS_EDITING flag for this event
+     */
+    private void updateEventEditingStatus() {
+        Log.d(TAG, "updateEventEditingStatus: Setting IS_EDITING flag in database for event ID: " + eventId);
+
+        if (eventId != null && !eventId.isEmpty()) {
+            // Get a reference to the specific event in the database
+            DatabaseReference eventRef = eventProposalsRef.child(eventId);
+
+            // Update the IS_EDITING flag to true
+            eventRef.child("isEditing").setValue(true)
+                    .addOnSuccessListener(new com.google.android.gms.tasks.OnSuccessListener<Void>() {
+                        @Override
+                        public void onSuccess(Void aVoid) {
+                            Log.d(TAG, "IS_EDITING flag set successfully in database");
+                            Toast.makeText(EventApprovalInside.this,
+                                    "Event marked for editing",
+                                    Toast.LENGTH_SHORT).show();
+
+                            // Now navigate to the edit activity
+                            navigateToEditEventActivity();
+                        }
+                    })
+                    .addOnFailureListener(new com.google.android.gms.tasks.OnFailureListener() {
+                        @Override
+                        public void onFailure(Exception e) {
+                            Log.e(TAG, "Failed to set IS_EDITING flag: ", e);
+                            Toast.makeText(EventApprovalInside.this,
+                                    "Failed to update database: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+
+                            // Navigate anyway even if flag setting failed
+                            navigateToEditEventActivity();
+                        }
+                    });
+        } else {
+            Log.e(TAG, "updateEventEditingStatus: Event ID is null or empty");
+            Toast.makeText(EventApprovalInside.this,
+                    "Could not identify event for editing",
+                    Toast.LENGTH_SHORT).show();
+
+            // Navigate anyway as fallback
+            navigateToEditEventActivity();
+        }
+    }
+
+    /**
      * Navigate to TeacherCreateEventActivity with the event data for resubmission
      */
     private void navigateToCreateEventActivity() {
@@ -542,6 +628,7 @@ public class EventApprovalInside extends AppCompatActivity {
         intent.putExtra("EVENT_TYPE", eventTypeText.getText().toString());
         intent.putExtra("EVENT_FOR", eventForText.getText().toString());
         intent.putExtra("EVENT_PROPOSAL_URL", proposalDocUrl);
+        intent.putExtra("EVENT_PHOTO_URL", photoUrl);
 
         // Start the activity
         startActivity(intent);
@@ -552,6 +639,39 @@ public class EventApprovalInside extends AppCompatActivity {
                 Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * Navigate to TeacherCreateEventActivity with event data for editing
+     */
+    private void navigateToEditEventActivity() {
+        Log.d(TAG, "navigateToEditEventActivity: Navigating to TeacherCreateEventActivity for editing");
+
+        Intent intent = new Intent(EventApprovalInside.this, TeacherCreateEventActivity.class);
+
+        // Pass event data to pre-fill the form
+        intent.putExtra("IS_EDITING", true);
+        intent.putExtra("EVENT_ID", eventId);
+        intent.putExtra("EVENT_NAME", eventNameText.getText().toString());
+        intent.putExtra("EVENT_DESCRIPTION", eventDescriptionText.getText().toString());
+        intent.putExtra("EVENT_VENUE", venueText.getText().toString());
+        intent.putExtra("EVENT_START_DATE", startDateText.getText().toString());
+        intent.putExtra("EVENT_END_DATE", endDateText.getText().toString());
+        intent.putExtra("EVENT_START_TIME", startTimeText.getText().toString());
+        intent.putExtra("EVENT_END_TIME", endTimeText.getText().toString());
+        intent.putExtra("EVENT_SPAN", eventSpanText.getText().toString());
+        intent.putExtra("EVENT_GRACE_TIME", graceTimeText.getText().toString());
+        intent.putExtra("EVENT_TYPE", eventTypeText.getText().toString());
+        intent.putExtra("EVENT_FOR", eventForText.getText().toString());
+        intent.putExtra("EVENT_PROPOSAL_URL", proposalDocUrl);
+        intent.putExtra("EVENT_PHOTO_URL", photoUrl);
+
+        // Start the activity
+        startActivity(intent);
+
+        // Show a toast message
+        Toast.makeText(EventApprovalInside.this,
+                "Editing event: " + eventNameText.getText().toString(),
+                Toast.LENGTH_SHORT).show();
+    }
 
     /**
      * Open the proposal document in a browser or PDF viewer
