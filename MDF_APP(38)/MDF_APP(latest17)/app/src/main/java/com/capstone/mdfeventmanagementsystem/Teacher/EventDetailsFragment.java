@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -65,6 +66,7 @@ public class EventDetailsFragment extends Fragment {
     private DatabaseReference eventRef;
     private ImageButton editEventButton;
     private boolean canEditEvent = false; // Tracks if teacher is allowed to edit
+    private boolean isEventCreator = false; // Tracks if the current teacher is the creator
 
     public EventDetailsFragment() {
         // Required empty public constructor
@@ -149,6 +151,8 @@ public class EventDetailsFragment extends Fragment {
         }
         if (editEventButton != null) {
             editEventButton.setOnClickListener(v -> handleEditButtonClick());
+            // Initially hide the edit button until creator permission is confirmed
+            editEventButton.setVisibility(View.GONE);
         }
 
         if (eventUID != null && !eventUID.isEmpty()) {
@@ -158,6 +162,9 @@ public class EventDetailsFragment extends Fragment {
             getTotalCoordinators(eventUID);
             setupRegistrationControl();
             checkEditPermission();
+            checkCreatorPermission(); // Add this call to check if the teacher is the creator
+        } else {
+            Log.e("EventDetailsFragment", "Event UID is null or empty, cannot proceed with loading event details.");
         }
     }
 
@@ -243,24 +250,32 @@ public class EventDetailsFragment extends Fragment {
         editRequestsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!isAdded()) return; // Ensure fragment is still attached
+
                 if (snapshot.exists()) {
                     String status = snapshot.child("status").getValue(String.class);
                     String requesterId = snapshot.child("teacherId").getValue(String.class);
                     if ("approved".equals(status) && teacherId.equals(requesterId)) {
                         canEditEvent = true;
-                        if (editEventButton != null) {
-                            editEventButton.setImageResource(R.drawable.ic_edit); // Optional: Change icon to indicate edit is allowed
+                        if (editEventButton != null && !isEventCreator) {
+                            editEventButton.setImageResource(R.drawable.ic_edit);
+                            editEventButton.setVisibility(View.VISIBLE);
+                            Log.d("EditPermission", "Edit request approved for this teacher, showing edit button.");
                         }
                     } else {
                         canEditEvent = false;
-                        if (editEventButton != null) {
+                        if (editEventButton != null && !isEventCreator) {
                             editEventButton.setImageResource(R.drawable.ic_edit);
+                            editEventButton.setVisibility(View.GONE);
+                            Log.d("EditPermission", "Edit request not approved, hiding edit button.");
                         }
                     }
                 } else {
                     canEditEvent = false;
-                    if (editEventButton != null) {
+                    if (editEventButton != null && !isEventCreator) {
                         editEventButton.setImageResource(R.drawable.ic_edit);
+                        editEventButton.setVisibility(View.GONE);
+                        Log.d("EditPermission", "No edit request exists, hiding edit button.");
                     }
                 }
             }
@@ -272,6 +287,234 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
+    private void checkCreatorPermission() {
+        if (eventUID == null || eventUID.isEmpty() || editEventButton == null || registrationCard == null || !isAdded()) {
+            Log.e("CreatorPermission", "Cannot check creator permission: eventUID, editEventButton, or registrationCard is null, or fragment is not attached.");
+            if (editEventButton != null) {
+                editEventButton.setVisibility(View.GONE);
+            }
+            if (registrationCard != null) {
+                registrationCard.setVisibility(View.GONE);
+            }
+            return;
+        }
+
+        DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
+        String teacherId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+
+        if (teacherId == null || teacherId.isEmpty()) {
+            Log.e("CreatorPermission", "Teacher ID is null or empty, cannot check creator permission.");
+            if (editEventButton != null) {
+                editEventButton.setVisibility(View.GONE);
+            }
+            if (registrationCard != null) {
+                registrationCard.setVisibility(View.GONE);
+            }
+            return;
+        }
+
+        Log.d("CreatorPermission", "Checking creator permission for eventUID: " + eventUID + ", teacherId: " + teacherId);
+
+        eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!isAdded()) return;
+
+                Log.d("CreatorPermission", "Firebase snapshot received for eventUID: " + eventUID);
+
+                if (snapshot.exists()) {
+                    Log.d("CreatorPermission", "Event data exists. Checking for 'createdBy' child.");
+                    if (snapshot.hasChild("createdBy")) {
+                        String creatorId = snapshot.child("createdBy").getValue(String.class);
+                        Log.d("CreatorPermission", "Found 'createdBy' node with value: " + creatorId);
+
+                        if (creatorId != null && !creatorId.isEmpty() && teacherId.equals(creatorId)) {
+                            isEventCreator = true;
+                            canEditEvent = true;
+                            if (editEventButton != null) {
+                                editEventButton.setVisibility(View.VISIBLE);
+                                Log.d("CreatorPermission", "Teacher is the creator (teacherId: " + teacherId + ", creatorId: " + creatorId + "), showing edit button.");
+                            }
+                            // Check event start time to determine registration card visibility
+                            String startDate = snapshot.child("startDate").getValue(String.class);
+                            String startTime = snapshot.child("startTime").getValue(String.class);
+                            if (startDate != null && startTime != null) {
+                                toggleRegistrationCardVisibility(startDate, startTime, true);
+                            } else {
+                                if (registrationCard != null) {
+                                    registrationCard.setVisibility(View.VISIBLE);
+                                    Log.d("CreatorPermission", "No start date/time, showing registration card for creator.");
+                                }
+                            }
+                        } else {
+                            isEventCreator = false;
+                            canEditEvent = false;
+                            if (editEventButton != null) {
+                                editEventButton.setVisibility(View.GONE);
+                                Log.d("CreatorPermission", "Teacher is not the creator (teacherId: " + teacherId + ", creatorId: " + creatorId + "), hiding edit button.");
+                            }
+                            if (registrationCard != null) {
+                                registrationCard.setVisibility(View.GONE);
+                                Log.d("CreatorPermission", "Teacher is not the creator, hiding registration card.");
+                            }
+                        }
+                    } else {
+                        isEventCreator = false;
+                        canEditEvent = false;
+                        if (editEventButton != null) {
+                            editEventButton.setVisibility(View.GONE);
+                            Log.d("CreatorPermission", "No 'createdBy' node found in event data, hiding edit button.");
+                        }
+                        if (registrationCard != null) {
+                            registrationCard.setVisibility(View.GONE);
+                            Log.d("CreatorPermission", "No 'createdBy' node found, hiding registration card.");
+                        }
+                    }
+                } else {
+                    isEventCreator = false;
+                    canEditEvent = false;
+                    if (editEventButton != null) {
+                        editEventButton.setVisibility(View.GONE);
+                        Log.d("CreatorPermission", "Event data does not exist for eventUID: " + eventUID + ", hiding edit button.");
+                    }
+                    if (registrationCard != null) {
+                        registrationCard.setVisibility(View.GONE);
+                        Log.d("CreatorPermission", "Event data does not exist for eventUID: " + eventUID + ", hiding registration card.");
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("CreatorPermission", "Error checking creator permission: " + error.getMessage());
+                if (isAdded()) {
+                    isEventCreator = false;
+                    canEditEvent = false;
+                    if (editEventButton != null) {
+                        editEventButton.setVisibility(View.GONE);
+                        Log.d("CreatorPermission", "Firebase query cancelled, hiding edit button.");
+                    }
+                    if (registrationCard != null) {
+                        registrationCard.setVisibility(View.GONE);
+                        Log.d("CreatorPermission", "Firebase query cancelled, hiding registration card.");
+                    }
+                }
+            }
+        });
+    }
+
+    private void toggleRegistrationCardVisibility(String startDate, String startTime, boolean isCreator) {
+        if (!isAdded() || registrationCard == null) return;
+
+        if (!isCreator) {
+            Log.d("RegistrationCardControl", "Teacher is not the creator, hiding registration card.");
+            registrationCard.setVisibility(View.GONE);
+            return;
+        }
+
+        try {
+            Log.d("RegistrationCardControl", "Checking event start: Date=" + startDate + ", Time=" + startTime);
+
+            // Parse the date
+            Calendar eventStartTime = Calendar.getInstance();
+            if (startDate.contains("/")) {
+                String[] dateParts = startDate.split("/");
+                if (dateParts.length != 3) {
+                    Log.e("RegistrationCardControl", "Invalid date format (DD/MM/YYYY expected): " + startDate);
+                    return;
+                }
+                int day = Integer.parseInt(dateParts[0]);
+                int month = Integer.parseInt(dateParts[1]) - 1;
+                int year = Integer.parseInt(dateParts[2]);
+                eventStartTime.set(Calendar.YEAR, year);
+                eventStartTime.set(Calendar.MONTH, month);
+                eventStartTime.set(Calendar.DAY_OF_MONTH, day);
+            } else if (startDate.contains("-")) {
+                String[] dateParts = startDate.split("-");
+                if (dateParts.length != 3) {
+                    Log.e("RegistrationCardControl", "Invalid date format (YYYY-MM-DD expected): " + startDate);
+                    return;
+                }
+                int year = Integer.parseInt(dateParts[0]);
+                int month = Integer.parseInt(dateParts[1]) - 1;
+                int day = Integer.parseInt(dateParts[2]);
+                eventStartTime.set(Calendar.YEAR, year);
+                eventStartTime.set(Calendar.MONTH, month);
+                eventStartTime.set(Calendar.DAY_OF_MONTH, day);
+            } else {
+                Log.e("RegistrationCardControl", "Unrecognized date format: " + startDate);
+                return;
+            }
+
+            // Parse the time
+            int hour, minute;
+            if (startTime.contains("AM") || startTime.contains("PM")) {
+                String[] timeParts = startTime.replace(" AM", "").replace(" PM", "").split(":");
+                if (timeParts.length != 2) {
+                    Log.e("RegistrationCardControl", "Invalid 12-hour time format: " + startTime);
+                    return;
+                }
+                hour = Integer.parseInt(timeParts[0]);
+                minute = Integer.parseInt(timeParts[1]);
+                if (startTime.contains("PM") && hour != 12) {
+                    hour += 12;
+                } else if (startTime.contains("AM") && hour == 12) {
+                    hour = 0;
+                }
+            } else {
+                String[] timeParts = startTime.split(":");
+                if (timeParts.length != 2) {
+                    Log.e("RegistrationCardControl", "Invalid 24-hour time format: " + startTime);
+                    return;
+                }
+                hour = Integer.parseInt(timeParts[0]);
+                minute = Integer.parseInt(timeParts[1]);
+            }
+
+            eventStartTime.set(Calendar.HOUR_OF_DAY, hour);
+            eventStartTime.set(Calendar.MINUTE, minute);
+            eventStartTime.set(Calendar.SECOND, 0);
+            eventStartTime.set(Calendar.MILLISECOND, 0);
+
+            Calendar currentTime = Calendar.getInstance();
+            Log.d("RegistrationCardControl", "Event start time: " + eventStartTime.getTime());
+            Log.d("RegistrationCardControl", "Current time: " + currentTime.getTime());
+
+            // Check if event has started
+            if (currentTime.compareTo(eventStartTime) >= 0) {
+                Log.d("RegistrationCardControl", "Event has started, hiding registration card");
+                registrationCard.setVisibility(View.GONE);
+                if (eventRef != null) {
+                    eventRef.child("registrationAllowed").setValue(false)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Log.d("RegistrationCardControl", "Registration auto-closed due to event start time");
+                                    if (isAdded()) {
+                                        Toast.makeText(getContext(),
+                                                "Registration closed automatically as event has started",
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                } else {
+                                    Log.e("RegistrationCardControl", "Failed to auto-close registration: " + task.getException());
+                                }
+                            });
+                }
+            } else {
+                Log.d("RegistrationCardControl", "Event has not started, showing registration card for creator");
+                registrationCard.setVisibility(View.VISIBLE);
+            }
+        } catch (Exception e) {
+            Log.e("RegistrationCardControl", "Error parsing date/time: " + e.getMessage(), e);
+            if (isCreator) {
+                registrationCard.setVisibility(View.VISIBLE);
+                Log.d("RegistrationCardControl", "Error parsing date/time, showing registration card for creator as fallback");
+            } else {
+                registrationCard.setVisibility(View.GONE);
+                Log.d("RegistrationCardControl", "Error parsing date/time, hiding registration card for non-creator");
+            }
+        }
+    }
+
     // New method for setting up registration control
     private void setupRegistrationControl() {
         if (registrationSwitch == null || registrationStatusText == null || eventRef == null) {
@@ -279,33 +522,41 @@ public class EventDetailsFragment extends Fragment {
             return;
         }
 
+        // Check creator status before setting up registration control
+        checkCreatorPermission();
+
         // Check the current registration status and update the UI
         eventRef.child("registrationAllowed").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!isAdded()) return; // Check if fragment is still attached
+                if (!isAdded()) return;
+
+                if (!isEventCreator) {
+                    Log.d("RegistrationControl", "Teacher is not the creator, skipping registration status update");
+                    if (registrationCard != null) {
+                        registrationCard.setVisibility(View.GONE);
+                    }
+                    return;
+                }
 
                 Boolean isRegistrationAllowed = snapshot.getValue(Boolean.class);
 
-                // Default to false if value is null
                 if (isRegistrationAllowed == null) {
                     isRegistrationAllowed = false;
                 }
 
-                // Update switch without triggering the listener
                 registrationSwitch.setOnCheckedChangeListener(null);
                 registrationSwitch.setChecked(isRegistrationAllowed);
 
-                // Update status text
                 updateRegistrationStatusText(isRegistrationAllowed);
+                toggleEditButtonBasedOnRegistration(isRegistrationAllowed);
 
-                // Now set the listener
                 setRegistrationSwitchListener();
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                if (!isAdded()) return; // Check if fragment is still attached
+                if (!isAdded()) return;
 
                 Log.e("FirebaseError", "Failed to read registration status: " + error.getMessage());
                 Toast.makeText(getContext(), "Failed to load registration status", Toast.LENGTH_SHORT).show();
@@ -507,6 +758,7 @@ public class EventDetailsFragment extends Fragment {
                         String startDate = dataSnapshot.child("startDate").getValue(String.class);
                         if (startDate != null && startTime != null) {
                             checkEventStartTimeAndUpdateRegistration(startDate, startTime);
+                            hideEditButtonIfEventStarted(startDate, startTime);
                         }
 
                     } catch (Exception e) {
@@ -528,7 +780,7 @@ public class EventDetailsFragment extends Fragment {
 
     /**
      * New method to check if the event has started and update registration visibility accordingly
-     * @param startDate The event's start date (format: DD/MM/YYYY)
+     * @param startDate The event's start date (format: DD/MM/YYYY or YYYY-MM-DD)
      * @param startTime The event's start time (format: HH:MM)
      */
     private void checkEventStartTimeAndUpdateRegistration(String startDate, String startTime) {
@@ -537,72 +789,77 @@ public class EventDetailsFragment extends Fragment {
         try {
             Log.d("EventStartTime", "Processing event start: Date=" + startDate + ", Time=" + startTime);
 
-            // Parse the date (support both DD/MM/YYYY and YYYY-MM-DD formats)
+            // Parse the date (support DD/MM/YYYY and YYYY-MM-DD formats)
             Calendar eventStartTime = Calendar.getInstance();
-
             if (startDate.contains("/")) {
-                // Format: DD/MM/YYYY
                 String[] dateParts = startDate.split("/");
                 if (dateParts.length != 3) {
                     Log.e("EventStartTime", "Invalid date format (DD/MM/YYYY expected): " + startDate);
                     return;
                 }
-
                 int day = Integer.parseInt(dateParts[0]);
-                int month = Integer.parseInt(dateParts[1]) - 1; // Calendar months are 0-based
+                int month = Integer.parseInt(dateParts[1]) - 1;
                 int year = Integer.parseInt(dateParts[2]);
                 eventStartTime.set(Calendar.YEAR, year);
                 eventStartTime.set(Calendar.MONTH, month);
                 eventStartTime.set(Calendar.DAY_OF_MONTH, day);
-
             } else if (startDate.contains("-")) {
-                // Format: YYYY-MM-DD
                 String[] dateParts = startDate.split("-");
                 if (dateParts.length != 3) {
                     Log.e("EventStartTime", "Invalid date format (YYYY-MM-DD expected): " + startDate);
                     return;
                 }
-
                 int year = Integer.parseInt(dateParts[0]);
-                int month = Integer.parseInt(dateParts[1]) - 1; // Calendar months are 0-based
+                int month = Integer.parseInt(dateParts[1]) - 1;
                 int day = Integer.parseInt(dateParts[2]);
                 eventStartTime.set(Calendar.YEAR, year);
                 eventStartTime.set(Calendar.MONTH, month);
                 eventStartTime.set(Calendar.DAY_OF_MONTH, day);
-
             } else {
                 Log.e("EventStartTime", "Unrecognized date format: " + startDate);
                 return;
             }
 
-            // Parse the time (HH:MM)
-            String[] timeParts = startTime.split(":");
-            if (timeParts.length != 2) {
-                Log.e("EventStartTime", "Invalid time format (HH:MM expected): " + startTime);
-                return;
+            // Parse the time (support HH:MM and hh:MM AM/PM formats)
+            int hour, minute;
+            if (startTime.contains("AM") || startTime.contains("PM")) {
+                // 12-hour format (e.g., "06:00 AM")
+                String[] timeParts = startTime.replace(" AM", "").replace(" PM", "").split(":");
+                if (timeParts.length != 2) {
+                    Log.e("EventStartTime", "Invalid 12-hour time format: " + startTime);
+                    return;
+                }
+                hour = Integer.parseInt(timeParts[0]);
+                minute = Integer.parseInt(timeParts[1]);
+                if (startTime.contains("PM") && hour != 12) {
+                    hour += 12;
+                } else if (startTime.contains("AM") && hour == 12) {
+                    hour = 0;
+                }
+            } else {
+                // 24-hour format (e.g., "06:00")
+                String[] timeParts = startTime.split(":");
+                if (timeParts.length != 2) {
+                    Log.e("EventStartTime", "Invalid 24-hour time format: " + startTime);
+                    return;
+                }
+                hour = Integer.parseInt(timeParts[0]);
+                minute = Integer.parseInt(timeParts[1]);
             }
 
-            int hour = Integer.parseInt(timeParts[0]);
-            int minute = Integer.parseInt(timeParts[1]);
             eventStartTime.set(Calendar.HOUR_OF_DAY, hour);
             eventStartTime.set(Calendar.MINUTE, minute);
             eventStartTime.set(Calendar.SECOND, 0);
             eventStartTime.set(Calendar.MILLISECOND, 0);
 
             Calendar currentTime = Calendar.getInstance();
-
             Log.d("EventStartTime", "Event start time: " + eventStartTime.getTime());
             Log.d("EventStartTime", "Current time: " + currentTime.getTime());
 
             // Check if event has started
             if (currentTime.compareTo(eventStartTime) >= 0) {
-                // Event has started, hide registration and close it
                 Log.d("EventStartTime", "Event has started, hiding registration");
-
-                // Hide the registration card
                 registrationCard.setVisibility(View.GONE);
-
-                // Update Firebase to close registration
                 if (eventRef != null) {
                     eventRef.child("registrationAllowed").setValue(false)
                             .addOnCompleteListener(task -> {
@@ -619,18 +876,12 @@ public class EventDetailsFragment extends Fragment {
                             });
                 }
             } else {
-                // Event hasn't started yet, make sure registration card is visible
                 registrationCard.setVisibility(View.VISIBLE);
-
-                // Set up a timer to hide registration when event starts
                 long delayMillis = eventStartTime.getTimeInMillis() - currentTime.getTimeInMillis();
                 if (delayMillis > 0) {
-                    new Handler().postDelayed(() -> {
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
                         if (isAdded() && registrationCard != null) {
-                            // Hide the registration card
                             registrationCard.setVisibility(View.GONE);
-
-                            // Update Firebase to close registration
                             if (eventRef != null) {
                                 eventRef.child("registrationAllowed").setValue(false)
                                         .addOnCompleteListener(task -> {
@@ -644,12 +895,242 @@ public class EventDetailsFragment extends Fragment {
                             }
                         }
                     }, delayMillis);
-
                     Log.d("EventStartTime", "Timer set to hide registration in " + delayMillis + " ms");
                 }
             }
-        } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+        } catch (Exception e) {
             Log.e("EventStartTime", "Error parsing date/time: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * New method to check if the event has started and hide the edit button if it has
+     * @param startDate The event's start date (format: DD/MM/YYYY or YYYY-MM-DD)
+     * @param startTime The event's start time (format: HH:MM)
+     */
+    private void hideEditButtonIfEventStarted(String startDate, String startTime) {
+        if (!isAdded() || editEventButton == null) return;
+
+        try {
+            Log.d("EditButtonControl", "Checking if event has started: Date=" + startDate + ", Time=" + startTime);
+
+            // Parse the date
+            Calendar eventStartTime = Calendar.getInstance();
+            if (startDate.contains("/")) {
+                String[] dateParts = startDate.split("/");
+                if (dateParts.length != 3) {
+                    Log.e("EditButtonControl", "Invalid date format (DD/MM/YYYY expected): " + startDate);
+                    return;
+                }
+                int day = Integer.parseInt(dateParts[0]);
+                int month = Integer.parseInt(dateParts[1]) - 1;
+                int year = Integer.parseInt(dateParts[2]);
+                eventStartTime.set(Calendar.YEAR, year);
+                eventStartTime.set(Calendar.MONTH, month);
+                eventStartTime.set(Calendar.DAY_OF_MONTH, day);
+            } else if (startDate.contains("-")) {
+                String[] dateParts = startDate.split("-");
+                if (dateParts.length != 3) {
+                    Log.e("EditButtonControl", "Invalid date format (YYYY-MM-DD expected): " + startDate);
+                    return;
+                }
+                int year = Integer.parseInt(dateParts[0]);
+                int month = Integer.parseInt(dateParts[1]) - 1;
+                int day = Integer.parseInt(dateParts[2]);
+                eventStartTime.set(Calendar.YEAR, year);
+                eventStartTime.set(Calendar.MONTH, month);
+                eventStartTime.set(Calendar.DAY_OF_MONTH, day);
+            } else {
+                Log.e("EditButtonControl", "Unrecognized date format: " + startDate);
+                return;
+            }
+
+            // Parse the time
+            int hour, minute;
+            if (startTime.contains("AM") || startTime.contains("PM")) {
+                String[] timeParts = startTime.replace(" AM", "").replace(" PM", "").split(":");
+                if (timeParts.length != 2) {
+                    Log.e("EditButtonControl", "Invalid 12-hour time format: " + startTime);
+                    return;
+                }
+                hour = Integer.parseInt(timeParts[0]);
+                minute = Integer.parseInt(timeParts[1]);
+                if (startTime.contains("PM") && hour != 12) {
+                    hour += 12;
+                } else if (startTime.contains("AM") && hour == 12) {
+                    hour = 0;
+                }
+            } else {
+                String[] timeParts = startTime.split(":");
+                if (timeParts.length != 2) {
+                    Log.e("EditButtonControl", "Invalid 24-hour time format: " + startTime);
+                    return;
+                }
+                hour = Integer.parseInt(timeParts[0]);
+                minute = Integer.parseInt(timeParts[1]);
+            }
+
+            eventStartTime.set(Calendar.HOUR_OF_DAY, hour);
+            eventStartTime.set(Calendar.MINUTE, minute);
+            eventStartTime.set(Calendar.SECOND, 0);
+            eventStartTime.set(Calendar.MILLISECOND, 0);
+
+            Calendar currentTime = Calendar.getInstance();
+            Log.d("EditButtonControl", "Event start time: " + eventStartTime.getTime());
+            Log.d("EditButtonControl", "Current time: " + currentTime.getTime());
+
+            // Check if event has started
+            if (currentTime.compareTo(eventStartTime) >= 0) {
+                Log.d("EditButtonControl", "Event has started, hiding edit button");
+                editEventButton.setVisibility(View.GONE);
+            } else {
+                Log.d("EditButtonControl", "Event has not started, checking creator status");
+                // If the event hasn't started, the edit button visibility should already be set by checkCreatorPermission()
+                // Only proceed to registration check if needed
+                if (isEventCreator) {
+                    Log.d("EditButtonControl", "Teacher is creator and event has not started, ensuring edit button is visible");
+                    editEventButton.setVisibility(View.VISIBLE);
+                    // Now check registration status
+                    if (eventRef != null) {
+                        eventRef.child("registrationAllowed").addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                                if (!isAdded()) return;
+                                Boolean isRegistrationAllowed = snapshot.getValue(Boolean.class);
+                                if (isRegistrationAllowed == null) {
+                                    isRegistrationAllowed = false;
+                                }
+                                toggleEditButtonBasedOnRegistration(isRegistrationAllowed);
+                            }
+
+                            @Override
+                            public void onCancelled(@NonNull DatabaseError error) {
+                                Log.e("EditButtonControl", "Failed to check registration status: " + error.getMessage());
+                            }
+                        });
+                    }
+                } else {
+                    editEventButton.setVisibility(View.GONE);
+                    Log.d("EditButtonControl", "Teacher is not creator, checking edit permission");
+                    checkEditPermission();
+                }
+            }
+        } catch (Exception e) {
+            Log.e("EditButtonControl", "Error parsing date/time: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * New method to toggle edit button visibility based on registration status
+     * @param isRegistrationAllowed Whether registration is currently allowed
+     */
+    private void toggleEditButtonBasedOnRegistration(boolean isRegistrationAllowed) {
+        if (!isAdded() || editEventButton == null) return;
+
+        // If the teacher is not the creator and doesn't have edit permission, the button should remain hidden
+        if (!isEventCreator && !canEditEvent) {
+            Log.d("EditButtonControl", "Teacher is not the creator and edit request not approved, edit button remains hidden.");
+            editEventButton.setVisibility(View.GONE);
+            return;
+        }
+
+        // If the event has already started, the button should be hidden regardless
+        if (eventRef != null) {
+            eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    if (!isAdded()) return;
+                    String startDate = snapshot.child("startDate").getValue(String.class);
+                    String startTime = snapshot.child("startTime").getValue(String.class);
+                    if (startDate != null && startTime != null) {
+                        try {
+                            Calendar eventStartTime = Calendar.getInstance();
+                            // Parse date
+                            if (startDate.contains("/")) {
+                                String[] dateParts = startDate.split("/");
+                                int day = Integer.parseInt(dateParts[0]);
+                                int month = Integer.parseInt(dateParts[1]) - 1;
+                                int year = Integer.parseInt(dateParts[2]);
+                                eventStartTime.set(Calendar.YEAR, year);
+                                eventStartTime.set(Calendar.MONTH, month);
+                                eventStartTime.set(Calendar.DAY_OF_MONTH, day);
+                            } else if (startDate.contains("-")) {
+                                String[] dateParts = startDate.split("-");
+                                int year = Integer.parseInt(dateParts[0]);
+                                int month = Integer.parseInt(dateParts[1]) - 1;
+                                int day = Integer.parseInt(dateParts[2]);
+                                eventStartTime.set(Calendar.YEAR, year);
+                                eventStartTime.set(Calendar.MONTH, month);
+                                eventStartTime.set(Calendar.DAY_OF_MONTH, day);
+                            }
+
+                            // Parse time
+                            int hour, minute;
+                            if (startTime.contains("AM") || startTime.contains("PM")) {
+                                String[] timeParts = startTime.replace(" AM", "").replace(" PM", "").split(":");
+                                hour = Integer.parseInt(timeParts[0]);
+                                minute = Integer.parseInt(timeParts[1]);
+                                if (startTime.contains("PM") && hour != 12) {
+                                    hour += 12;
+                                } else if (startTime.contains("AM") && hour == 12) {
+                                    hour = 0;
+                                }
+                            } else {
+                                String[] timeParts = startTime.split(":");
+                                hour = Integer.parseInt(timeParts[0]);
+                                minute = Integer.parseInt(timeParts[1]);
+                            }
+
+                            eventStartTime.set(Calendar.HOUR_OF_DAY, hour);
+                            eventStartTime.set(Calendar.MINUTE, minute);
+                            eventStartTime.set(Calendar.SECOND, 0);
+                            eventStartTime.set(Calendar.MILLISECOND, 0);
+
+                            Calendar currentTime = Calendar.getInstance();
+                            if (currentTime.compareTo(eventStartTime) >= 0) {
+                                Log.d("EditButtonControl", "Event has started, hiding edit button");
+                                editEventButton.setVisibility(View.GONE);
+                            } else {
+                                Log.d("EditButtonControl", "Event not started, applying registration logic for creator or approved editor");
+                                // Since teacher is either creator or has approved edit permission and event hasn't started, apply registration logic
+                                if (isRegistrationAllowed) {
+                                    Log.d("EditButtonControl", "Registration is open, hiding edit button");
+                                    editEventButton.setVisibility(View.GONE);
+                                } else {
+                                    Log.d("EditButtonControl", "Registration is closed, showing edit button for creator or approved editor");
+                                    editEventButton.setVisibility(View.VISIBLE);
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e("EditButtonControl", "Error parsing date/time: " + e.getMessage(), e);
+                            // Fallback: apply registration logic
+                            if (isRegistrationAllowed) {
+                                editEventButton.setVisibility(View.GONE);
+                            } else {
+                                editEventButton.setVisibility(View.VISIBLE);
+                            }
+                        }
+                    } else {
+                        // Fallback: apply registration logic
+                        if (isRegistrationAllowed) {
+                            editEventButton.setVisibility(View.GONE);
+                        } else {
+                            editEventButton.setVisibility(View.VISIBLE);
+                        }
+                    }
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    Log.e("EditButtonControl", "Failed to fetch event details: " + error.getMessage());
+                    // Fallback: apply registration logic
+                    if (isRegistrationAllowed) {
+                        editEventButton.setVisibility(View.GONE);
+                    } else {
+                        editEventButton.setVisibility(View.VISIBLE);
+                    }
+                }
+            });
         }
     }
 
@@ -659,31 +1140,29 @@ public class EventDetailsFragment extends Fragment {
      * @return Time in 12-hour format with AM/PM (hh:MM AM/PM)
      */
     private String convertTo12HourFormat(String time24Hour) {
+        if (time24Hour == null || time24Hour.isEmpty()) {
+            return "N/A";
+        }
+        if (time24Hour.contains("AM") || time24Hour.contains("PM")) {
+            return time24Hour; // Already in 12-hour format
+        }
         try {
-            // Parse the time string
             String[] timeParts = time24Hour.split(":");
             if (timeParts.length != 2) {
-                return time24Hour; // Return original if format is unexpected
+                return time24Hour;
             }
-
             int hours = Integer.parseInt(timeParts[0]);
             int minutes = Integer.parseInt(timeParts[1]);
-
-            // Determine AM/PM
             String amPm = (hours >= 12) ? "PM" : "AM";
-
-            // Convert hours to 12-hour format
             if (hours == 0) {
-                hours = 12; // 00:XX becomes 12:XX AM
+                hours = 12;
             } else if (hours > 12) {
-                hours = hours - 12; // 13:XX becomes 01:XX PM
+                hours = hours - 12;
             }
-
-            // Format the time with leading zeros for hours and minutes if needed
             return String.format("%02d:%02d %s", hours, minutes, amPm);
-        } catch (NumberFormatException | IndexOutOfBoundsException e) {
+        } catch (Exception e) {
             Log.e("TimeConverter", "Error converting time: " + e.getMessage());
-            return time24Hour; // Return original if parsing fails
+            return time24Hour;
         }
     }
 

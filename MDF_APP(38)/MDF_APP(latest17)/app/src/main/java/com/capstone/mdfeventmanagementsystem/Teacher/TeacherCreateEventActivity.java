@@ -305,36 +305,66 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         }
 
-        // Convert date format from display format (MM-dd-yyyy) to storage format (yyyy-MM-dd)
-        // and vice versa as needed
-        if (startDate != null) {
+        // Handle startDate
+        if (startDate != null && !startDate.isEmpty()) {
             try {
-                // Check if the date is already in the display format
-                if (startDate.matches("\\d{2}-\\d{2}-\\d{4}")) {
-                    startDateField.setText(startDate);
+                SimpleDateFormat storageFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+                SimpleDateFormat displayFormat = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
 
-                    // Convert to storage format for eventData
-                    SimpleDateFormat displayFormat = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
-                    SimpleDateFormat storageFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-                    Date date = displayFormat.parse(startDate);
-                    String storageDate = storageFormat.format(date);
-                    eventData.put("startDate", storageDate);
+                // Try parsing as storage format (yyyy-MM-dd) or display format (MM-dd-yyyy)
+                Date date;
+                if (startDate.matches("\\d{2}-\\d{2}-\\d{4}")) {
+                    // If it matches display format, use it directly
+                    date = displayFormat.parse(startDate);
+                    Log.d("StartDateParsing", "Parsed startDate as display format: " + startDate);
                 } else {
-                    // Assuming it's in the storage format
-                    SimpleDateFormat storageFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-                    SimpleDateFormat displayFormat = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
-                    Date date = storageFormat.parse(startDate);
-                    String displayDate = displayFormat.format(date);
-                    startDateField.setText(displayDate);
-                    eventData.put("startDate", startDate);
+                    // Try storage format
+                    try {
+                        date = storageFormat.parse(startDate);
+                        Log.d("StartDateParsing", "Parsed startDate as storage format: " + startDate);
+                    } catch (ParseException e) {
+                        // Fallback to display format
+                        date = displayFormat.parse(startDate);
+                        Log.d("StartDateParsing", "Fallback parsed startDate as display format: " + startDate);
+                    }
                 }
-            } catch (Exception e) {
-                // Handle parsing error
-                startDateField.setText(startDate);
+
+                // Format for display and storage
+                String displayDate = displayFormat.format(date);
+                String storageDate = storageFormat.format(date);
+
+                // Set the display date in the field
+                startDateField.setText(displayDate);
+                // Store the storage format in eventData
+                eventData.put("startDate", storageDate);
+
+                // If in edit mode, ensure the startDate is retained and displayed
+                if (isEditing) {
+                    startDateField.setText(displayDate); // Explicitly set to ensure display
+                    eventData.put("startDate", storageDate); // Ensure eventData is updated
+                    Log.d("StartDateEditMode", "Edit mode: Set startDateField to " + displayDate);
+                }
+            } catch (ParseException e) {
+                // Fallback: set the raw startDate and log the error
+                Log.e("StartDateParsing", "Error parsing start date: " + startDate, e);
+                startDateField.setText(startDate); // Set raw startDate as fallback
                 eventData.put("startDate", startDate);
+                // If in edit mode, ensure the raw startDate is displayed
+                if (isEditing) {
+                    startDateField.setText(startDate); // Explicitly set to ensure display
+                    Log.d("StartDateEditMode", "Edit mode fallback: Set startDateField to raw " + startDate);
+                }
+            }
+        } else {
+            // Log if startDate is null or empty
+            Log.w("StartDateParsing", "startDate is null or empty");
+            if (isEditing) {
+                startDateField.setText(""); // Clear field in edit mode if no startDate
+                eventData.remove("startDate"); // Remove from eventData
             }
         }
 
+        // Handle endDate
         if (endDate != null) {
             try {
                 // Check if the date is already in the display format
@@ -659,7 +689,9 @@ public class TeacherCreateEventActivity extends BaseActivity {
         String selectedGrade = eventForSpinner.getSelectedItem().toString();
         String formattedGrade = selectedGrade.equals("All Year Level") ? "All" : selectedGrade.replace(" ", "-");
 
-        DatabaseReference eventsRef = database.getReference("eventProposals");
+        // Reference to both eventProposals and events nodes
+        DatabaseReference proposalsRef = database.getReference("eventProposals");
+        DatabaseReference eventsRef = database.getReference("events");
 
         Calendar todayCalendar = Calendar.getInstance();
         todayCalendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -667,6 +699,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
         todayCalendar.set(Calendar.SECOND, 0);
         todayCalendar.set(Calendar.MILLISECOND, 0);
 
+        // Validate that the selected date is not in the past
         if (selectedCalendar.before(todayCalendar)) {
             Toast.makeText(TeacherCreateEventActivity.this,
                     "Selected date is invalid. You can't choose a past date.",
@@ -674,78 +707,141 @@ public class TeacherCreateEventActivity extends BaseActivity {
             return;
         }
 
-        eventsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        // Check eventProposals for conflicts
+        proposalsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                boolean hasConflict = false;
-                String conflictMessage = "Selected date has a scheduling conflict";
+            public void onDataChange(@NonNull DataSnapshot proposalsSnapshot) {
+                // Check events for conflicts
+                eventsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot eventsSnapshot) {
+                        boolean hasConflict = false;
+                        String conflictMessage = "Selected date has a scheduling conflict";
 
-                for (DataSnapshot eventSnapshot : dataSnapshot.getChildren()) {
-                    String eventIdFromDB = eventSnapshot.child("eventId").getValue(String.class);
-                    // Skip the current event if editing
-                    if (isEditing && eventId != null && eventId.equals(eventIdFromDB)) {
-                        continue;
-                    }
-                    // Skip if this is a resubmission of the same event
-                    if (eventData.containsKey("originalEventId") &&
-                            eventData.get("originalEventId").equals(eventIdFromDB)) {
-                        continue;
-                    }
+                        // Check events node
+                        for (DataSnapshot eventSnapshot : eventsSnapshot.getChildren()) {
+                            String eventIdFromDB = eventSnapshot.child("eventId").getValue(String.class);
+                            // Skip the current event if editing
+                            if (isEditing && eventId != null && eventId.equals(eventIdFromDB)) {
+                                continue;
+                            }
+                            // Skip if this is a resubmission of the same event
+                            if (eventData.containsKey("originalEventId") &&
+                                    eventData.get("originalEventId").equals(eventIdFromDB)) {
+                                continue;
+                            }
 
-                    String eventFor = eventSnapshot.child("eventFor").getValue(String.class);
+                            String eventFor = eventSnapshot.child("eventFor").getValue(String.class);
+                            if (!("All".equals(formattedGrade) || "All".equals(eventFor) || formattedGrade.equals(eventFor))) {
+                                continue;
+                            }
 
-                    if (!("All".equals(formattedGrade) || "All".equals(eventFor) || formattedGrade.equals(eventFor))) {
-                        continue;
-                    }
+                            String eventSpan = eventSnapshot.child("eventSpan").getValue(String.class);
+                            String existingStartDate = eventSnapshot.child("startDate").getValue(String.class);
+                            String existingEndDate = eventSnapshot.child("endDate").getValue(String.class);
 
-                    String eventSpan = eventSnapshot.child("eventSpan").getValue(String.class);
+                            if (existingStartDate != null) {
+                                try {
+                                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+                                    Date selectedDate = sdf.parse(storageDate);
+                                    Date startDate = sdf.parse(existingStartDate);
+                                    Date endDate = (existingEndDate != null) ? sdf.parse(existingEndDate) : startDate;
 
-                    if ("single-day".equals(eventSpan)) {
-                        String existingStartDate = eventSnapshot.child("startDate").getValue(String.class);
-                        if (existingStartDate != null && existingStartDate.equals(storageDate)) {
-                            hasConflict = true;
-                            break;
+                                    if ("single-day".equals(eventSpan)) {
+                                        if (selectedDate.equals(startDate)) {
+                                            hasConflict = true;
+                                            conflictMessage = "Selected date conflicts with a single-day event on " + existingStartDate;
+                                            break;
+                                        }
+                                    } else if ("multi-day".equals(eventSpan)) {
+                                        if (selectedDate.equals(startDate) || selectedDate.after(startDate) && selectedDate.before(endDate) || selectedDate.equals(endDate)) {
+                                            hasConflict = true;
+                                            conflictMessage = "Selected date conflicts with a multi-day event (" + existingStartDate + " to " + existingEndDate + ")";
+                                            break;
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    Log.e("DateConflict", "Error parsing dates in events node", e);
+                                }
+                            }
                         }
-                    } else if ("multi-day".equals(eventSpan)) {
-                        String existingStartDate = eventSnapshot.child("startDate").getValue(String.class);
-                        String existingEndDate = eventSnapshot.child("endDate").getValue(String.class);
 
-                        if (existingStartDate != null && existingEndDate != null) {
-                            try {
-                                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-                                Date rangeStart = sdf.parse(existingStartDate);
-                                Date rangeEnd = sdf.parse(existingEndDate);
-                                Date selectedDate = sdf.parse(storageDate);
+                        // Check eventProposals node (existing logic)
+                        for (DataSnapshot eventSnapshot : proposalsSnapshot.getChildren()) {
+                            String eventIdFromDB = eventSnapshot.child("eventId").getValue(String.class);
+                            // Skip the current event if editing
+                            if (isEditing && eventId != null && eventId.equals(eventIdFromDB)) {
+                                continue;
+                            }
+                            // Skip if this is a resubmission of the same event
+                            if (eventData.containsKey("originalEventId") &&
+                                    eventData.get("originalEventId").equals(eventIdFromDB)) {
+                                continue;
+                            }
 
-                                if ((selectedDate.equals(rangeStart) || selectedDate.after(rangeStart)) &&
-                                        (selectedDate.equals(rangeEnd) || selectedDate.before(rangeEnd))) {
+                            String eventFor = eventSnapshot.child("eventFor").getValue(String.class);
+                            if (!("All".equals(formattedGrade) || "All".equals(eventFor) || formattedGrade.equals(eventFor))) {
+                                continue;
+                            }
+
+                            String eventSpan = eventSnapshot.child("eventSpan").getValue(String.class);
+
+                            if ("single-day".equals(eventSpan)) {
+                                String existingStartDate = eventSnapshot.child("startDate").getValue(String.class);
+                                if (existingStartDate != null && existingStartDate.equals(storageDate)) {
                                     hasConflict = true;
-                                    conflictMessage = "Selected date conflicts with an existing multi-day event (" +
-                                            existingStartDate + " to " + existingEndDate + ")";
+                                    conflictMessage = "Selected date has a scheduling conflict with a pending proposal on " + existingStartDate;
                                     break;
                                 }
-                            } catch (Exception e) {
-                                Log.e("DateConflict", "Error parsing dates", e);
+                            } else if ("multi-day".equals(eventSpan)) {
+                                String existingStartDate = eventSnapshot.child("startDate").getValue(String.class);
+                                String existingEndDate = eventSnapshot.child("endDate").getValue(String.class);
+
+                                if (existingStartDate != null && existingEndDate != null) {
+                                    try {
+                                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+                                        Date rangeStart = sdf.parse(existingStartDate);
+                                        Date rangeEnd = sdf.parse(existingEndDate);
+                                        Date selectedDate = sdf.parse(storageDate);
+
+                                        if ((selectedDate.equals(rangeStart) || selectedDate.after(rangeStart)) &&
+                                                (selectedDate.equals(rangeEnd) || selectedDate.before(rangeEnd))) {
+                                            hasConflict = true;
+                                            conflictMessage = "Selected date conflicts with a pending multi-day proposal (" +
+                                                    existingStartDate + " to " + existingEndDate + ")";
+                                            break;
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e("DateConflict", "Error parsing dates in proposals node", e);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (hasConflict) {
+                            Toast.makeText(TeacherCreateEventActivity.this, conflictMessage, Toast.LENGTH_LONG).show();
+                        } else {
+                            setDateToField(dateField, displayDate, storageDate);
+
+                            if (isSameDay(selectedCalendar, Calendar.getInstance())) {
+                                validateTimeForCurrentDate();
                             }
                         }
                     }
-                }
 
-                if (hasConflict) {
-                    Toast.makeText(TeacherCreateEventActivity.this, conflictMessage, Toast.LENGTH_LONG).show();
-                } else {
-                    setDateToField(dateField, displayDate, storageDate);
-
-                    if (isSameDay(selectedCalendar, Calendar.getInstance())) {
-                        validateTimeForCurrentDate();
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+                        Toast.makeText(TeacherCreateEventActivity.this,
+                                "Error checking events availability: " + databaseError.getMessage(),
+                                Toast.LENGTH_SHORT).show();
                     }
-                }
+                });
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
                 Toast.makeText(TeacherCreateEventActivity.this,
-                        "Error checking date availability: " + databaseError.getMessage(),
+                        "Error checking proposals availability: " + databaseError.getMessage(),
                         Toast.LENGTH_SHORT).show();
             }
         });
@@ -1202,9 +1298,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
         }
 
         String eventDescription = eventDescriptionField.getText().toString().trim();
-        if
-
-        (eventDescription.isEmpty()) {
+        if (eventDescription.isEmpty()) {
             eventDescriptionField.setError("Event description is required");
             isValid = false;
         }
@@ -1370,6 +1464,9 @@ public class TeacherCreateEventActivity extends BaseActivity {
         String currentDate = dateFormat.format(new Date(currentTimeMillis));
         eventData.put("dateCreated", currentDate);
 
+        // Delete existing student tickets before updating the event
+        deleteStudentTickets(eventId);
+
         // Check if a new cover photo is selected
         if (coverPhotoUri != null) {
             String eventName = eventData.get("eventName").toString();
@@ -1378,6 +1475,33 @@ public class TeacherCreateEventActivity extends BaseActivity {
             // Keep existing photo URL and proceed to proposal
             uploadEventProposal(eventId);
         }
+    }
+
+    private void deleteStudentTickets(String eventId) {
+        DatabaseReference studentsRef = database.getReference("students");
+        studentsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                for (DataSnapshot studentSnapshot : dataSnapshot.getChildren()) {
+                    DataSnapshot ticketsSnapshot = studentSnapshot.child("tickets");
+                    if (ticketsSnapshot.exists()) {
+                        for (DataSnapshot ticketSnapshot : ticketsSnapshot.getChildren()) {
+                            String ticketId = ticketSnapshot.getKey();
+                            if (ticketId != null && ticketId.equals(eventId)) {
+                                ticketSnapshot.getRef().removeValue()
+                                        .addOnSuccessListener(aVoid -> Log.d("TicketDeletion", "Ticket deleted for event: " + eventId))
+                                        .addOnFailureListener(e -> Log.e("TicketDeletion", "Failed to delete ticket: " + e.getMessage()));
+                            }
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Log.e("TicketDeletion", "Error deleting tickets: " + databaseError.getMessage());
+            }
+        });
     }
 
     private void uploadCoverPhoto(String eventId, String eventName) {
