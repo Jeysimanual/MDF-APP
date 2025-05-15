@@ -9,7 +9,7 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
+import android.view. ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -67,7 +67,7 @@ public class EventDetailsFragment extends Fragment {
     private ImageButton editEventButton;
     private boolean canEditEvent = false; // Tracks if teacher is allowed to edit
     private boolean isEventCreator = false; // Tracks if the current teacher is the creator
-    private Object targetParticipant = null; // Store targetParticipant value (can be Long or String)
+    private String targetParticipant = null; // Store targetParticipant value as String
 
     public EventDetailsFragment() {
         // Required empty public constructor
@@ -160,7 +160,7 @@ public class EventDetailsFragment extends Fragment {
             eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
             getEventDetails(eventUID);
             getTicketCount(eventUID);
-            getTargetParticipant(eventUID); // Updated method name
+            getTargetParticipant(eventUID);
             getTotalCoordinators(eventUID);
             setupRegistrationControl();
             checkEditPermission();
@@ -1203,9 +1203,9 @@ public class EventDetailsFragment extends Fragment {
                 // Update the UI with the count if fragment is still attached
                 if (isAdded() && ticketGeneratedTextView != null) {
                     String displayText;
-                    if ("none".equalsIgnoreCase(String.valueOf(targetParticipant))) {
+                    if ("none".equalsIgnoreCase(targetParticipant)) {
                         displayText = String.valueOf(ticketCount);
-                    } else if (targetParticipant instanceof Long) {
+                    } else if (targetParticipant != null && !targetParticipant.isEmpty() && !targetParticipant.equals("none")) {
                         displayText = ticketCount + "/" + targetParticipant;
                     } else {
                         displayText = String.valueOf(ticketCount);
@@ -1215,21 +1215,28 @@ public class EventDetailsFragment extends Fragment {
                 Log.d("TicketCount", "Final ticket count: " + ticketCount);
 
                 // Check if ticket count has reached targetParticipant and close registration if necessary
-                if (targetParticipant instanceof Long && ticketCount >= (Long) targetParticipant && eventRef != null) {
-                    int finalTicketCount = ticketCount;
-                    eventRef.child("registrationAllowed").setValue(false)
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    Log.d("TicketCount", "Registration auto-closed as ticket count reached target: " + finalTicketCount + "/" + targetParticipant);
-                                    if (isAdded()) {
-                                        Toast.makeText(getContext(),
-                                                "Registration closed automatically as participant limit reached",
-                                                Toast.LENGTH_SHORT).show();
-                                    }
-                                } else {
-                                    Log.e("TicketCount", "Failed to auto-close registration: " + task.getException());
-                                }
-                            });
+                if (targetParticipant != null && !targetParticipant.isEmpty() && !targetParticipant.equals("none") && eventRef != null) {
+                    try {
+                        int targetParticipantValue = Integer.parseInt(targetParticipant);
+                        if (ticketCount >= targetParticipantValue) {
+                            int finalTicketCount = ticketCount;
+                            eventRef.child("registrationAllowed").setValue(false)
+                                    .addOnCompleteListener(task -> {
+                                        if (task.isSuccessful()) {
+                                            Log.d("TicketCount", "Registration auto-closed as ticket count reached target: " + finalTicketCount + "/" + targetParticipant);
+                                            if (isAdded()) {
+                                                Toast.makeText(getContext(),
+                                                        "Registration closed automatically as participant limit reached",
+                                                        Toast.LENGTH_SHORT).show();
+                                            }
+                                        } else {
+                                            Log.e("TicketCount", "Failed to auto-close registration: " + task.getException());
+                                        }
+                                    });
+                        }
+                    } catch (NumberFormatException e) {
+                        Log.e("TicketCount", "Invalid targetParticipant format: " + targetParticipant, e);
+                    }
                 }
             }
 
@@ -1257,12 +1264,9 @@ public class EventDetailsFragment extends Fragment {
                 if (!isAdded()) return;
 
                 if (snapshot.exists()) {
-                    Object value = snapshot.getValue();
-                    if (value instanceof String && "none".equalsIgnoreCase((String) value)) {
-                        targetParticipant = "none";
-                        Log.d("TargetParticipant", "Fetched targetParticipant: none");
-                    } else if (value instanceof Long) {
-                        targetParticipant = (Long) value;
+                    String value = snapshot.getValue(String.class);
+                    if (value != null) {
+                        targetParticipant = value;
                         Log.d("TargetParticipant", "Fetched targetParticipant: " + targetParticipant);
                     } else {
                         targetParticipant = null;
@@ -1464,6 +1468,8 @@ public class EventDetailsFragment extends Fragment {
 
             if (task.isSuccessful()) {
                 Toast.makeText(getContext(), "Student Assistant removed successfully", Toast.LENGTH_SHORT).show();
+
+                        Toast.makeText(getContext(), "Student Assistant removed successfully", Toast.LENGTH_SHORT).show();
 
                 // Update UI
                 ((ViewGroup) rowLayout.getParent()).removeView(rowLayout);

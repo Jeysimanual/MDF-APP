@@ -250,7 +250,7 @@ public class Event implements Serializable {
     }
 
     // Getter and Setter for targetParticipant
-    public String gettargetParticipant() {
+    public String getTargetParticipant() {
         return targetParticipant;
     }
 
