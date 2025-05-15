@@ -504,7 +504,7 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toEndOf="@id/card1"
                 app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintWidth_percent="0.37"> <!-- Equal width -->
+                app:layout_constraintWidth_percent="0.37">
 
                 <TextView
                     android:layout_width="wrap_content"

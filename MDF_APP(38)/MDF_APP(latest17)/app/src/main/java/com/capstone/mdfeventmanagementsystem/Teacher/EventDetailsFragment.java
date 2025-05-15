@@ -67,6 +67,7 @@ public class EventDetailsFragment extends Fragment {
     private ImageButton editEventButton;
     private boolean canEditEvent = false; // Tracks if teacher is allowed to edit
     private boolean isEventCreator = false; // Tracks if the current teacher is the creator
+    private Object targetParticipant = null; // Store targetParticipant value (can be Long or String)
 
     public EventDetailsFragment() {
         // Required empty public constructor
@@ -159,10 +160,11 @@ public class EventDetailsFragment extends Fragment {
             eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
             getEventDetails(eventUID);
             getTicketCount(eventUID);
+            getTargetParticipant(eventUID); // Updated method name
             getTotalCoordinators(eventUID);
             setupRegistrationControl();
             checkEditPermission();
-            checkCreatorPermission(); // Add this call to check if the teacher is the creator
+            checkCreatorPermission();
         } else {
             Log.e("EventDetailsFragment", "Event UID is null or empty, cannot proceed with loading event details.");
         }
@@ -515,7 +517,6 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    // New method for setting up registration control
     private void setupRegistrationControl() {
         if (registrationSwitch == null || registrationStatusText == null || eventRef == null) {
             Log.e("RegistrationControl", "Registration control components not initialized correctly");
@@ -656,7 +657,6 @@ public class EventDetailsFragment extends Fragment {
                 });
     }
 
-    // Method to fetch additional event details from Firebase
     private void getEventDetails(String eventId) {
         if (eventId == null || eventId.isEmpty()) {
             Log.e("EventDetails", "Cannot fetch event details: eventId is null or empty");
@@ -778,11 +778,6 @@ public class EventDetailsFragment extends Fragment {
         });
     }
 
-    /**
-     * New method to check if the event has started and update registration visibility accordingly
-     * @param startDate The event's start date (format: DD/MM/YYYY or YYYY-MM-DD)
-     * @param startTime The event's start time (format: HH:MM)
-     */
     private void checkEventStartTimeAndUpdateRegistration(String startDate, String startTime) {
         if (!isAdded() || registrationCard == null) return;
 
@@ -903,11 +898,6 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    /**
-     * New method to check if the event has started and hide the edit button if it has
-     * @param startDate The event's start date (format: DD/MM/YYYY or YYYY-MM-DD)
-     * @param startTime The event's start time (format: HH:MM)
-     */
     private void hideEditButtonIfEventStarted(String startDate, String startTime) {
         if (!isAdded() || editEventButton == null) return;
 
@@ -1020,10 +1010,6 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    /**
-     * New method to toggle edit button visibility based on registration status
-     * @param isRegistrationAllowed Whether registration is currently allowed
-     */
     private void toggleEditButtonBasedOnRegistration(boolean isRegistrationAllowed) {
         if (!isAdded() || editEventButton == null) return;
 
@@ -1134,11 +1120,6 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    /**
-     * Converts time from 24-hour format to 12-hour format with AM/PM
-     * @param time24Hour Time in 24-hour format (HH:MM)
-     * @return Time in 12-hour format with AM/PM (hh:MM AM/PM)
-     */
     private String convertTo12HourFormat(String time24Hour) {
         if (time24Hour == null || time24Hour.isEmpty()) {
             return "N/A";
@@ -1166,7 +1147,6 @@ public class EventDetailsFragment extends Fragment {
         }
     }
 
-    // Method to count and display number of tickets for this event
     private void getTicketCount(String eventId) {
         if (eventId == null || eventId.isEmpty() || ticketGeneratedTextView == null) {
             Log.e("TicketCount", "Cannot fetch tickets: eventId is null/empty or view not found");
@@ -1178,7 +1158,7 @@ public class EventDetailsFragment extends Fragment {
 
         DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
 
-        studentsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        studentsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 int ticketCount = 0;
@@ -1222,9 +1202,35 @@ public class EventDetailsFragment extends Fragment {
 
                 // Update the UI with the count if fragment is still attached
                 if (isAdded() && ticketGeneratedTextView != null) {
-                    ticketGeneratedTextView.setText(String.valueOf(ticketCount));
+                    String displayText;
+                    if ("none".equalsIgnoreCase(String.valueOf(targetParticipant))) {
+                        displayText = String.valueOf(ticketCount);
+                    } else if (targetParticipant instanceof Long) {
+                        displayText = ticketCount + "/" + targetParticipant;
+                    } else {
+                        displayText = String.valueOf(ticketCount);
+                    }
+                    ticketGeneratedTextView.setText(displayText);
                 }
                 Log.d("TicketCount", "Final ticket count: " + ticketCount);
+
+                // Check if ticket count has reached targetParticipant and close registration if necessary
+                if (targetParticipant instanceof Long && ticketCount >= (Long) targetParticipant && eventRef != null) {
+                    int finalTicketCount = ticketCount;
+                    eventRef.child("registrationAllowed").setValue(false)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Log.d("TicketCount", "Registration auto-closed as ticket count reached target: " + finalTicketCount + "/" + targetParticipant);
+                                    if (isAdded()) {
+                                        Toast.makeText(getContext(),
+                                                "Registration closed automatically as participant limit reached",
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                } else {
+                                    Log.e("TicketCount", "Failed to auto-close registration: " + task.getException());
+                                }
+                            });
+                }
             }
 
             @Override
@@ -1232,6 +1238,53 @@ public class EventDetailsFragment extends Fragment {
                 Log.e("FirebaseError", "Error fetching tickets: " + error.getMessage());
                 if (isAdded() && ticketGeneratedTextView != null) {
                     ticketGeneratedTextView.setText("0");
+                }
+            }
+        });
+    }
+
+    private void getTargetParticipant(String eventId) {
+        if (eventId == null || eventId.isEmpty()) {
+            Log.e("TargetParticipant", "Cannot fetch target participant: eventId is null or empty");
+            return;
+        }
+
+        DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
+
+        eventRef.child("targetParticipant").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!isAdded()) return;
+
+                if (snapshot.exists()) {
+                    Object value = snapshot.getValue();
+                    if (value instanceof String && "none".equalsIgnoreCase((String) value)) {
+                        targetParticipant = "none";
+                        Log.d("TargetParticipant", "Fetched targetParticipant: none");
+                    } else if (value instanceof Long) {
+                        targetParticipant = (Long) value;
+                        Log.d("TargetParticipant", "Fetched targetParticipant: " + targetParticipant);
+                    } else {
+                        targetParticipant = null;
+                        Log.d("TargetParticipant", "Invalid targetParticipant format: " + value);
+                    }
+                    // Update ticket count display
+                    getTicketCount(eventId);
+                } else {
+                    targetParticipant = null;
+                    Log.d("TargetParticipant", "No targetParticipant found for event: " + eventId);
+                    // Update ticket count display without targetParticipant
+                    getTicketCount(eventId);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("TargetParticipant", "Error fetching target participant: " + error.getMessage());
+                targetParticipant = null;
+                // Update ticket count display without targetParticipant
+                if (isAdded()) {
+                    getTicketCount(eventId);
                 }
             }
         });
@@ -1268,6 +1321,7 @@ public class EventDetailsFragment extends Fragment {
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
+                sendEditRequest();
                 Log.e("FirebaseError", "Error fetching coordinators: " + error.getMessage());
                 if (isAdded() && totalCoordinatorTextView != null) {
                     totalCoordinatorTextView.setText("Error loading coordinators");

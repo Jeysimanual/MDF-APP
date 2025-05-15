@@ -20,6 +20,7 @@ public class Event implements Serializable {
     private String graceTime;
     private String rejectionReason;
     private String userId;
+    private String targetParticipant; // Added targetParticipant field as String
 
     // Empty constructor needed for Firebase
     public Event() {
@@ -29,7 +30,7 @@ public class Event implements Serializable {
     public Event(String eventId, String eventName, String description, String venue,
                  String startDate, String endDate, String startTime, String endTime,
                  String dateCreated, String status, String photoUrl, String eventType,
-                 String eventFor, String eventSpan, String graceTime) {
+                 String eventFor, String eventSpan, String graceTime, String targetParticipant) {
         this.eventId = eventId;
         this.eventName = eventName;
         this.description = description;
@@ -45,6 +46,7 @@ public class Event implements Serializable {
         this.eventFor = eventFor;
         this.eventSpan = eventSpan;
         this.graceTime = graceTime;
+        this.targetParticipant = targetParticipant; // Initialize targetParticipant
     }
 
     // Getters and Setters with type conversion handling
@@ -245,5 +247,23 @@ public class Event implements Serializable {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+    // Getter and Setter for targetParticipant
+    public String gettargetParticipant() {
+        return targetParticipant;
+    }
+
+    public void setTargetParticipant(String targetParticipant) {
+        this.targetParticipant = targetParticipant;
+    }
+
+    // Handle possible Integer or String value for targetParticipant
+    public void setTargetParticipant(Object targetParticipant) {
+        if (targetParticipant instanceof Integer) {
+            this.targetParticipant = String.valueOf(targetParticipant);
+        } else if (targetParticipant instanceof String) {
+            this.targetParticipant = (String) targetParticipant;
+        }
     }
 }

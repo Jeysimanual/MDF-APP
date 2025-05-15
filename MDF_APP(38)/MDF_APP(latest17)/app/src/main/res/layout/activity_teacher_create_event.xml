@@ -356,13 +356,109 @@
                     app:layout_constraintTop_toTopOf="@+id/eventForSpinner"
                     app:layout_constraintVertical_bias="0.0" />
 
+                <!-- Target Number of Participants Field -->
+                <TextView
+                    android:id="@+id/targetParticipantsLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Target Number of Participants "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/eventForSpinner"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/targetParticipantsLabel"
+                    app:layout_constraintStart_toEndOf="@id/targetParticipantsLabel" />
+
+                <Spinner
+                    android:id="@+id/targetParticipantsSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    app:layout_constraintTop_toBottomOf="@id/targetParticipantsLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <ImageView
+                    android:id="@+id/targetParticipantsDropdown"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginRight="5dp"
+                    android:src="@drawable/ic_dropdown"
+                    app:layout_constraintBottom_toBottomOf="@+id/targetParticipantsSpinner"
+                    app:layout_constraintEnd_toEndOf="@+id/targetParticipantsSpinner"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintStart_toStartOf="@+id/targetParticipantsSpinner"
+                    app:layout_constraintTop_toTopOf="@+id/targetParticipantsSpinner"
+                    app:layout_constraintVertical_bias="0.0" />
+
+                <!-- Enter Custom Number Field (Initially Hidden) -->
+                <TextView
+                    android:id="@+id/customParticipantsLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Enter Custom Number "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/targetParticipantsSpinner"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:id="@+id/customParticipantsAsterisk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:visibility="gone"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/customParticipantsLabel"
+                    app:layout_constraintStart_toEndOf="@id/customParticipantsLabel" />
+
+                <EditText
+                    android:id="@+id/customParticipantsField"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/edit_text_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:hint="Enter number of participants"
+                    android:inputType="number"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/customParticipantsLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+
+                <!-- Navigation Buttons -->
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/navigationButtonsContainer1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/_40sdp"
                     android:layout_marginBottom="16dp"
-                    app:layout_constraintTop_toBottomOf="@id/eventForSpinner"
+                    app:layout_constraintTop_toBottomOf="@id/customParticipantsField"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent">
 
