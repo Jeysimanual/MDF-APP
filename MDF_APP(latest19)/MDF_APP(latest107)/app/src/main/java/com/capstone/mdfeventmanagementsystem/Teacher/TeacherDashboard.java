@@ -298,7 +298,8 @@ public class TeacherDashboard extends BaseActivity {
                         // Add event date to calendar marking
                         try {
                             LocalDate date = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
-                            eventDates.add(CalendarDay.from(date.getYear(), date.getMonthValue(), date.getDayOfMonth()));
+                            // Subtract 1 from monthValue to adjust for 0-based indexing
+                            eventDates.add(CalendarDay.from(date.getYear(), date.getMonthValue() - 1, date.getDayOfMonth()));
                         } catch (Exception e) {
                             Log.e(TAG, "Error parsing date for event: " + event.getEventName(), e);
                         }
@@ -359,7 +360,8 @@ public class TeacherDashboard extends BaseActivity {
                         // Add event date to calendar marking
                         try {
                             LocalDate date = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
-                            eventDates.add(CalendarDay.from(date.getYear(), date.getMonthValue(), date.getDayOfMonth()));
+                            // Subtract 1 from monthValue to adjust for 0-based indexing
+                            eventDates.add(CalendarDay.from(date.getYear(), date.getMonthValue() - 1, date.getDayOfMonth()));
                         } catch (Exception e) {
                             Log.e(TAG, "Error parsing date for event: " + event.getEventName(), e);
                         }

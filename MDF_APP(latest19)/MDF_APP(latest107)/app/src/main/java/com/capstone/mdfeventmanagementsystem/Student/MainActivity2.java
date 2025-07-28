@@ -30,6 +30,11 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.prolificinteractive.materialcalendarview.CalendarDay;
+import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
+import com.prolificinteractive.materialcalendarview.DayViewDecorator;
+import com.prolificinteractive.materialcalendarview.DayViewFacade;
+import com.prolificinteractive.materialcalendarview.spans.DotSpan;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Transformation;
 
@@ -37,7 +42,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 class CircleTransformMain implements Transformation {
     @Override
@@ -87,11 +94,11 @@ public class MainActivity2 extends BaseActivity {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private String currentUserYearLevel;
     private static final String TAG = "MainActivity2"; // For consistent logging
-
     private TextView firstNameTextView; // Declare TextView for firstName
     private ImageView profileImageView; // Added for profile image
     private DatabaseReference studentsRef;
     private DatabaseReference profilesRef; // Added for student profiles
+    private MaterialCalendarView calendarView; // Added for calendar display
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,6 +114,17 @@ public class MainActivity2 extends BaseActivity {
         // Initialize the TextView for firstName and ImageView for profile picture
         firstNameTextView = findViewById(R.id.firstName);
         profileImageView = findViewById(R.id.profile_image);
+
+        // Initialize calendar view
+        calendarView = findViewById(R.id.calendarView);
+        if (calendarView != null) {
+            calendarView.setOnDateChangedListener((widget, date, selected) -> {
+                // Handle date selection
+                Toast.makeText(MainActivity2.this,
+                        "Selected date: " + date.getMonth() + "/" + date.getDay() + "/" + date.getYear(),
+                        Toast.LENGTH_SHORT).show();
+            });
+        }
 
         findViewById(R.id.fab_scan).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -230,7 +248,7 @@ public class MainActivity2 extends BaseActivity {
         // Use Picasso to load from cache only - no network
         Picasso.get()
                 .load(imageUrl)
-                .transform(new CircleTransformDashboard())
+                .transform(new CircleTransformMain())
                 .placeholder(R.drawable.profile_placeholder)
                 .error(R.drawable.profile_placeholder)
                 .networkPolicy(com.squareup.picasso.NetworkPolicy.OFFLINE) // Only load from cache
@@ -349,7 +367,7 @@ public class MainActivity2 extends BaseActivity {
             // Use Picasso to load the image with transformation for circular display
             Picasso.get()
                     .load(imageUrl)
-                    .transform(new CircleTransformDashboard()) // Use CircleTransform for circular images
+                    .transform(new CircleTransformMain())
                     .placeholder(R.drawable.profile_placeholder)
                     .error(R.drawable.profile_placeholder)
                     .into(profileImageView, new com.squareup.picasso.Callback() {
@@ -507,7 +525,7 @@ public class MainActivity2 extends BaseActivity {
         });
     }
 
-    // New method to fetch assigned events based on student's year level
+    // Method to fetch assigned events based on student's year level
     private void fetchAssignedEvents() {
         if (currentUserYearLevel == null || currentUserYearLevel.isEmpty()) {
             Log.e(TAG, "Year level not available");
@@ -539,6 +557,7 @@ public class MainActivity2 extends BaseActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 assignedEventList.clear();
+                Set<CalendarDay> eventDates = new HashSet<>(); // Store dates for calendar marking
 
                 // Different possible formats for Grade 9
                 String yearLevel = currentUserYearLevel.toLowerCase().trim();
@@ -574,6 +593,15 @@ public class MainActivity2 extends BaseActivity {
                     Event event = dataSnapshot.getValue(Event.class);
                     if (event != null) {
                         event.setEventUID(dataSnapshot.getKey());
+
+                        // Add event date to calendar marking
+                        try {
+                            LocalDate date = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
+                            // Subtract 1 from monthValue to adjust for 0-based indexing
+                            eventDates.add(CalendarDay.from(date.getYear(), date.getMonthValue() - 1, date.getDayOfMonth()));
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error parsing date for event: " + event.getEventName(), e);
+                        }
 
                         // Get eventFor and check against all possible formats
                         String eventFor = event.getEventFor();
@@ -634,6 +662,9 @@ public class MainActivity2 extends BaseActivity {
                 // Update the adapter
                 assignedEventAdapter.updateEventList(assignedEventList);
 
+                // Update calendar with event dates
+                markEventDatesOnCalendar(eventDates);
+
                 // Log the final result
                 Log.d(TAG, "Found " + matchCount + " events for year level: " + currentUserYearLevel);
 
@@ -652,5 +683,35 @@ public class MainActivity2 extends BaseActivity {
                 Log.e(TAG, "Fetching assigned events failed: " + error.getMessage());
             }
         });
+    }
+
+    // Method to mark event dates on the calendar
+    private void markEventDatesOnCalendar(Set<CalendarDay> eventDates) {
+        if (calendarView == null) {
+            Log.e(TAG, "CalendarView is null, cannot mark event dates");
+            return;
+        }
+
+        // Remove any existing decorators
+        calendarView.removeDecorators();
+
+        // Create a new decorator for event dates
+        DayViewDecorator decorator = new DayViewDecorator() {
+            @Override
+            public boolean shouldDecorate(CalendarDay day) {
+                return eventDates.contains(day);
+            }
+
+            @Override
+            public void decorate(DayViewFacade view) {
+                // Add a dot under the date
+                view.addSpan(new DotSpan(8, getResources().getColor(R.color.red))); // Adjust color and size as needed
+            }
+        };
+
+        // Add the decorator to the calendar
+        calendarView.addDecorator(decorator);
+        calendarView.invalidateDecorators();
+        Log.d(TAG, "Marked " + eventDates.size() + " dates on calendar");
     }
 }
