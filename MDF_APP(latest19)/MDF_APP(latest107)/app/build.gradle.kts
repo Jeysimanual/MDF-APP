@@ -12,8 +12,9 @@ android {
     defaultConfig {
         applicationId = "com.capstone.mdfeventmanagementsystem"
         minSdk = 33
-        targetSdk = 33
-        versionCode = 3
+        //noinspection EditedTargetSdkVersion,ExpiredTargetSdkVersion
+        targetSdk = 35
+        versionCode = 9
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -143,5 +144,10 @@ dependencies {
     implementation ("pl.droidsonroids.gif:android-gif-drawable:1.2.25")
 
     implementation ("org.apache.poi:poi-ooxml:5.2.3")
+    implementation ("com.prolificinteractive:material-calendarview:1.4.2")
+
+    implementation ("androidx.core:core:1.15.0")
+    implementation ("androidx.appcompat:appcompat:1.7.0")
+    implementation ("com.google.android.material:material:1.12.0")
 
 }

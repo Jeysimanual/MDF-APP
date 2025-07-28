@@ -23,15 +23,20 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class EventApprovalFragment extends Fragment {
 
     private static final String TAG = "EventApprovalTest";
     private RecyclerView recyclerView;
     private LinearLayout emptyContainer;
-    private List<Event> eventsToDisplay = new ArrayList<>(); // Renamed from pendingApprovalEvents
+    private List<Event> eventsToDisplay = new ArrayList<>();
     private EventApprovalAdapter adapter;
     private DatabaseReference eventProposalsRef;
 
@@ -41,27 +46,22 @@ public class EventApprovalFragment extends Fragment {
         Log.d(TAG, "onCreateView: Fragment view creation started");
         View view = inflater.inflate(R.layout.fragment_event_approval, container, false);
 
-        // Initialize views
         Log.d(TAG, "onCreateView: Initializing views");
         recyclerView = view.findViewById(R.id.recycler_approval_view);
         emptyContainer = view.findViewById(R.id.empty_approval_container);
 
-        // Set up RecyclerView
         Log.d(TAG, "onCreateView: Setting up RecyclerView");
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new EventApprovalAdapter(getContext(), eventsToDisplay);
         recyclerView.setAdapter(adapter);
 
-        // Show the empty state by default
         Log.d(TAG, "onCreateView: Setting initial visibility state - Empty view shown");
         recyclerView.setVisibility(View.GONE);
         emptyContainer.setVisibility(View.VISIBLE);
 
-        // Initialize Firebase
         Log.d(TAG, "onCreateView: Initializing Firebase references");
         initFirebase();
 
-        // Fetch data
         Log.d(TAG, "onCreateView: Starting to fetch events from Firebase");
         fetchEvents();
 
@@ -71,20 +71,14 @@ public class EventApprovalFragment extends Fragment {
 
     private void initFirebase() {
         Log.d(TAG, "initFirebase: Initializing Firebase database reference");
-        // Get a reference to the eventProposals collection in the Firebase Realtime Database
         FirebaseDatabase database = FirebaseDatabase.getInstance();
         eventProposalsRef = database.getReference("eventProposals");
         Log.d(TAG, "initFirebase: Firebase reference set to 'eventProposals'");
     }
 
-    /**
-     * Fetches events that are pending approval or recently rejected from Firebase Realtime Database
-     * Listens for real-time updates to the data
-     */
     private void fetchEvents() {
         Log.d(TAG, "fetchEvents: Setting up listener for events");
 
-        // Modified to fetch both pending and rejected events
         eventProposalsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
@@ -98,18 +92,24 @@ public class EventApprovalFragment extends Fragment {
                     Log.d(TAG, "onDataChange: Processing event snapshot #" + count);
 
                     try {
-                        // Extract status first to filter
                         String status = eventSnapshot.child("status").exists() ?
                                 String.valueOf(eventSnapshot.child("status").getValue()) : "pending";
 
-                        // Only include pending or rejected events
+                        if (status.equals("pending")) {
+                            if (shouldDeleteEvent(eventSnapshot)) {
+                                Log.d(TAG, "onDataChange: Deleting expired event: " + eventSnapshot.getKey());
+                                eventSnapshot.getRef().removeValue()
+                                        .addOnSuccessListener(aVoid -> Log.d(TAG, "onDataChange: Successfully deleted expired event"))
+                                        .addOnFailureListener(e -> Log.e(TAG, "onDataChange: Failed to delete expired event: " + e.getMessage()));
+                                continue;
+                            }
+                        }
+
                         if (status.equals("pending") || status.equals("rejected")) {
-                            // Manually extract and convert fields from the snapshot
                             Event event = new Event();
                             String eventId = eventSnapshot.getKey();
                             event.setEventId(eventId);
 
-                            // Handle each field with proper type conversion
                             if (eventSnapshot.child("eventName").exists()) {
                                 event.setEventName(String.valueOf(eventSnapshot.child("eventName").getValue()));
                             }
@@ -135,7 +135,6 @@ public class EventApprovalFragment extends Fragment {
                                 event.setDateCreated(String.valueOf(eventSnapshot.child("dateCreated").getValue()));
                             }
 
-                            // Set status
                             event.setStatus(status);
 
                             if (eventSnapshot.child("photoUrl").exists()) {
@@ -169,9 +168,6 @@ public class EventApprovalFragment extends Fragment {
                 }
 
                 Log.d(TAG, "onDataChange: Processed " + count + " events, found " + eventsToDisplay.size() + " events to display");
-
-                // Update UI based on whether we have events or not
-                Log.d(TAG, "onDataChange: Updating UI with fetched events");
                 updateUI();
             }
 
@@ -179,8 +175,6 @@ public class EventApprovalFragment extends Fragment {
             public void onCancelled(@NonNull DatabaseError databaseError) {
                 Log.e(TAG, "onCancelled: Error fetching events: " + databaseError.getMessage());
                 Log.e(TAG, "onCancelled: Error details: " + databaseError.getDetails());
-
-                // Show empty state if there's an error
                 Log.d(TAG, "onCancelled: Showing empty state due to error");
                 recyclerView.setVisibility(View.GONE);
                 emptyContainer.setVisibility(View.VISIBLE);
@@ -189,33 +183,67 @@ public class EventApprovalFragment extends Fragment {
         Log.d(TAG, "fetchEvents: Firebase listener setup completed");
     }
 
-    /**
-     * Updates the UI based on whether we have events to display or not
-     */
+    private boolean shouldDeleteEvent(DataSnapshot eventSnapshot) {
+        try {
+            Calendar currentDate = Calendar.getInstance();
+            currentDate.setTime(new Date()); // Ensure current date is set correctly
+
+            // Check creation date (7 days limit)
+            if (eventSnapshot.child("dateCreated").exists()) {
+                String dateCreatedStr = String.valueOf(eventSnapshot.child("dateCreated").getValue());
+                SimpleDateFormat sdf = new SimpleDateFormat("MMMM dd, yyyy", Locale.US); // Adjusted for "July 23, 2025"
+                Date dateCreated = sdf.parse(dateCreatedStr);
+
+                if (dateCreated != null) {
+                    Calendar creationLimit = Calendar.getInstance();
+                    creationLimit.setTime(dateCreated);
+                    creationLimit.add(Calendar.DAY_OF_MONTH, 7);
+
+                    if (currentDate.after(creationLimit)) {
+                        Log.d(TAG, "shouldDeleteEvent: Event expired (7 days limit) - ID: " + eventSnapshot.getKey());
+                        return true;
+                    }
+                }
+            }
+
+            // Check start date
+            if (eventSnapshot.child("startDate").exists()) {
+                String startDateStr = String.valueOf(eventSnapshot.child("startDate").getValue());
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()); // Assuming startDate is in "yyyy-MM-dd"
+                Date startDate = sdf.parse(startDateStr);
+
+                if (startDate != null) {
+                    Calendar startDateCal = Calendar.getInstance();
+                    startDateCal.setTime(startDate);
+
+                    if (currentDate.after(startDateCal)) {
+                        Log.d(TAG, "shouldDeleteEvent: Event expired (start date passed) - ID: " + eventSnapshot.getKey());
+                        return true;
+                    }
+                }
+            }
+        } catch (ParseException e) {
+            Log.e(TAG, "shouldDeleteEvent: Error parsing dates: " + e.getMessage());
+        }
+        return false;
+    }
+
     private void updateUI() {
         Log.d(TAG, "updateUI: Updating UI based on event list size: " + eventsToDisplay.size());
 
         if (eventsToDisplay.isEmpty()) {
-            // No events, show empty state
             Log.d(TAG, "updateUI: No events to display, showing empty state");
             recyclerView.setVisibility(View.GONE);
             emptyContainer.setVisibility(View.VISIBLE);
         } else {
-            // We have events, show the list
             Log.d(TAG, "updateUI: Found " + eventsToDisplay.size() + " events, showing recycler view");
             recyclerView.setVisibility(View.VISIBLE);
             emptyContainer.setVisibility(View.GONE);
-
-            // Notify adapter of data change
             Log.d(TAG, "updateUI: Updating adapter with new events");
             adapter.updateEvents(eventsToDisplay);
         }
     }
 
-    /**
-     * Public method that can be called from activity to update the list manually
-     * This can be useful if you need to refresh the data from outside the fragment
-     */
     public void updateEvents(List<Event> events) {
         Log.d(TAG, "updateEvents: Manual update called from external source");
 
@@ -223,12 +251,9 @@ public class EventApprovalFragment extends Fragment {
             Log.d(TAG, "updateEvents: Received " + events.size() + " events");
             eventsToDisplay.clear();
             eventsToDisplay.addAll(events);
-
-            // Update the UI
             Log.d(TAG, "updateEvents: Updating UI with manually provided events");
             updateUI();
         } else {
-            // Keep showing empty view
             Log.d(TAG, "updateEvents: Received null or empty events list");
             recyclerView.setVisibility(View.GONE);
             emptyContainer.setVisibility(View.VISIBLE);
@@ -239,7 +264,6 @@ public class EventApprovalFragment extends Fragment {
     public void onResume() {
         super.onResume();
         Log.d(TAG, "onResume: Fragment resumed");
-        // Refresh data when returning to this fragment
         fetchEvents();
     }
 

@@ -1,10 +1,16 @@
 package com.capstone.mdfeventmanagementsystem.Student;
 
+import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -34,6 +40,9 @@ import com.squareup.picasso.Transformation;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class CircleTransformQRCheckIn implements Transformation {
     @Override
@@ -73,32 +82,134 @@ class CircleTransformQRCheckIn implements Transformation {
 public class QRCheckInActivity extends BaseActivity {
 
     private TextView instructionForScanning, validText, usedText, invalidText, notAllowedText;
-    private TextView getStarted, noPermissionText; // Added this to match layout
+    private TextView getStarted, noPermissionText;
     private ImageView validTicket, usedTicket, invalidTicket, notAllowedTicket;
     private Button scanTicketBtn, cancelScanBtn;
     private DecoratedBarcodeView barcodeView;
     private CaptureManager captureManager;
     private boolean scanning = false;
-
-    // Add a new variable to track if NotAllowedTicket should persist
     private boolean persistNotAllowedTicket = false;
 
     private DatabaseReference databaseRef;
     private SharedPreferences sharedPreferences;
+    private TicketDatabaseHelper dbHelper;
 
-    // Constants for time status results
-    // Constants for time status results
-    private static final int TIME_STATUS_TOO_EARLY = -1;     // Event hasn't started yet
-    private static final int TIME_STATUS_ON_TIME = 0;        // Within grace period
-    private static final int TIME_STATUS_LATE = 1;           // After grace period
-    private static final int TIME_STATUS_CAN_CHECKOUT = 2;   // After end time but can check out (1-hour window)
-    private static final int TIME_STATUS_ENDED = 3;          // Event has completely ended
-    private static final int TIME_STATUS_CHECKIN_ENDED = 4;  // Time for check-in has ended
+    private static final int TIME_STATUS_TOO_EARLY = -1;
+    private static final int TIME_STATUS_ON_TIME = 0;
+    private static final int TIME_STATUS_LATE = 1;
+    private static final int TIME_STATUS_CAN_CHECKOUT = 2;
+    private static final int TIME_STATUS_ENDED = 3;
+    private static final int TIME_STATUS_CHECKIN_ENDED = 4;
+    private static final String TAG = "QRCheckInActivity";
+    private static final int BATCH_SIZE = 10;
 
     private ImageView profileImageView;
     private DatabaseReference studentsRef;
     private DatabaseReference profilesRef;
-    private static final String TAG = "QRCheckInActivity";
+
+    private static class TicketDatabaseHelper extends SQLiteOpenHelper {
+        private static final String DATABASE_NAME = "StudentEvents.db";
+        private static final int DATABASE_VERSION = 2;
+
+        private static final String TABLE_EVENTS = "events";
+        private static final String EVENT_COLUMN_ID = "id";
+        private static final String EVENT_COLUMN_EVENT_UID = "event_uid";
+        private static final String EVENT_COLUMN_NAME = "name";
+        private static final String EVENT_COLUMN_START_DATE = "start_date";
+        private static final String EVENT_COLUMN_END_DATE = "end_date";
+        private static final String EVENT_COLUMN_START_TIME = "start_time";
+        private static final String EVENT_COLUMN_END_TIME = "end_time";
+        private static final String EVENT_COLUMN_GRACE_TIME = "grace_time";
+        private static final String EVENT_COLUMN_EVENT_SPAN = "event_span";
+        private static final String EVENT_COLUMN_SYNCED = "synced";
+
+        private static final String TABLE_SCAN_RECORDS = "scan_records";
+        private static final String COLUMN_ID = "id";
+        private static final String COLUMN_STUDENT_ID = "student_id";
+        private static final String COLUMN_EVENT_UID = "event_uid";
+        private static final String COLUMN_DAY_KEY = "day_key";
+        private static final String COLUMN_DATE = "date";
+        private static final String COLUMN_CHECK_IN_TIME = "check_in_time";
+        private static final String COLUMN_CHECK_OUT_TIME = "check_out_time";
+        private static final String COLUMN_ATTENDANCE = "attendance";
+        private static final String COLUMN_IS_LATE = "is_late";
+        private static final String COLUMN_STATUS = "status";
+        private static final String COLUMN_SYNCED = "synced";
+
+        public TicketDatabaseHelper(Context context) {
+            super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            String createEventsTable = "CREATE TABLE IF NOT EXISTS " + TABLE_EVENTS + " (" +
+                    EVENT_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    EVENT_COLUMN_EVENT_UID + " TEXT, " +
+                    EVENT_COLUMN_NAME + " TEXT, " +
+                    EVENT_COLUMN_START_DATE + " TEXT, " +
+                    EVENT_COLUMN_END_DATE + " TEXT, " +
+                    EVENT_COLUMN_START_TIME + " TEXT, " +
+                    EVENT_COLUMN_END_TIME + " TEXT, " +
+                    EVENT_COLUMN_GRACE_TIME + " TEXT, " +
+                    EVENT_COLUMN_EVENT_SPAN + " TEXT, " +
+                    EVENT_COLUMN_SYNCED + " INTEGER)";
+            db.execSQL(createEventsTable);
+
+            String createScanRecordsTable = "CREATE TABLE IF NOT EXISTS " + TABLE_SCAN_RECORDS + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_STUDENT_ID + " TEXT, " +
+                    COLUMN_EVENT_UID + " TEXT, " +
+                    COLUMN_DAY_KEY + " TEXT, " +
+                    COLUMN_DATE + " TEXT, " +
+                    COLUMN_CHECK_IN_TIME + " TEXT, " +
+                    COLUMN_CHECK_OUT_TIME + " TEXT, " +
+                    COLUMN_ATTENDANCE + " TEXT, " +
+                    COLUMN_IS_LATE + " INTEGER, " +
+                    COLUMN_STATUS + " TEXT, " +
+                    COLUMN_SYNCED + " INTEGER)";
+            db.execSQL(createScanRecordsTable);
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            if (oldVersion < 2) {
+                Cursor cursorEvents = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='" + TABLE_EVENTS + "'", null);
+                if (!cursorEvents.moveToFirst() || cursorEvents.getCount() == 0) {
+                    String createEventsTable = "CREATE TABLE " + TABLE_EVENTS + " (" +
+                            EVENT_COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            EVENT_COLUMN_EVENT_UID + " TEXT, " +
+                            EVENT_COLUMN_NAME + " TEXT, " +
+                            EVENT_COLUMN_START_DATE + " TEXT, " +
+                            EVENT_COLUMN_END_DATE + " TEXT, " +
+                            EVENT_COLUMN_START_TIME + " TEXT, " +
+                            EVENT_COLUMN_END_TIME + " TEXT, " +
+                            EVENT_COLUMN_GRACE_TIME + " TEXT, " +
+                            EVENT_COLUMN_EVENT_SPAN + " TEXT, " +
+                            EVENT_COLUMN_SYNCED + " INTEGER)";
+                    db.execSQL(createEventsTable);
+                }
+                cursorEvents.close();
+
+                Cursor cursorScanRecords = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='" + TABLE_SCAN_RECORDS + "'", null);
+                if (!cursorScanRecords.moveToFirst() || cursorScanRecords.getCount() == 0) {
+                    String createScanRecordsTable = "CREATE TABLE " + TABLE_SCAN_RECORDS + " (" +
+                            COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            COLUMN_STUDENT_ID + " TEXT, " +
+                            COLUMN_EVENT_UID + " TEXT, " +
+                            COLUMN_DAY_KEY + " TEXT, " +
+                            COLUMN_DATE + " TEXT, " +
+                            COLUMN_CHECK_IN_TIME + " TEXT, " +
+                            COLUMN_CHECK_OUT_TIME + " TEXT, " +
+                            COLUMN_ATTENDANCE + " TEXT, " +
+                            COLUMN_IS_LATE + " INTEGER, " +
+                            COLUMN_STATUS + " TEXT, " +
+                            COLUMN_SYNCED + " INTEGER)";
+                    db.execSQL(createScanRecordsTable);
+                }
+                cursorScanRecords.close();
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,8 +244,6 @@ public class QRCheckInActivity extends BaseActivity {
             }
         });
 
-
-        // Initialize views
         instructionForScanning = findViewById(com.capstone.mdfeventmanagementsystem.R.id.instruction_for_scanning);
         getStarted = findViewById(com.capstone.mdfeventmanagementsystem.R.id.getStarted);
         validText = findViewById(com.capstone.mdfeventmanagementsystem.R.id.valid_text);
@@ -148,41 +257,252 @@ public class QRCheckInActivity extends BaseActivity {
         scanTicketBtn = findViewById(com.capstone.mdfeventmanagementsystem.R.id.scanTicketBtn);
         cancelScanBtn = findViewById(com.capstone.mdfeventmanagementsystem.R.id.cancelScanBtn);
         barcodeView = findViewById(com.capstone.mdfeventmanagementsystem.R.id.barcode_scanner);
-        noPermissionText= findViewById(com.capstone.mdfeventmanagementsystem.R.id.noPermission);
+        noPermissionText = findViewById(com.capstone.mdfeventmanagementsystem.R.id.noPermission);
 
-        // Initial UI setup
         barcodeView.setVisibility(DecoratedBarcodeView.GONE);
         getStarted.setVisibility(TextView.VISIBLE);
         scanTicketBtn.setVisibility(Button.VISIBLE);
         cancelScanBtn.setVisibility(Button.GONE);
         noPermissionText.setVisibility(TextView.GONE);
 
-        // Initialize barcode scanner
         captureManager = new CaptureManager(this, barcodeView);
         captureManager.initializeFromIntent(getIntent(), savedInstanceState);
 
-        // Set up button click listeners
         scanTicketBtn.setOnClickListener(v -> startScanning());
         cancelScanBtn.setOnClickListener(v -> stopScanning());
 
-        // Initialize Firebase database reference
         databaseRef = FirebaseDatabase.getInstance().getReference();
         databaseRef.keepSynced(true);
+        dbHelper = new TicketDatabaseHelper(this);
+        initializeDatabase();
 
-        // Initialize SharedPreferences
         sharedPreferences = getSharedPreferences("TicketStatus", MODE_PRIVATE);
 
-        // Set up bottom navigation
-        setupBottomNavigation();
+        if (isNetworkAvailable()) {
+            syncEventsFromFirebase();
+        }
 
-        // Load profile image
+        setupBottomNavigation();
         loadUserProfile();
+    }
+
+    private void initializeDatabase() {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        db.close();
+    }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        return connectivityManager != null && connectivityManager.getActiveNetworkInfo() != null && connectivityManager.getActiveNetworkInfo().isConnected();
+    }
+
+    private void syncEventsFromFirebase() {
+        databaseRef.child("events").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                SQLiteDatabase db = dbHelper.getWritableDatabase();
+                db.delete(TicketDatabaseHelper.TABLE_EVENTS, null, null);
+                for (DataSnapshot eventSnapshot : snapshot.getChildren()) {
+                    ContentValues values = new ContentValues();
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_EVENT_UID, eventSnapshot.getKey());
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_NAME, eventSnapshot.child("eventName").getValue(String.class));
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_START_DATE, eventSnapshot.child("startDate").getValue(String.class));
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_END_DATE, eventSnapshot.child("endDate").getValue(String.class));
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_START_TIME, eventSnapshot.child("startTime").getValue(String.class));
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_END_TIME, eventSnapshot.child("endTime").getValue(String.class));
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_GRACE_TIME, eventSnapshot.child("graceTime").getValue(String.class));
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_EVENT_SPAN, eventSnapshot.child("eventSpan").getValue(String.class));
+                    values.put(TicketDatabaseHelper.EVENT_COLUMN_SYNCED, 1);
+                    db.insert(TicketDatabaseHelper.TABLE_EVENTS, null, values);
+                }
+                db.close();
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Failed to sync events: " + error.getMessage());
+            }
+        });
+    }
+
+    private void syncScanDataToFirebase() {
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = null;
+        ExecutorService executor = Executors.newFixedThreadPool(3);
+        List<Map<String, Object>> batch = new ArrayList<>();
+        AtomicInteger pendingTasks = new AtomicInteger(0);
+        AtomicInteger successfulSyncs = new AtomicInteger(0);
+        AtomicInteger failedSyncs = new AtomicInteger(0);
+
+        try {
+            cursor = db.query(TicketDatabaseHelper.TABLE_SCAN_RECORDS,
+                    null,
+                    TicketDatabaseHelper.COLUMN_SYNCED + " = ?",
+                    new String[]{"0"},
+                    null, null, null);
+
+            int recordCount = cursor.getCount();
+            if (recordCount == 0) {
+                runOnUiThread(() -> Toast.makeText(this, "No records to sync", Toast.LENGTH_SHORT).show());
+                return;
+            }
+
+            runOnUiThread(() -> Toast.makeText(this, "Starting sync of " + recordCount + " records...", Toast.LENGTH_SHORT).show());
+
+            while (cursor.moveToNext()) {
+                Map<String, Object> record = new HashMap<>();
+                record.put("studentId", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_STUDENT_ID)));
+                record.put("eventId", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_EVENT_UID)));
+                record.put("dayKey", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_DAY_KEY)));
+                record.put("date", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_DATE)));
+                record.put("checkInTime", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_CHECK_IN_TIME)));
+                record.put("checkOutTime", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_CHECK_OUT_TIME)));
+                record.put("attendance", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_ATTENDANCE)));
+                record.put("isLate", cursor.getInt(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_IS_LATE)) == 1);
+                record.put("status", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_STATUS)));
+                batch.add(record);
+
+                if (batch.size() >= BATCH_SIZE || cursor.isLast()) {
+                    pendingTasks.incrementAndGet();
+                    List<Map<String, Object>> batchToSync = new ArrayList<>(batch);
+                    executor.submit(() -> syncBatch(batchToSync, successfulSyncs, failedSyncs));
+                    batch.clear();
+                }
+            }
+
+            executor.shutdown();
+            new Thread(() -> {
+                try {
+                    executor.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS);
+                    runOnUiThread(() -> {
+                        String message = "Sync completed: " + successfulSyncs.get() + " records synced, " + failedSyncs.get() + " failed.";
+                        Toast.makeText(QRCheckInActivity.this, message, Toast.LENGTH_LONG).show();
+                        Log.d(TAG, message);
+                    });
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "Sync interrupted: " + e.getMessage());
+                    runOnUiThread(() -> Toast.makeText(QRCheckInActivity.this, "Sync interrupted", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Database query failed: " + e.getMessage());
+            runOnUiThread(() -> Toast.makeText(this, "Error syncing data: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            db.close();
+        }
+    }
+
+    private void syncBatch(List<Map<String, Object>> batch, AtomicInteger successfulSyncs, AtomicInteger failedSyncs) {
+        for (Map<String, Object> record : batch) {
+            String studentId = (String) record.get("studentId");
+            String eventId = (String) record.get("eventId");
+            String dayKey = (String) record.get("dayKey");
+            String date = (String) record.get("date");
+            String checkInTime = (String) record.get("checkInTime");
+            String checkOutTime = (String) record.get("checkOutTime");
+            String attendance = (String) record.get("attendance");
+            Boolean isLate = (Boolean) record.get("isLate");
+            String status = (String) record.get("status");
+
+            DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
+            Map<String, Object> updates = new HashMap<>();
+            if (date != null) updates.put("date", date);
+            if (checkInTime != null) updates.put("in", checkInTime);
+            if (checkOutTime != null) updates.put("out", checkOutTime);
+            if (attendance != null) updates.put("attendance", attendance);
+            updates.put("isLate", isLate);
+            updates.put("status", status);
+
+            ticketRef.child("attendanceDays").child(dayKey).updateChildren(updates)
+                    .addOnSuccessListener(aVoid -> {
+                        updateSynchronizedStatus(studentId, eventId, dayKey);
+                        successfulSyncs.incrementAndGet();
+                        Log.d(TAG, "Synced scan data for student " + studentId + ", event " + eventId + ", day " + dayKey);
+                    })
+                    .addOnFailureListener(e -> {
+                        failedSyncs.incrementAndGet();
+                        Log.e(TAG, "Failed to sync scan data for student " + studentId + ", event " + eventId + ": " + e.getMessage());
+                    });
+        }
+    }
+
+    private void saveEventToSQLite(String eventId, DataSnapshot snapshot) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_EVENT_UID, eventId);
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_NAME, snapshot.child("eventName").getValue(String.class));
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_START_DATE, snapshot.child("startDate").getValue(String.class));
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_END_DATE, snapshot.child("endDate").getValue(String.class));
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_START_TIME, snapshot.child("startTime").getValue(String.class));
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_END_TIME, snapshot.child("endTime").getValue(String.class));
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_GRACE_TIME, snapshot.child("graceTime").getValue(String.class));
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_EVENT_SPAN, snapshot.child("eventSpan").getValue(String.class));
+        values.put(TicketDatabaseHelper.EVENT_COLUMN_SYNCED, 1);
+        db.replace(TicketDatabaseHelper.TABLE_EVENTS, null, values);
+        db.close();
+    }
+
+    private void saveToLocalDatabase(String studentId, String eventId, String dayKey, String date, String checkInTime,
+                                     String checkOutTime, String attendance, boolean isLate, String status) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(TicketDatabaseHelper.COLUMN_STUDENT_ID, studentId);
+        values.put(TicketDatabaseHelper.COLUMN_EVENT_UID, eventId);
+        values.put(TicketDatabaseHelper.COLUMN_DAY_KEY, dayKey);
+        values.put(TicketDatabaseHelper.COLUMN_DATE, date);
+        if (checkInTime != null) values.put(TicketDatabaseHelper.COLUMN_CHECK_IN_TIME, checkInTime);
+        if (checkOutTime != null) values.put(TicketDatabaseHelper.COLUMN_CHECK_OUT_TIME, checkOutTime);
+        if (attendance != null) values.put(TicketDatabaseHelper.COLUMN_ATTENDANCE, attendance);
+        values.put(TicketDatabaseHelper.COLUMN_IS_LATE, isLate ? 1 : 0);
+        values.put(TicketDatabaseHelper.COLUMN_STATUS, status);
+        values.put(TicketDatabaseHelper.COLUMN_SYNCED, isNetworkAvailable() ? 1 : 0);
+        db.replace(TicketDatabaseHelper.TABLE_SCAN_RECORDS, null, values);
+        db.close();
+    }
+
+    private void updateSynchronizedStatus(String studentId, String eventId, String dayKey) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(TicketDatabaseHelper.COLUMN_SYNCED, 1);
+        db.update(TicketDatabaseHelper.TABLE_SCAN_RECORDS,
+                values,
+                TicketDatabaseHelper.COLUMN_STUDENT_ID + " = ? AND " +
+                        TicketDatabaseHelper.COLUMN_EVENT_UID + " = ? AND " +
+                        TicketDatabaseHelper.COLUMN_DAY_KEY + " = ?",
+                new String[]{studentId, eventId, dayKey});
+        db.close();
+    }
+
+    private String getCurrentDayKey(String startDate, String endDate, String eventSpan) {
+        String currentDate = getCurrentDate();
+        if ("multi-day".equals(eventSpan) && startDate != null && endDate != null) {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+                Date current = sdf.parse(currentDate);
+                Date start = sdf.parse(startDate);
+                Date end = sdf.parse(endDate);
+
+                if (current.before(start) || current.after(end)) {
+                    return "day_1";
+                }
+
+                long diff = current.getTime() - start.getTime();
+                int dayNumber = (int) (diff / (1000 * 60 * 60 * 24)) + 1;
+                return "day_" + dayNumber;
+            } catch (ParseException e) {
+                Log.e(TAG, "Error parsing dates for day key: " + e.getMessage());
+            }
+        }
+        return "day_1";
     }
 
     public interface OnCoordinatorCheckListener {
         void onCheck(boolean isCoordinator, String eventUID);
     }
-
 
     private void startScanning() {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
@@ -198,21 +518,16 @@ public class QRCheckInActivity extends BaseActivity {
             if (isCoordinator) {
                 Log.d("coordinatorTesting", "User is a coordinator for event: " + eventUID + ". Starting scanning process.");
 
-                // Hide no permission text if the user has permission to scan
                 noPermissionText.setVisibility(TextView.GONE);
+                getStarted.setVisibility(TextView.GONE);
+                scanTicketBtn.setVisibility(Button.GONE);
+                instructionForScanning.setVisibility(TextView.VISIBLE);
+                barcodeView.setVisibility(DecoratedBarcodeView.VISIBLE);
+                cancelScanBtn.setVisibility(Button.VISIBLE);
 
-                // Show scanning UI elements
-                getStarted.setVisibility(TextView.GONE);  // Hide "Get Started" message
-                scanTicketBtn.setVisibility(Button.GONE);  // Hide the scan button
-                instructionForScanning.setVisibility(TextView.VISIBLE);  // Show scanning instructions
-                barcodeView.setVisibility(DecoratedBarcodeView.VISIBLE);  // Show barcode scanner
-                cancelScanBtn.setVisibility(Button.VISIBLE);  // Show cancel button
-
-                // Always hide ticket views when scanning starts
                 hideAllTicketViews();
                 scanning = true;
 
-                // Start the barcode scanning
                 barcodeView.decodeSingle(new BarcodeCallback() {
                     @Override
                     public void barcodeResult(BarcodeResult result) {
@@ -220,8 +535,8 @@ public class QRCheckInActivity extends BaseActivity {
                             Log.d("coordinatorTesting", "Scanned ticket: " + result.getText());
                             scanning = false;
                             validateTicket(result.getText(), eventUID);
-                            barcodeView.setVisibility(DecoratedBarcodeView.GONE);  // Hide barcode scanner after scan
-                            cancelScanBtn.setVisibility(Button.GONE);  // Hide cancel button after scan
+                            barcodeView.setVisibility(DecoratedBarcodeView.GONE);
+                            cancelScanBtn.setVisibility(Button.GONE);
                         }
                     }
                 });
@@ -230,13 +545,12 @@ public class QRCheckInActivity extends BaseActivity {
                 Log.w("coordinatorTesting", "User is not a coordinator. Access denied.");
                 Toast.makeText(this, "You do not have permission to scan tickets.", Toast.LENGTH_SHORT).show();
 
-                // Show the "No Permission" text and reset UI
-                noPermissionText.setVisibility(TextView.VISIBLE);  // Show no permission message
-                getStarted.setVisibility(TextView.GONE);  // Hide "Get Started" message
-                instructionForScanning.setVisibility(TextView.GONE);  // Hide scanning instructions
-                barcodeView.setVisibility(DecoratedBarcodeView.GONE);  // Hide barcode scanner
-                scanTicketBtn.setVisibility(Button.GONE);  // Hide the scan button
-                cancelScanBtn.setVisibility(Button.GONE);  // Hide cancel button
+                noPermissionText.setVisibility(TextView.VISIBLE);
+                getStarted.setVisibility(TextView.GONE);
+                instructionForScanning.setVisibility(TextView.GONE);
+                barcodeView.setVisibility(DecoratedBarcodeView.GONE);
+                scanTicketBtn.setVisibility(Button.GONE);
+                cancelScanBtn.setVisibility(Button.GONE);
             }
         });
     }
@@ -251,31 +565,21 @@ public class QRCheckInActivity extends BaseActivity {
         DatabaseReference eventsRef = FirebaseDatabase.getInstance().getReference("events");
         Log.d("coordinatorTesting", "Checking coordinator status for email: " + email);
 
-        // Log the event fetching process
         Log.d("coordinatorTesting", "Fetching events from Firebase...");
-
-        // Attempt to fetch the events and handle the result
         eventsRef.get().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
                 Log.d("coordinatorTesting", "Successfully fetched events.");
-
-                // Check if the result contains data
                 if (task.getResult().exists()) {
                     Log.d("coordinatorTesting", "Events found in the database. Processing events...");
-
-                    // Iterate through each event to check if the user is a coordinator
                     for (DataSnapshot eventSnapshot : task.getResult().getChildren()) {
                         String eventID = eventSnapshot.getKey();
                         DataSnapshot coordinatorsSnapshot = eventSnapshot.child("eventCoordinators");
-
-                        // Log for each event being checked
                         Log.d("coordinatorTesting", "Checking coordinators for event ID: " + eventID);
-
                         if (coordinatorsSnapshot.hasChild(email.replace(".", ","))) {
                             String eventUID = eventSnapshot.getKey();
                             Log.d("coordinatorTesting", "User is a coordinator for event: " + eventUID);
                             listener.onCheck(true, eventUID);
-                            return; // Exit after finding the first event the user is a coordinator for
+                            return;
                         }
                     }
                     Log.w("coordinatorTesting", "User is not a coordinator for any event.");
@@ -285,7 +589,6 @@ public class QRCheckInActivity extends BaseActivity {
                     listener.onCheck(false, null);
                 }
             } else {
-                // Log failure to fetch events
                 Log.e("coordinatorTesting", "Failed to fetch events. Error: " + task.getException());
                 listener.onCheck(false, null);
             }
@@ -293,7 +596,6 @@ public class QRCheckInActivity extends BaseActivity {
     }
 
     private void validateTicket(String scannedTicket, String coordinatorEventUID) {
-        // If we're persisting NotAllowedTicket, immediately show it
         if (persistNotAllowedTicket) {
             showNotAllowedTicket();
             return;
@@ -308,7 +610,6 @@ public class QRCheckInActivity extends BaseActivity {
             return;
         }
 
-        // Check if the scanned ticket belongs to the coordinator's event
         if (!eventId.equals(coordinatorEventUID)) {
             Log.w("coordinatorTesting", "Ticket does not belong to the event the coordinator manages.");
             showNotAllowedTicket();
@@ -317,31 +618,29 @@ public class QRCheckInActivity extends BaseActivity {
             return;
         }
 
-        // Enhanced time check - first fetch the current event details from Firebase
+        if (isNetworkAvailable()) {
+            fetchEventDataFromFirebase(eventId, ticketData, studentId);
+        } else {
+            validateTicketOffline(eventId, ticketData, studentId);
+        }
+    }
+
+    private void fetchEventDataFromFirebase(String eventId, Map<String, String> ticketData, String studentId) {
         databaseRef.child("events").child(eventId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 if (snapshot.exists()) {
-                    // Get event data from Firebase (this ensures we have the most up-to-date event info)
-                    String startDate = snapshot.child("startDate").getValue(String.class);
-                    String endDate = snapshot.child("endDate").getValue(String.class);
-                    String startTime = snapshot.child("startTime").getValue(String.class);
-                    String endTime = snapshot.child("endTime").getValue(String.class);
-                    String graceTimeStr = snapshot.child("graceTime").getValue(String.class);
-                    String eventSpan = snapshot.child("eventSpan").getValue(String.class);
-                    boolean isMultiDay = "multi-day".equals(eventSpan);
+                    ticketData.put("startDate", snapshot.child("startDate").getValue(String.class));
+                    ticketData.put("endDate", snapshot.child("endDate").getValue(String.class));
+                    ticketData.put("startTime", snapshot.child("startTime").getValue(String.class));
+                    ticketData.put("endTime", snapshot.child("endTime").getValue(String.class));
+                    ticketData.put("graceTime", snapshot.child("graceTime").getValue(String.class));
+                    ticketData.put("eventSpan", snapshot.child("eventSpan").getValue(String.class));
+                    boolean isMultiDay = "multi-day".equals(ticketData.get("eventSpan"));
 
-                    // Update ticket data with the latest event information
-                    ticketData.put("startDate", startDate);
-                    ticketData.put("endDate", endDate);
-                    ticketData.put("startTime", startTime);
-                    ticketData.put("endTime", endTime);
-                    ticketData.put("graceTime", graceTimeStr);
-
-                    // First, check the ticket status to see if check-in exists
+                    saveEventToSQLite(eventId, snapshot);
                     checkAttendanceStatus(studentId, eventId, ticketData, isMultiDay);
-                }
-                else {
+                } else {
                     showInvalidTicket();
                 }
             }
@@ -354,135 +653,218 @@ public class QRCheckInActivity extends BaseActivity {
         });
     }
 
+    private void validateTicketOffline(String eventId, Map<String, String> ticketData, String studentId) {
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.query(TicketDatabaseHelper.TABLE_EVENTS,
+                null, TicketDatabaseHelper.EVENT_COLUMN_EVENT_UID + " = ?", new String[]{eventId}, null, null, null);
+
+        if (cursor.moveToFirst()) {
+            ticketData.put("startDate", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.EVENT_COLUMN_START_DATE)));
+            ticketData.put("endDate", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.EVENT_COLUMN_END_DATE)));
+            ticketData.put("startTime", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.EVENT_COLUMN_START_TIME)));
+            ticketData.put("endTime", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.EVENT_COLUMN_END_TIME)));
+            ticketData.put("graceTime", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.EVENT_COLUMN_GRACE_TIME)));
+            ticketData.put("eventSpan", cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.EVENT_COLUMN_EVENT_SPAN)));
+            boolean isMultiDay = "multi-day".equals(ticketData.get("eventSpan"));
+            cursor.close();
+            db.close();
+            checkAttendanceStatus(studentId, eventId, ticketData, isMultiDay);
+        } else {
+            cursor.close();
+            db.close();
+            showNotAllowedTicket();
+            notAllowedText.setText("Event data not available offline");
+            persistNotAllowedTicket = true;
+        }
+    }
+
     private void checkAttendanceStatus(String studentId, String eventId, Map<String, String> ticketData, boolean isMultiDay) {
-        DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
+        final String[] dayKey = {getCurrentDayKey(ticketData.get("startDate"), ticketData.get("endDate"), ticketData.get("eventSpan"))};
+        String currentDate = getCurrentDate();
 
-        ticketRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    String currentDate = getCurrentDate();
-                    boolean hasCheckedIn = false;
-                    boolean hasCheckedOut = false;
-                    boolean isLateCheckin = false;
-                    DataSnapshot dayData = null;
-                    String dayKey = null;
-                    String currentStatus = "N/A"; // Default status
+        if (isNetworkAvailable()) {
+            DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
+            ticketRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot snapshot) {
+                    if (snapshot.exists()) {
+                        boolean hasCheckedIn = false;
+                        boolean hasCheckedOut = false;
+                        boolean isLateCheckin = false;
+                        DataSnapshot dayData = null;
+                        String currentStatus = "N/A";
 
-                    if (isMultiDay) {
-                        // For multi-day event, find the current day's data
-                        DataSnapshot attendanceDays = snapshot.child("attendanceDays");
-                        if (attendanceDays.exists()) {
-                            for (DataSnapshot daySnapshot : attendanceDays.getChildren()) {
-                                if (daySnapshot.child("date").exists() &&
-                                        currentDate.equals(daySnapshot.child("date").getValue(String.class))) {
-                                    dayData = daySnapshot;
-                                    dayKey = daySnapshot.getKey();
+                        if (isMultiDay) {
+                            DataSnapshot attendanceDays = snapshot.child("attendanceDays");
+                            if (attendanceDays.exists()) {
+                                for (DataSnapshot daySnapshot : attendanceDays.getChildren()) {
+                                    if (daySnapshot.child("date").exists() &&
+                                            currentDate.equals(daySnapshot.child("date").getValue(String.class))) {
+                                        dayData = daySnapshot;
+                                        dayKey[0] = daySnapshot.getKey();
 
-                                    String checkInTime = daySnapshot.child("in").getValue(String.class);
-                                    hasCheckedIn = checkInTime != null && !"N/A".equals(checkInTime);
+                                        String checkInTime = daySnapshot.child("in").getValue(String.class);
+                                        hasCheckedIn = checkInTime != null && !"N/A".equals(checkInTime);
 
-                                    String checkOutTime = daySnapshot.child("out").getValue(String.class);
-                                    hasCheckedOut = checkOutTime != null && !"N/A".equals(checkOutTime);
+                                        String checkOutTime = daySnapshot.child("out").getValue(String.class);
+                                        hasCheckedOut = checkOutTime != null && !"N/A".equals(checkOutTime);
 
-                                    // Get late status if it exists
-                                    if (daySnapshot.child("isLate").exists()) {
-                                        isLateCheckin = daySnapshot.child("isLate").getValue(Boolean.class);
+                                        if (daySnapshot.child("isLate").exists()) {
+                                            isLateCheckin = daySnapshot.child("isLate").getValue(Boolean.class);
+                                        }
+
+                                        if (daySnapshot.child("status").exists()) {
+                                            currentStatus = daySnapshot.child("status").getValue(String.class);
+                                        }
+                                        break;
                                     }
+                                }
+                            }
+                        } else {
+                            dayData = snapshot.child("attendanceDays").child("day_1");
+                            dayKey[0] = "day_1";
 
-                                    // Get current status if it exists
-                                    if (daySnapshot.child("status").exists()) {
-                                        currentStatus = daySnapshot.child("status").getValue(String.class);
-                                    }
-                                    break;
+                            if (dayData.exists()) {
+                                String checkInTime = dayData.child("in").getValue(String.class);
+                                hasCheckedIn = checkInTime != null && !"N/A".equals(checkInTime);
+
+                                String checkOutTime = dayData.child("out").getValue(String.class);
+                                hasCheckedOut = checkOutTime != null && !"N/A".equals(checkOutTime);
+
+                                if (dayData.child("isLate").exists()) {
+                                    isLateCheckin = dayData.child("isLate").getValue(Boolean.class);
+                                }
+
+                                if (dayData.child("status").exists()) {
+                                    currentStatus = dayData.child("status").getValue(String.class);
                                 }
                             }
                         }
-                    } else {
-                        // For single-day event
-                        dayData = snapshot.child("attendanceDays").child("day_1");
-                        dayKey = "day_1";
 
-                        if (dayData.exists()) {
-                            String checkInTime = dayData.child("in").getValue(String.class);
-                            hasCheckedIn = checkInTime != null && !"N/A".equals(checkInTime);
+                        int timeStatus = checkTimeStatus(ticketData);
 
-                            String checkOutTime = dayData.child("out").getValue(String.class);
-                            hasCheckedOut = checkOutTime != null && !"N/A".equals(checkOutTime);
-
-                            // Get late status if it exists
-                            if (dayData.child("isLate").exists()) {
-                                isLateCheckin = dayData.child("isLate").getValue(Boolean.class);
-                            }
-
-                            // Get current status if it exists
-                            if (dayData.child("status").exists()) {
-                                currentStatus = dayData.child("status").getValue(String.class);
-                            }
-                        }
-                    }
-
-                    // Check time status
-                    int timeStatus = checkTimeStatus(ticketData);
-
-                    // Process based on check-in status and time status
-                    if (dayData == null) {
-                        // No attendance record found for today
-                        showNotAllowedTicket();
-                        notAllowedText.setText("No attendance record found for today");
-                        persistNotAllowedTicket = true;
-                    } else if (hasCheckedOut) {
-                        // Already checked out
-                        showUsedTicket();
-                        usedText.setText("Already checked out for today");
-                    } else if (hasCheckedIn) {
-                        // Already checked in - can only check out if event has ended
-                        if (timeStatus == TIME_STATUS_CAN_CHECKOUT || timeStatus == TIME_STATUS_ENDED) {
-                            // Can check out (during or after event)
-                            processCheckOut(ticketRef, dayKey, isMultiDay, isLateCheckin);
-                        } else {
-                            // Already checked in but too early for checkout
+                        if (dayData == null) {
+                            showNotAllowedTicket();
+                            notAllowedText.setText("No attendance record found for today");
+                            persistNotAllowedTicket = true;
+                        } else if (hasCheckedOut) {
                             showUsedTicket();
-                            usedText.setText("Already checked in. Check-out available after event ends.");
+                            usedText.setText("Already checked out for today");
+                        } else if (hasCheckedIn) {
+                            if (timeStatus == TIME_STATUS_CAN_CHECKOUT) {
+                                processCheckOut(ticketRef, dayKey[0], isMultiDay, isLateCheckin);
+                            } else if (timeStatus == TIME_STATUS_ENDED) {
+                                showNotAllowedTicket();
+                                notAllowedText.setText("The event has ended. Check-out period closed.");
+                                persistNotAllowedTicket = true;
+                            } else {
+                                showUsedTicket();
+                                usedText.setText("Already checked in. Check-out available after event ends.");
+                            }
+                        } else {
+                            if (timeStatus == TIME_STATUS_TOO_EARLY) {
+                                showNotAllowedTicket();
+                                notAllowedText.setText("The event hasn't started yet");
+                                persistNotAllowedTicket = true;
+                            } else if (timeStatus == TIME_STATUS_ENDED || timeStatus == TIME_STATUS_CHECKIN_ENDED) {
+                                showNotAllowedTicket();
+                                notAllowedText.setText("The event has ended. Check-in/out period closed.");
+                                persistNotAllowedTicket = true;
+                            } else {
+                                boolean isLate = (timeStatus == TIME_STATUS_LATE);
+                                processCheckIn(ticketRef, dayKey[0], isLate);
+                            }
                         }
                     } else {
-                        // Not checked in yet
-                        if (timeStatus == TIME_STATUS_TOO_EARLY) {
-                            // Event hasn't started yet
-                            showNotAllowedTicket();
-                            notAllowedText.setText("The event hasn't started yet");
-                            persistNotAllowedTicket = true;
-                        } else if (timeStatus == TIME_STATUS_ENDED) {
-                            // Event has completely ended - too late for check-in/out
-                            showNotAllowedTicket();
-                            notAllowedText.setText("The event has ended. Check-in/out period closed.");
-                            persistNotAllowedTicket = true;
-                        } else if (timeStatus == TIME_STATUS_CAN_CHECKOUT) {
-                            // Event ended but didn't check in - allow late check-in with late status
-                            processCheckIn(ticketRef, dayKey, true);
-                        } else {
-                            // Can check in - either on time or late
-                            boolean isLate = (timeStatus == TIME_STATUS_LATE);
-                            processCheckIn(ticketRef, dayKey, isLate);
-                        }
+                        showNotAllowedTicket();
+                        notAllowedText.setText("No ticket found for this student");
+                        persistNotAllowedTicket = true;
                     }
-                } else {
-                    // Ticket doesn't exist
+                }
+
+                @Override
+                public void onCancelled(DatabaseError error) {
+                    Toast.makeText(QRCheckInActivity.this, "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    showInvalidTicket();
+                }
+            });
+        } else {
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            Cursor cursor = db.query(TicketDatabaseHelper.TABLE_SCAN_RECORDS,
+                    null,
+                    TicketDatabaseHelper.COLUMN_STUDENT_ID + " = ? AND " +
+                            TicketDatabaseHelper.COLUMN_EVENT_UID + " = ? AND " +
+                            TicketDatabaseHelper.COLUMN_DAY_KEY + " = ? AND " +
+                            TicketDatabaseHelper.COLUMN_DATE + " = ?",
+                    new String[]{studentId, eventId, dayKey[0], currentDate},
+                    null, null, null);
+
+            boolean hasCheckedIn = false;
+            boolean hasCheckedOut = false;
+            boolean isLateCheckin = false;
+            String currentStatus = "N/A";
+
+            if (cursor.moveToFirst()) {
+                String checkInTime = cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_CHECK_IN_TIME));
+                hasCheckedIn = checkInTime != null && !"N/A".equals(checkInTime);
+                String checkOutTime = cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_CHECK_OUT_TIME));
+                hasCheckedOut = checkOutTime != null && !"N/A".equals(checkOutTime);
+                isLateCheckin = cursor.getInt(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_IS_LATE)) == 1;
+                currentStatus = cursor.getString(cursor.getColumnIndexOrThrow(TicketDatabaseHelper.COLUMN_STATUS));
+            }
+            cursor.close();
+            db.close();
+
+            // Check if ticket exists in local database
+            db = dbHelper.getReadableDatabase();
+            Cursor ticketCursor = db.query(TicketDatabaseHelper.TABLE_SCAN_RECORDS,
+                    null,
+                    TicketDatabaseHelper.COLUMN_STUDENT_ID + " = ? AND " +
+                            TicketDatabaseHelper.COLUMN_EVENT_UID + " = ?",
+                    new String[]{studentId, eventId},
+                    null, null, null);
+            boolean ticketExists = ticketCursor.moveToFirst();
+            ticketCursor.close();
+            db.close();
+
+            int timeStatus = checkTimeStatus(ticketData);
+
+            if (!ticketExists) {
+                showNotAllowedTicket();
+                notAllowedText.setText("No ticket found for this student");
+                persistNotAllowedTicket = true;
+            } else if (hasCheckedOut) {
+                showUsedTicket();
+                usedText.setText("Already checked out for today");
+            } else if (hasCheckedIn) {
+                if (timeStatus == TIME_STATUS_CAN_CHECKOUT) {
+                    processCheckOut(studentId, eventId, dayKey[0], currentDate, isLateCheckin);
+                } else if (timeStatus == TIME_STATUS_ENDED) {
                     showNotAllowedTicket();
-                    notAllowedText.setText("No ticket found for this student");
+                    notAllowedText.setText("The event has ended. Check-out period closed.");
                     persistNotAllowedTicket = true;
+                } else {
+                    showUsedTicket();
+                    usedText.setText("Already checked in. Check-out available after event ends.");
+                }
+            } else {
+                if (timeStatus == TIME_STATUS_TOO_EARLY) {
+                    showNotAllowedTicket();
+                    notAllowedText.setText("The event hasn't started yet");
+                    persistNotAllowedTicket = true;
+                } else if (timeStatus == TIME_STATUS_ENDED || timeStatus == TIME_STATUS_CHECKIN_ENDED) {
+                    showNotAllowedTicket();
+                    notAllowedText.setText("The event has ended. Check-in/out period closed.");
+                    persistNotAllowedTicket = true;
+                } else {
+                    boolean isLate = (timeStatus == TIME_STATUS_LATE);
+                    processCheckIn(studentId, eventId, dayKey[0], currentDate, isLate);
                 }
             }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                Toast.makeText(QRCheckInActivity.this, "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                showInvalidTicket();
-            }
-        });
+        }
     }
+
     private void updateAttendanceStatus(DatabaseReference ticketRef, String dayKey, String newStatus) {
-        // Update the status field in the database
         ticketRef.child("attendanceDays").child(dayKey).child("status").setValue(newStatus)
                 .addOnSuccessListener(aVoid -> {
                     Log.d("StatusUpdate", "Status updated to: " + newStatus);
@@ -494,21 +876,33 @@ public class QRCheckInActivity extends BaseActivity {
 
     private void processCheckIn(DatabaseReference ticketRef, String dayKey, boolean isLate) {
         String currentTime = getCurrentTime();
+        String currentDate = getCurrentDate();
+        String status = "Ongoing";
+        String attendance = "Ongoing";
 
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("in", currentTime);
-        updates.put("isLate", isLate);
+        saveToLocalDatabase(ticketRef.getParent().getParent().getKey(), ticketRef.getParent().getKey(), dayKey, currentDate, currentTime, null, attendance, isLate, status);
 
-        ticketRef.child("attendanceDays").child(dayKey).updateChildren(updates)
-                .addOnSuccessListener(aVoid -> {
-                    String msg = isLate ?
-                            "Check-in successful. Note: Arrived late!" :
-                            "Check-in successful";
-                    Toast.makeText(QRCheckInActivity.this, msg, Toast.LENGTH_SHORT).show();
+        if (isNetworkAvailable()) {
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("in", currentTime);
+            updates.put("isLate", isLate);
+            updates.put("status", status);
+            updates.put("attendance", attendance);
+            updates.put("date", currentDate);
 
-                    // Update status from N/A to Ongoing
-                    updateAttendanceStatus(ticketRef, dayKey, "Ongoing");
-                });
+            ticketRef.child("attendanceDays").child(dayKey).updateChildren(updates)
+                    .addOnSuccessListener(aVoid -> {
+                        updateSynchronizedStatus(ticketRef.getParent().getParent().getKey(), ticketRef.getParent().getKey(), dayKey);
+                        String msg = isLate ? "Check-in successful. Note: Arrived late!" : "Check-in successful";
+                        Toast.makeText(QRCheckInActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(QRCheckInActivity.this, "Check-in saved locally due to error", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to sync check-in: " + e.getMessage());
+                    });
+        } else {
+            Toast.makeText(this, isLate ? "Check-in saved locally (Late). Will sync when online." : "Check-in saved locally. Will sync when online.", Toast.LENGTH_SHORT).show();
+        }
 
         showValidTicket();
         if (isLate) {
@@ -518,29 +912,67 @@ public class QRCheckInActivity extends BaseActivity {
         }
     }
 
-    private void processCheckOut(DatabaseReference ticketRef, String dayKey, boolean isMultiDay, boolean isLateCheckin) {
+    private void processCheckIn(String studentId, String eventId, String dayKey, String date, boolean isLate) {
         String currentTime = getCurrentTime();
+        String status = "Ongoing";
+        String attendance = "Ongoing";
 
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("out", currentTime);
+        saveToLocalDatabase(studentId, eventId, dayKey, date, currentTime, null, attendance, isLate, status);
 
-        // Change attendance status based on isLate flag during check-out
-        if (isLateCheckin) {
-            updates.put("attendance", "Late");
+        if (isNetworkAvailable()) {
+            DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("in", currentTime);
+            updates.put("status", status);
+            updates.put("attendance", attendance);
+            updates.put("isLate", isLate);
+            updates.put("date", date);
+            ticketRef.child("attendanceDays").child(dayKey).updateChildren(updates)
+                    .addOnSuccessListener(aVoid -> {
+                        updateSynchronizedStatus(studentId, eventId, dayKey);
+                        String msg = isLate ? "Check-in successful. Note: Arrived late!" : "Check-in successful";
+                        Toast.makeText(QRCheckInActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(QRCheckInActivity.this, "Check-in saved locally due to error", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to sync check-in: " + e.getMessage());
+                    });
         } else {
-            updates.put("attendance", "Present");
+            Toast.makeText(this, isLate ? "Check-in saved locally (Late). Will sync when online." : "Check-in saved locally. Will sync when online.", Toast.LENGTH_SHORT).show();
         }
 
-        ticketRef.child("attendanceDays").child(dayKey).updateChildren(updates)
-                .addOnSuccessListener(aVoid -> {
-                    String msg = isLateCheckin ?
-                            "Check-out successful (Attendance marked as Late)" :
-                            "Check-out successful (Attendance marked as Present)";
-                    Toast.makeText(QRCheckInActivity.this, msg, Toast.LENGTH_SHORT).show();
+        showValidTicket();
+        validText.setText(isLate ? "Checked in at " + currentTime + " (Arrived late)" : "Checked in at " + currentTime);
+    }
 
-                    // Update status from Ongoing to Pending
-                    updateAttendanceStatus(ticketRef, dayKey, "Pending");
-                });
+    private void processCheckOut(DatabaseReference ticketRef, String dayKey, boolean isMultiDay, boolean isLateCheckin) {
+        String currentTime = getCurrentTime();
+        String currentDate = getCurrentDate();
+        String status = "Pending";
+        String attendance = isLateCheckin ? "Late" : "Present";
+
+        saveToLocalDatabase(ticketRef.getParent().getParent().getKey(), ticketRef.getParent().getKey(), dayKey, currentDate, null, currentTime, attendance, isLateCheckin, status);
+
+        if (isNetworkAvailable()) {
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("out", currentTime);
+            updates.put("attendance", attendance);
+            updates.put("status", status);
+            updates.put("date", currentDate);
+
+            ticketRef.child("attendanceDays").child(dayKey).updateChildren(updates)
+                    .addOnSuccessListener(aVoid -> {
+                        updateSynchronizedStatus(ticketRef.getParent().getParent().getKey(), ticketRef.getParent().getKey(), dayKey);
+                        String msg = isLateCheckin ? "Check-out successful (Attendance marked as Late)" : "Check-out successful (Attendance marked as Present)";
+                        Toast.makeText(QRCheckInActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(QRCheckInActivity.this, "Check-out saved locally due to error", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to sync check-out: " + e.getMessage());
+                    });
+        } else {
+            Toast.makeText(this, "Check-out saved locally. Will sync when online.", Toast.LENGTH_SHORT).show();
+        }
 
         showValidTicket();
         if (isLateCheckin) {
@@ -550,13 +982,44 @@ public class QRCheckInActivity extends BaseActivity {
         }
     }
 
+    private void processCheckOut(String studentId, String eventId, String dayKey, String date, boolean isLateCheckin) {
+        String currentTime = getCurrentTime();
+        String status = "Pending";
+        String attendance = isLateCheckin ? "Late" : "Present";
+
+        saveToLocalDatabase(studentId, eventId, dayKey, date, null, currentTime, attendance, isLateCheckin, status);
+
+        if (isNetworkAvailable()) {
+            DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("out", currentTime);
+            updates.put("status", status);
+            updates.put("attendance", attendance);
+            updates.put("date", date);
+            ticketRef.child("attendanceDays").child(dayKey).updateChildren(updates)
+                    .addOnSuccessListener(aVoid -> {
+                        updateSynchronizedStatus(studentId, eventId, dayKey);
+                        String msg = isLateCheckin ? "Check-out successful (Attendance marked as Late)" : "Check-out successful (Attendance marked as Present)";
+                        Toast.makeText(QRCheckInActivity.this, msg, Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(QRCheckInActivity.this, "Check-out saved locally due to error", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Failed to sync check-out: " + e.getMessage());
+                    });
+        } else {
+            Toast.makeText(this, "Check-out saved locally. Will sync when online.", Toast.LENGTH_SHORT).show();
+        }
+
+        showValidTicket();
+        validText.setText(isLateCheckin ? "Checked out at " + currentTime + " (Attendance: Late)" : "Checked out at " + currentTime + " (Attendance: Present)");
+    }
+
     private void stopScanning() {
         scanning = false;
         barcodeView.pauseAndWait();
         barcodeView.setVisibility(DecoratedBarcodeView.GONE);
         cancelScanBtn.setVisibility(Button.GONE);
 
-        // If we should keep showing NotAllowedTicket, don't fully reset
         if (persistNotAllowedTicket) {
             scanTicketBtn.setVisibility(Button.VISIBLE);
         } else {
@@ -565,9 +1028,7 @@ public class QRCheckInActivity extends BaseActivity {
     }
 
     private void resetScanUI() {
-        // If we should keep showing NotAllowedTicket, don't fully reset
         if (persistNotAllowedTicket) {
-            // Keep NotAllowedTicket visible but hide other UI
             getStarted.setVisibility(TextView.GONE);
             instructionForScanning.setVisibility(TextView.GONE);
             validTicket.setVisibility(ImageView.GONE);
@@ -580,7 +1041,6 @@ public class QRCheckInActivity extends BaseActivity {
             notAllowedText.setVisibility(TextView.VISIBLE);
             scanTicketBtn.setVisibility(Button.VISIBLE);
         } else {
-            // Hide all result views and show the initial instructions
             hideAllTicketViews();
             getStarted.setVisibility(TextView.VISIBLE);
             instructionForScanning.setVisibility(TextView.GONE);
@@ -588,7 +1048,6 @@ public class QRCheckInActivity extends BaseActivity {
         }
     }
 
-    // Helper method to get current time in HH:mm format
     private String getCurrentTime() {
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
         return sdf.format(new Date());
@@ -612,7 +1071,7 @@ public class QRCheckInActivity extends BaseActivity {
     private Map<String, String> parseQRContent(String qrContent) {
         Map<String, String> map = new HashMap<>();
         try {
-            qrContent = qrContent.replaceAll("[{}]", ""); // Remove curly braces if present
+            qrContent = qrContent.replaceAll("[{}]", "");
             String[] pairs = qrContent.split(", ");
             for (String pair : pairs) {
                 String[] entry = pair.split("=");
@@ -621,7 +1080,6 @@ public class QRCheckInActivity extends BaseActivity {
                 }
             }
         } catch (Exception e) {
-            // Handle malformed QR content
             Toast.makeText(this, "Invalid QR code format", Toast.LENGTH_SHORT).show();
         }
         return map;
@@ -635,9 +1093,8 @@ public class QRCheckInActivity extends BaseActivity {
             String endTime = ticketData.get("endTime");
             String graceTimeStr = ticketData.get("graceTime");
 
-            // Validate that we have all the required data
             if (startDate == null || startTime == null || endTime == null) {
-                return TIME_STATUS_ENDED; // Missing essential time data, treat as invalid
+                return TIME_STATUS_ENDED;
             }
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
@@ -648,25 +1105,17 @@ public class QRCheckInActivity extends BaseActivity {
             String currentDateStr = dateFormat.format(currentDate);
             Date currentDateOnly = dateFormat.parse(currentDateStr);
 
-            // Check if today is within the event date range
             Date eventStartDate = dateFormat.parse(startDate);
 
-            // For multi-day events, check if today is within the event dates
             if (endDate != null && !endDate.isEmpty()) {
                 Date eventEndDate = dateFormat.parse(endDate);
-
-                // If current date is before event start date, event hasn't started yet
                 if (currentDateOnly.before(eventStartDate)) {
                     return TIME_STATUS_TOO_EARLY;
                 }
-
-                // If current date is after event end date, event has completely ended
                 if (currentDateOnly.after(eventEndDate)) {
                     return TIME_STATUS_ENDED;
                 }
             } else {
-                // For single-day events
-                // If today is not the event date, it's either too early or too late
                 if (!currentDateStr.equals(startDate)) {
                     if (currentDateOnly.before(eventStartDate)) {
                         return TIME_STATUS_TOO_EARLY;
@@ -676,45 +1125,34 @@ public class QRCheckInActivity extends BaseActivity {
                 }
             }
 
-            // Now check the time (assuming we're on a valid event date)
             Date eventStartTime = combinedFormat.parse(currentDateStr + " " + startTime);
             Date eventEndTime = combinedFormat.parse(currentDateStr + " " + endTime);
 
-            // If current time is before start time, it's too early to scan
             if (currentDate.before(eventStartTime)) {
                 return TIME_STATUS_TOO_EARLY;
             }
 
-            // If current time is after end time, check if it's within checkout window
             if (currentDate.after(eventEndTime)) {
-                // Add 1 hour grace period for checkout
                 Calendar checkoutDeadline = Calendar.getInstance();
                 checkoutDeadline.setTime(eventEndTime);
-                checkoutDeadline.add(Calendar.HOUR, 1); // 1 hour grace period for checkout
+                checkoutDeadline.add(Calendar.HOUR, 1);
 
                 if (currentDate.after(checkoutDeadline.getTime())) {
-                    // Too late for checkout - beyond 1 hour grace period
                     return TIME_STATUS_ENDED;
                 } else {
-                    // Within the 1-hour checkout window
                     return TIME_STATUS_CAN_CHECKOUT;
                 }
             }
 
-            // Handle grace period for check-in (late arrival)
-            // Special handling for "none" or null graceTime - no late arrivals possible
             if (graceTimeStr == null || graceTimeStr.isEmpty() ||
                     graceTimeStr.equalsIgnoreCase("none") || graceTimeStr.equalsIgnoreCase("null")) {
-                // With no grace time specified or "none", all arrivals during event are considered on time
                 return TIME_STATUS_ON_TIME;
             }
 
-            // Parse grace time for normal cases
             int graceTime;
             try {
                 graceTime = Integer.parseInt(graceTimeStr);
             } catch (NumberFormatException e) {
-                // If not "none" but still can't parse, default to 0
                 graceTime = 0;
             }
 
@@ -723,14 +1161,13 @@ public class QRCheckInActivity extends BaseActivity {
             graceEndCalendar.add(Calendar.MINUTE, graceTime);
             Date graceEndTime = graceEndCalendar.getTime();
 
-            // Check if we're within the grace period or late
             if (currentDate.after(graceEndTime)) {
-                return TIME_STATUS_LATE; // Late - after grace period
+                return TIME_STATUS_LATE;
             } else {
-                return TIME_STATUS_ON_TIME; // On time - within grace period
+                return TIME_STATUS_ON_TIME;
             }
         } catch (ParseException e) {
-            return TIME_STATUS_ENDED; // Error in parsing dates
+            return TIME_STATUS_ENDED;
         }
     }
 
@@ -739,7 +1176,7 @@ public class QRCheckInActivity extends BaseActivity {
         validTicket.setVisibility(ImageView.VISIBLE);
         validText.setVisibility(TextView.VISIBLE);
         scanTicketBtn.setVisibility(Button.VISIBLE);
-        persistNotAllowedTicket = false; // Reset persistence flag
+        persistNotAllowedTicket = false;
     }
 
     private void showUsedTicket() {
@@ -747,7 +1184,7 @@ public class QRCheckInActivity extends BaseActivity {
         usedTicket.setVisibility(ImageView.VISIBLE);
         usedText.setVisibility(TextView.VISIBLE);
         scanTicketBtn.setVisibility(Button.VISIBLE);
-        persistNotAllowedTicket = false; // Reset persistence flag
+        persistNotAllowedTicket = false;
     }
 
     private void showInvalidTicket() {
@@ -755,7 +1192,7 @@ public class QRCheckInActivity extends BaseActivity {
         invalidTicket.setVisibility(ImageView.VISIBLE);
         invalidText.setVisibility(TextView.VISIBLE);
         scanTicketBtn.setVisibility(Button.VISIBLE);
-        persistNotAllowedTicket = false; // Reset persistence flag
+        persistNotAllowedTicket = false;
     }
 
     private void showNotAllowedTicket() {
@@ -763,11 +1200,9 @@ public class QRCheckInActivity extends BaseActivity {
         notAllowedTicket.setVisibility(ImageView.VISIBLE);
         notAllowedText.setVisibility(TextView.VISIBLE);
         scanTicketBtn.setVisibility(Button.VISIBLE);
-        // We don't reset the persistence flag here - it's set in the calling methods
     }
 
     private void hideAllTicketViews() {
-        // MODIFIED: Hide all notification views regardless of persistence flag
         getStarted.setVisibility(TextView.GONE);
         instructionForScanning.setVisibility(TextView.GONE);
         validTicket.setVisibility(ImageView.GONE);
@@ -780,7 +1215,6 @@ public class QRCheckInActivity extends BaseActivity {
         notAllowedText.setVisibility(TextView.GONE);
     }
 
-    // Add a method to reset the persistence state
     public void resetPersistentState() {
         persistNotAllowedTicket = false;
         resetScanUI();
@@ -791,6 +1225,9 @@ public class QRCheckInActivity extends BaseActivity {
         super.onResume();
         captureManager.onResume();
         loadUserProfile();
+        if (isNetworkAvailable()) {
+            syncScanDataToFirebase();
+        }
     }
 
     @Override
@@ -803,6 +1240,7 @@ public class QRCheckInActivity extends BaseActivity {
     protected void onDestroy() {
         super.onDestroy();
         captureManager.onDestroy();
+        dbHelper.close();
     }
 
     @Override
@@ -814,20 +1252,15 @@ public class QRCheckInActivity extends BaseActivity {
     private void setupBottomNavigation() {
         BottomNavigationView bottomNavigationView = findViewById(com.capstone.mdfeventmanagementsystem.R.id.bottom_navigation);
 
-        // Clear any pre-selected items first
         bottomNavigationView.getMenu().setGroupCheckable(0, false, true);
 
-        // This will deselect all navigation items, ensuring none are highlighted
         for (int i = 0; i < bottomNavigationView.getMenu().size(); i++) {
             bottomNavigationView.getMenu().getItem(i).setChecked(false);
         }
 
-        // Now set your FAB to be visually distinguished
         findViewById(R.id.fab_scan).setSelected(true);
 
-        // Hide the labels in the bottom navigation
         bottomNavigationView.setLabelVisibilityMode(BottomNavigationView.LABEL_VISIBILITY_UNLABELED);
-
         bottomNavigationView.setBackground(null);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
@@ -847,42 +1280,33 @@ public class QRCheckInActivity extends BaseActivity {
                 finish();
             }
 
-            overridePendingTransition(0, 0); // Remove animation between transitions
+            overridePendingTransition(0, 0);
             return true;
         });
     }
 
-    /**
-     * Load cached profile image immediately on startup
-     */
     private void loadCachedProfileImage() {
         SharedPreferences prefs = getSharedPreferences("ProfileImageCache", MODE_PRIVATE);
         String cachedImageUrl = prefs.getString("profileImageUrl", "");
 
         if (!cachedImageUrl.isEmpty()) {
-            // Load the cached image immediately
             loadProfileImageFromCache(cachedImageUrl);
         } else {
-            // Set default if no cached image
             setDefaultProfileImage();
         }
     }
 
-    /**
-     * Load profile image from cache with no network operations
-     */
     private void loadProfileImageFromCache(String imageUrl) {
         if (profileImageView == null) {
             return;
         }
 
-        // Use Picasso to load from cache only - no network
         Picasso.get()
                 .load(imageUrl)
-                .transform(new CircleTransformDashboard())
+                .transform(new CircleTransformQRCheckIn())
                 .placeholder(R.drawable.profile_placeholder)
                 .error(R.drawable.profile_placeholder)
-                .networkPolicy(com.squareup.picasso.NetworkPolicy.OFFLINE) // Only load from cache
+                .networkPolicy(com.squareup.picasso.NetworkPolicy.OFFLINE)
                 .into(profileImageView, new com.squareup.picasso.Callback() {
                     @Override
                     public void onSuccess() {
@@ -891,15 +1315,11 @@ public class QRCheckInActivity extends BaseActivity {
 
                     @Override
                     public void onError(Exception e) {
-                        // If cache loading fails, use the default
                         setDefaultProfileImage();
                     }
                 });
     }
 
-    /**
-     * Save profile image URL to cache when successfully loaded
-     */
     private void cacheProfileImageUrl(String imageUrl) {
         SharedPreferences prefs = getSharedPreferences("ProfileImageCache", MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
@@ -910,15 +1330,10 @@ public class QRCheckInActivity extends BaseActivity {
     private void loadUserProfile() {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
-            // Check for profile image
             checkProfileImage(user.getUid());
         }
     }
 
-    /**
-     * Checks for profile image in student_profiles collection
-     * @param uid User ID for lookup
-     */
     private void checkProfileImage(String uid) {
         profilesRef.child(uid).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -929,7 +1344,6 @@ public class QRCheckInActivity extends BaseActivity {
                         Log.d(TAG, "Found profile image in student_profiles: " + profileImageUrl);
                         loadProfileImage(profileImageUrl);
                     } else {
-                        // If no image in profiles, check the students collection
                         checkStudentProfileImage(uid);
                     }
                 } else {
@@ -941,16 +1355,11 @@ public class QRCheckInActivity extends BaseActivity {
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Error checking student_profiles: " + error.getMessage());
-                // Fallback to students collection
                 checkStudentProfileImage(uid);
             }
         });
     }
 
-    /**
-     * Checks for profile image in students collection
-     * @param uid User ID for lookup
-     */
     private void checkStudentProfileImage(String uid) {
         studentsRef.child(uid).child("profileImage").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -962,11 +1371,9 @@ public class QRCheckInActivity extends BaseActivity {
                         loadProfileImage(profileImageUrl);
                     } else {
                         Log.d(TAG, "Profile image field exists but is empty");
-                        // Don't set default here as we already have cached or default
                     }
                 } else {
                     Log.d(TAG, "No profile image in students collection");
-                    // Check if firebase user has photo URL as last resort
                     FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
                     if (user != null && user.getPhotoUrl() != null) {
                         loadProfileImage(user.getPhotoUrl().toString());
@@ -977,15 +1384,10 @@ public class QRCheckInActivity extends BaseActivity {
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Error checking student profile image: " + error.getMessage());
-                // Don't set default here as we already have cached or default
             }
         });
     }
 
-    /**
-     * Loads profile image using Picasso with circle transformation
-     * @param imageUrl URL of the profile image
-     */
     private void loadProfileImage(String imageUrl) {
         if (profileImageView == null) {
             Log.e(TAG, "Cannot load profile image: ImageView is null");
@@ -995,36 +1397,29 @@ public class QRCheckInActivity extends BaseActivity {
         if (imageUrl != null && !imageUrl.isEmpty()) {
             Log.d(TAG, "Loading profile image from: " + imageUrl);
 
-            // Use Picasso to load the image with transformation for circular display
             Picasso.get()
                     .load(imageUrl)
-                    .transform(new CircleTransformDashboard()) // Use CircleTransform for circular images
+                    .transform(new CircleTransformQRCheckIn())
                     .placeholder(R.drawable.profile_placeholder)
                     .error(R.drawable.profile_placeholder)
                     .into(profileImageView, new com.squareup.picasso.Callback() {
                         @Override
                         public void onSuccess() {
                             Log.d(TAG, "Profile image loaded successfully");
-                            // Cache the successful URL for next time
                             cacheProfileImageUrl(imageUrl);
                         }
 
                         @Override
                         public void onError(Exception e) {
                             Log.e(TAG, "Error loading profile image: " + (e != null ? e.getMessage() : "unknown error"));
-                            // Don't set default here as we already have cached or default
                         }
                     });
         }
     }
 
-    /**
-     * Sets default profile image placeholder
-     */
     private void setDefaultProfileImage() {
         if (profileImageView != null) {
             profileImageView.setImageResource(R.drawable.profile_placeholder);
         }
     }
-
 }

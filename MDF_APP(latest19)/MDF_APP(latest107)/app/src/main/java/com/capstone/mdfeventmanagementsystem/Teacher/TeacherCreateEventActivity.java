@@ -101,6 +101,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
     // Edit mode flag
     private boolean isEditing = false;
+    private boolean isProposal = false; // Added to track if editing a proposal
     private String eventId;
 
     @Override
@@ -145,12 +146,14 @@ public class TeacherCreateEventActivity extends BaseActivity {
             if (intent.getBooleanExtra("IS_EDITING", false)) {
                 // This is an edit operation
                 isEditing = true;
-                createButton.setText("Update");
+                isProposal = intent.getBooleanExtra("IS_PROPOSAL", false); // Set the isProposal flag
+                createButton.setText(isProposal ? "Update Proposal" : "Update");
                 eventId = intent.getStringExtra("EVENT_ID");
                 populateFieldsForEdit(intent);
             } else if (intent.getBooleanExtra("IS_RESUBMISSION", false)) {
                 // This is a resubmission
                 createButton.setText("Resubmit Event");
+                isProposal = true; // Resubmissions are always proposals
                 populateFieldsForResubmission(intent);
             }
         }
@@ -198,6 +201,9 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     .load(photoUrl)
                     .centerCrop()
                     .into(uploadCoverPhoto);
+        } else {
+            // If no photo URL, set default icon
+            uploadCoverPhoto.setImageResource(R.drawable.ic_add);
         }
     }
 
@@ -216,13 +222,13 @@ public class TeacherCreateEventActivity extends BaseActivity {
         String eventType = intent.getStringExtra("EVENT_TYPE");
         String eventFor = intent.getStringExtra("EVENT_FOR");
         String proposalUrl = intent.getStringExtra("EVENT_PROPOSAL_URL");
-        String targetParticipants = intent.getStringExtra("TARGET_PARTICIPANTS");
+        String target_branch = intent.getStringExtra("TARGET_PARTICIPANTS");
 
         // Store the eventId for later use when saving
         eventData.put("originalEventId", eventId);
 
         // Populate Page 1 fields
-        populatePage1Fields(eventName, eventDescription, eventType, eventFor, targetParticipants);
+        populatePage1Fields(eventName, eventDescription, eventType, eventFor, target_branch);
 
         // Populate Page 2 fields
         populatePage2Fields(venue, startDate, endDate, startTime, endTime, eventSpan, graceTime);
@@ -484,11 +490,13 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
                         // Display the selected image in the ImageView
                         if (coverPhotoUri != null) {
-                            uploadCoverPhoto.setImageResource(0); // Clear existing image
+                            uploadCoverPhoto.setImageResource(0); // Clear default icon
                             Glide.with(this)
                                     .load(coverPhotoUri)
-                                    .centerCrop()
+                                    .centerCrop() // Ensures the image fits well
                                     .into(uploadCoverPhoto);
+                        } else {
+                            uploadCoverPhoto.setImageResource(R.drawable.ic_add); // Revert to default icon
                         }
                     }
                 });
@@ -660,6 +668,12 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
         // Set up click listener for file chooser
         chooseFileButton.setOnClickListener(v -> openFileChooser());
+
+        // Ensure ImageView shows default icon when no image is selected and no existing photo URL
+        if (coverPhotoUri == null && !eventData.containsKey("eventPhotoUrl")) {
+            uploadCoverPhoto.setImageResource(R.drawable.ic_add); // Default icon
+        }
+        uploadCoverPhoto.setScaleType(ImageView.ScaleType.CENTER_INSIDE); // Ensure icon or image is visible
     }
 
     private void openGallery() {
@@ -1337,12 +1351,15 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     eventData.put("eventFor", formattedGrade);
                 }
 
-                String currentStartDate = startDateField.getText().toString().trim();
-                if (!currentStartDate.isEmpty()) {
-                    startDateField.setText("");
-                    Toast.makeText(TeacherCreateEventActivity.this,
-                            "Please reselect the event date to check availability for this grade level",
-                            Toast.LENGTH_SHORT).show();
+                // Only clear the start date if not in edit mode or if the selection is user-initiated
+                if (!isEditing) {
+                    String currentStartDate = startDateField.getText().toString().trim();
+                    if (!currentStartDate.isEmpty()) {
+                        startDateField.setText("");
+                        Toast.makeText(TeacherCreateEventActivity.this,
+                                "Please reselect the event date to check availability for this grade level",
+                                Toast.LENGTH_SHORT).show();
+                    }
                 }
             }
 
@@ -1351,7 +1368,6 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         });
     }
-
     private void setupPageNavigation() {
         nextPg1.setOnClickListener(v -> {
             if (validatePage1()) {
@@ -1581,17 +1597,74 @@ public class TeacherCreateEventActivity extends BaseActivity {
         String currentDate = dateFormat.format(new Date(currentTimeMillis));
         eventData.put("dateCreated", currentDate);
 
-        // Delete existing student tickets before updating the event
-        deleteStudentTickets(eventId);
-
-        // Check if a new cover photo is selected
-        if (coverPhotoUri != null) {
-            String eventName = eventData.get("eventName").toString();
-            uploadCoverPhoto(eventId, eventName);
-        } else {
-            // Keep existing photo URL and proceed to proposal
-            uploadEventProposal(eventId);
+        // Ensure date fields are in storage format (yyyy-MM-dd)
+        String startDateDisplay = startDateField.getText().toString().trim();
+        String endDateDisplay = endDateField.getText().toString().trim();
+        try {
+            SimpleDateFormat displayFormat = new SimpleDateFormat("MM-dd-yyyy", Locale.US);
+            SimpleDateFormat storageFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            if (!startDateDisplay.isEmpty()) {
+                Date startDate = displayFormat.parse(startDateDisplay);
+                eventData.put("startDate", storageFormat.format(startDate));
+            }
+            if (!endDateDisplay.isEmpty()) {
+                Date endDate = displayFormat.parse(endDateDisplay);
+                eventData.put("endDate", storageFormat.format(endDate));
+            }
+        } catch (ParseException e) {
+            Log.e("DateParsing", "Error parsing dates: " + e.getMessage());
+            Toast.makeText(this, "Invalid date format", Toast.LENGTH_SHORT).show();
+            createButton.setEnabled(true);
+            return;
         }
+
+        // Always update proposals in eventProposals if the event exists there
+        DatabaseReference eventProposalsRef = database.getReference("eventProposals").child(eventId);
+        eventProposalsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    // Event is a proposal, update only in eventProposals node
+                    eventData.put("status", "pending"); // Ensure it remains pending
+                    eventProposalsRef.updateChildren(eventData, (databaseError, databaseReference) -> {
+                        createButton.setEnabled(true);
+                        if (databaseError == null) {
+                            Toast.makeText(TeacherCreateEventActivity.this, "Event proposal updated successfully", Toast.LENGTH_SHORT).show();
+                            startActivity(new Intent(TeacherCreateEventActivity.this, TeacherEvents.class));
+                            finish();
+                        } else {
+                            Toast.makeText(TeacherCreateEventActivity.this,
+                                    "Failed to update event proposal: " + databaseError.getMessage(),
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
+                } else {
+                    // Event is not in eventProposals, assume it's in events (e.g., approved)
+                    deleteStudentTickets(eventId);
+                    DatabaseReference eventRef = database.getReference("events").child(eventId);
+                    eventRef.updateChildren(eventData, (databaseError, databaseReference) -> {
+                        createButton.setEnabled(true);
+                        if (databaseError == null) {
+                            Toast.makeText(TeacherCreateEventActivity.this, "Event updated successfully", Toast.LENGTH_SHORT).show();
+                            startActivity(new Intent(TeacherCreateEventActivity.this, TeacherEvents.class));
+                            finish();
+                        } else {
+                            Toast.makeText(TeacherCreateEventActivity.this,
+                                    "Failed to update event: " + databaseError.getMessage(),
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                createButton.setEnabled(true);
+                Toast.makeText(TeacherCreateEventActivity.this,
+                        "Error checking event status: " + databaseError.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void deleteStudentTickets(String eventId) {
@@ -1705,20 +1778,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
         }
 
         if (isEditing) {
-            // Update existing event in the events node
-            DatabaseReference eventRef = database.getReference("events").child(eventId);
-            eventRef.updateChildren(eventData, (databaseError, databaseReference) -> {
-                createButton.setEnabled(true);
-                if (databaseError == null) {
-                    Toast.makeText(TeacherCreateEventActivity.this, "Event updated successfully", Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(TeacherCreateEventActivity.this, TeacherEvents.class));
-                    finish();
-                } else {
-                    Toast.makeText(TeacherCreateEventActivity.this,
-                            "Failed to update event: " + databaseError.getMessage(),
-                            Toast.LENGTH_LONG).show();
-                }
-            });
+            // Update existing event
+            updateEvent();
         } else {
             // Existing code for create/resubmission
             eventProposalRef.child(eventId).setValue(eventData, (databaseError, databaseReference) -> {
@@ -1830,7 +1891,5 @@ public class TeacherCreateEventActivity extends BaseActivity {
             finish();
             return true;
         });
-
-
     }
 }

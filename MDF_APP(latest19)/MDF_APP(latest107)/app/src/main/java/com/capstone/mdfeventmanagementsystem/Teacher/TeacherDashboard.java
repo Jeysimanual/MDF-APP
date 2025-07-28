@@ -30,13 +30,20 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.prolificinteractive.materialcalendarview.CalendarDay;
+import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
+import com.prolificinteractive.materialcalendarview.DayViewDecorator;
+import com.prolificinteractive.materialcalendarview.DayViewFacade;
+import com.prolificinteractive.materialcalendarview.spans.DotSpan;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class TeacherDashboard extends BaseActivity {
     private RecyclerView recyclerViewAssignedEvents;
@@ -47,7 +54,7 @@ public class TeacherDashboard extends BaseActivity {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private String teacherYearLevelAdvisor;
     private static final String TAG = "TeacherDashboard";
-    private CalendarView calendarView;
+    private MaterialCalendarView calendarView; // Changed from CalendarView to MaterialCalendarView
     private static final int MAX_EVENTS_TO_SHOW = 3; // Maximum number of events to display
 
     @Override
@@ -70,7 +77,7 @@ public class TeacherDashboard extends BaseActivity {
         btnViewAllUpcoming.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Navigate to StudentDashboard when View All is clicked
+                // Navigate to TeacherEvents when View All is clicked
                 Intent intent = new Intent(TeacherDashboard.this, TeacherEvents.class);
                 startActivity(intent);
                 overridePendingTransition(0, 0);
@@ -85,13 +92,12 @@ public class TeacherDashboard extends BaseActivity {
         // Initialize calendar view
         calendarView = findViewById(R.id.calendarView);
         if (calendarView != null) {
-            calendarView.setOnDateChangeListener((view, year, month, dayOfMonth) -> {
+            calendarView.setOnDateChangedListener((widget, date, selected) -> {
                 // Handle date selection
                 Calendar selectedDate = Calendar.getInstance();
-                selectedDate.set(year, month, dayOfMonth);
-                // You can add filtering based on selected date here
+                selectedDate.set(date.getYear(), date.getMonth() - 1, date.getDay());
                 Toast.makeText(TeacherDashboard.this,
-                        "Selected date: " + (month + 1) + "/" + dayOfMonth + "/" + year,
+                        "Selected date: " + date.getMonth() + "/" + date.getDay() + "/" + date.getYear(),
                         Toast.LENGTH_SHORT).show();
             });
         }
@@ -282,12 +288,20 @@ public class TeacherDashboard extends BaseActivity {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 assignedEventList.clear();
                 List<Event> allEvents = new ArrayList<>();
+                Set<CalendarDay> eventDates = new HashSet<>(); // Store dates for calendar marking
 
                 for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
                     Event event = dataSnapshot.getValue(Event.class);
                     if (event != null) {
                         event.setEventUID(dataSnapshot.getKey());
                         allEvents.add(event);
+                        // Add event date to calendar marking
+                        try {
+                            LocalDate date = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
+                            eventDates.add(CalendarDay.from(date.getYear(), date.getMonthValue(), date.getDayOfMonth()));
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error parsing date for event: " + event.getEventName(), e);
+                        }
                     }
                 }
 
@@ -307,6 +321,9 @@ public class TeacherDashboard extends BaseActivity {
                 int eventsToShow = Math.min(allEvents.size(), MAX_EVENTS_TO_SHOW);
                 assignedEventList.addAll(allEvents.subList(0, eventsToShow));
 
+                // Update calendar with event dates
+                markEventDatesOnCalendar(eventDates);
+
                 assignedEventAdapter.updateEventList(assignedEventList);
                 Log.d(TAG, "Showing " + eventsToShow + " events out of " + allEvents.size() + " total events");
             }
@@ -325,6 +342,7 @@ public class TeacherDashboard extends BaseActivity {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 assignedEventList.clear();
                 List<Event> allEventsList = new ArrayList<>(); // Temporary list to collect all events
+                Set<CalendarDay> eventDates = new HashSet<>(); // Store dates for calendar marking
 
                 // First, get all events to analyze them
                 for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
@@ -337,6 +355,14 @@ public class TeacherDashboard extends BaseActivity {
                         Log.d(TAG, "EVENT FOUND: " + event.getEventName() +
                                 ", EventFor: '" + event.getEventFor() + "'" +
                                 ", StartDate: " + event.getStartDate());
+
+                        // Add event date to calendar marking
+                        try {
+                            LocalDate date = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
+                            eventDates.add(CalendarDay.from(date.getYear(), date.getMonthValue(), date.getDayOfMonth()));
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error parsing date for event: " + event.getEventName(), e);
+                        }
                     }
                 }
 
@@ -401,6 +427,9 @@ public class TeacherDashboard extends BaseActivity {
                 // Take only the first MAX_EVENTS_TO_SHOW events
                 int eventsToShow = Math.min(relevantEvents.size(), MAX_EVENTS_TO_SHOW);
                 assignedEventList.addAll(relevantEvents.subList(0, eventsToShow));
+
+                // Update calendar with event dates
+                markEventDatesOnCalendar(eventDates);
 
                 // Update the adapter
                 assignedEventAdapter.updateEventList(assignedEventList);
@@ -524,5 +553,30 @@ public class TeacherDashboard extends BaseActivity {
                 tvTotalStudents.setText("Total Students: Error");
             }
         });
+    }
+
+    // New method to mark event dates on the calendar
+    private void markEventDatesOnCalendar(Set<CalendarDay> eventDates) {
+        // Remove any existing decorators
+        calendarView.removeDecorators();
+
+        // Create a new decorator for event dates
+        DayViewDecorator decorator = new DayViewDecorator() {
+            @Override
+            public boolean shouldDecorate(CalendarDay day) {
+                return eventDates.contains(day);
+            }
+
+            @Override
+            public void decorate(DayViewFacade view) {
+                // Add a dot under the date
+                view.addSpan(new DotSpan(8, getResources().getColor(R.color.red))); // Adjust color and size as needed
+            }
+        };
+
+        // Add the decorator to the calendar
+        calendarView.addDecorator(decorator);
+        calendarView.invalidateDecorators();
+        Log.d(TAG, "Marked " + eventDates.size() + " dates on calendar");
     }
 }

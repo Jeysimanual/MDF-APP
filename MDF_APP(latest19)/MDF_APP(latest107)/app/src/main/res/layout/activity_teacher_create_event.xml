@@ -846,11 +846,6 @@
             </androidx.constraintlayout.widget.ConstraintLayout>
 
 
-
-
-
-
-
             <!-- Page3 Form -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/page3"
@@ -901,11 +896,11 @@
 
                     <ImageView
                         android:id="@+id/uploadCoverPhoto"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_add"
-                        app:tint="@color/primary" />
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="Uploaded Cover Photo"
+                        android:src="@drawable/ic_add" />
 
                 </com.google.android.material.card.MaterialCardView>
 

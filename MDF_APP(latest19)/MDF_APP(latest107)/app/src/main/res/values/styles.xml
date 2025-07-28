@@ -20,4 +20,8 @@
         <item name="checkedIconTint">@android:color/white</item>
     </style>
 
+    <style name="CalendarDateText"></style>
+
+    <style name="CalendarWeekDayText"></style>
+
 </resources>

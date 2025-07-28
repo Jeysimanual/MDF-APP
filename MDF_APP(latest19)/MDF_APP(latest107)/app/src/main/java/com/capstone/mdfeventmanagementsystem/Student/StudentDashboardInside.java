@@ -397,8 +397,7 @@ public class StudentDashboardInside extends BaseActivity {
 
         DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
 
-        // Use a final array to hold ticketCount
-        final int[] ticketCount = {0};
+        final int[] ticketCount = {0}; // Use array to allow modification in lambda
 
         studentsRef.addValueEventListener(new ValueEventListener() {
             @Override
@@ -417,8 +416,6 @@ public class StudentDashboardInside extends BaseActivity {
                 for (DataSnapshot studentSnapshot : dataSnapshot.getChildren()) {
                     if (studentSnapshot.hasChild("tickets")) {
                         DataSnapshot ticketsSnapshot = studentSnapshot.child("tickets");
-
-                        // Check if this student has a ticket for this event
                         for (DataSnapshot ticketSnapshot : ticketsSnapshot.getChildren()) {
                             String ticketKey = ticketSnapshot.getKey();
                             Log.d(TAG, "Checking ticket: " + ticketKey);
@@ -427,7 +424,7 @@ public class StudentDashboardInside extends BaseActivity {
                             if (eventKey.equals(ticketKey)) {
                                 ticketCount[0]++;
                                 Log.d(TAG, "Found matching ticket by key: " + ticketKey);
-                                continue; // Found a match, move to next ticket
+                                continue;
                             }
 
                             // Method 2: Look for an eventUID field in the ticket
@@ -442,25 +439,46 @@ public class StudentDashboardInside extends BaseActivity {
                     }
                 }
 
-                // Auto-close registration if targetParticipant is reached
-                if (targetParticipant instanceof Long && ticketCount[0] >= (Long) targetParticipant) {
-                    DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
-                    eventRef.child("registrationAllowed").setValue(false)
-                            .addOnSuccessListener(aVoid -> Log.d(TAG, "Registration closed: ticket count (" + ticketCount[0] + ") reached targetParticipant (" + targetParticipant + ")"))
-                            .addOnFailureListener(e -> Log.e(TAG, "Failed to close registration: " + e.getMessage()));
-                }
-
                 // Update the UI with the count
                 String displayText;
                 if ("none".equalsIgnoreCase(String.valueOf(targetParticipant))) {
                     displayText = String.valueOf(ticketCount[0]);
-                } else if (targetParticipant instanceof Long) {
-                    displayText = ticketCount[0] + "/" + targetParticipant;
+                } else if (targetParticipant instanceof String) {
+                    try {
+                        int targetParticipantValue = Integer.parseInt((String) targetParticipant);
+                        displayText = ticketCount[0] + "/" + targetParticipantValue;
+                    } catch (NumberFormatException e) {
+                        Log.e(TAG, "Invalid targetParticipant format: " + targetParticipant, e);
+                        displayText = String.valueOf(ticketCount[0]);
+                    }
                 } else {
                     displayText = String.valueOf(ticketCount[0]);
                 }
                 textViewParticipantCount.setText(displayText);
-                Log.d(TAG, "Final ticket count: " + ticketCount[0]);
+                Log.d(TAG, "Final ticket count: " + ticketCount[0] + ", targetParticipant: " + targetParticipant);
+
+                // Auto-close registration if targetParticipant is reached
+                if (targetParticipant instanceof String) {
+                    try {
+                        int targetParticipantValue = Integer.parseInt((String) targetParticipant);
+                        if (ticketCount[0] >= targetParticipantValue) {
+                            DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
+                            eventRef.child("registrationAllowed").setValue(false)
+                                    .addOnCompleteListener(task -> {
+                                        if (task.isSuccessful()) {
+                                            Log.d(TAG, "Registration auto-closed as ticket count reached target: " + ticketCount[0] + "/" + targetParticipant);
+                                            Toast.makeText(StudentDashboardInside.this,
+                                                    "Registration closed automatically as participant limit reached",
+                                                    Toast.LENGTH_SHORT).show();
+                                        } else {
+                                            Log.e(TAG, "Failed to auto-close registration: " + task.getException());
+                                        }
+                                    });
+                        }
+                    } catch (NumberFormatException e) {
+                        Log.e(TAG, "Invalid targetParticipant format for auto-close: " + targetParticipant, e);
+                    }
+                }
             }
 
             @Override
@@ -1113,25 +1131,25 @@ public class StudentDashboardInside extends BaseActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists()) {
-                    Object value = snapshot.getValue();
-                    if (value instanceof String && "none".equalsIgnoreCase((String) value)) {
-                        targetParticipant = "none";
-                        Log.d(TAG, "Fetched targetParticipant: none");
-                    } else if (value instanceof Long) {
-                        targetParticipant = (Long) value;
-                        Log.d(TAG, "Fetched targetParticipant: " + targetParticipant);
+                    String value = snapshot.getValue(String.class);
+                    if (value != null && !value.isEmpty()) {
+                        if ("none".equalsIgnoreCase(value)) {
+                            targetParticipant = "none";
+                            Log.d(TAG, "Fetched targetParticipant: none");
+                        } else {
+                            targetParticipant = value; // Store as String
+                            Log.d(TAG, "Fetched targetParticipant: " + value);
+                        }
                     } else {
                         targetParticipant = null;
-                        Log.d(TAG, "Invalid targetParticipant format: " + value);
+                        Log.d(TAG, "Invalid targetParticipant: null or empty");
                     }
-                    // Update ticket count display
-                    getTicketCount(eventId);
                 } else {
                     targetParticipant = null;
                     Log.d(TAG, "No targetParticipant found for event: " + eventId);
-                    // Update ticket count display without targetParticipant
-                    getTicketCount(eventId);
                 }
+                // Update ticket count display
+                getTicketCount(eventId);
             }
 
             @Override

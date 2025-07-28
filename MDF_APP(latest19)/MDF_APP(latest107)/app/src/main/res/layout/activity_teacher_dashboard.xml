@@ -125,13 +125,21 @@
                 android:layout_height="wrap_content"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="4dp"
-                android:layout_marginBottom="16dp">
+                android:layout_margin="16dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
 
-                <CalendarView
+                <com.prolificinteractive.materialcalendarview.MaterialCalendarView
                     android:id="@+id/calendarView"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:dateTextAppearance="@style/TextAppearance.AppCompat.Medium"/>
+                    android:layout_margin="@dimen/_30sdp"
+                    app:mcv_dateTextAppearance="@style/CalendarDateText"
+                    app:mcv_selectionColor="@color/grey"
+                    app:mcv_showOtherDates="defaults"
+                    app:mcv_weekDayTextAppearance="@style/CalendarWeekDayText" />
+
             </androidx.cardview.widget.CardView>
 
             <!-- Assigned Events Section -->
