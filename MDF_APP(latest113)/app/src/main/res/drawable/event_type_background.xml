@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <corners android:radius="8dp" /> <!-- Rounded corners -->
+    <solid android:color="@android:color/darker_gray" /> <!-- Initial transparent color, will be overridden by Java -->
+    <padding android:left="6dp" android:top="4dp" android:right="6dp" android:bottom="4dp" /> <!-- Padding inside the card -->
+</shape>

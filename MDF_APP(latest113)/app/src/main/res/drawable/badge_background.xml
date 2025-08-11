@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#FFFFFF" /> <!-- Placeholder color, will be set dynamically -->
+    <corners android:radius="10dp" /> <!-- Adjust radius to match badge size -->
+    <size
+        android:width="40dp"
+        android:height="40dp" />
+</shape>

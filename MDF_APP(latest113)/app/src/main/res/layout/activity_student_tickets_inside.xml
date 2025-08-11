@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_green">
+
+    <!-- FrameLayout for event image with fading effect -->
+    <FrameLayout
+        android:id="@+id/event_image_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_percent="0.25">
+
+        <ImageView
+            android:id="@+id/event_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            tools:src="@drawable/placeholder_image" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/fade_gradient" />
+
+        <!-- Back Button -->
+        <ImageButton
+            android:id="@+id/back_button"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/circle_translucent_black"
+            android:src="@drawable/back"
+            app:tint="@android:color/white"
+            android:scaleType="centerInside"
+            android:padding="8dp"
+            android:contentDescription="Back"
+            android:layout_gravity="start|top" />
+
+    </FrameLayout>
+
+    <ScrollView
+        android:id="@+id/ticketLayout"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:padding="30dp"
+        android:layout_marginTop="-150dp"
+        app:layout_constraintTop_toBottomOf="@+id/event_image_container"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/mdfTicketCardView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="15dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                android:layout_margin="4dp">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingBottom="20dp">
+
+                    <TextView
+                        android:id="@+id/eventName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginTop="20dp"
+                        android:layout_marginEnd="16dp"
+                        android:ellipsize="end"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:text="Event Name"
+                        android:textColor="@color/black"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <ImageView
+                        android:id="@+id/qrCodeImage"
+                        android:layout_width="220dp"
+                        android:layout_height="220dp"
+                        android:layout_marginTop="5dp"
+                        app:layout_constraintTop_toBottomOf="@+id/eventName"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <com.capstone.mdfeventmanagementsystem.Utilities.ViewDashDottedLine
+                        android:id="@+id/viewDashDottedLine"
+                        android:layout_width="0dp"
+                        android:layout_height="20dp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/qrCodeImage"
+                        app:layout_constraintWidth_percent="1.0" />
+
+                    <TextView
+                        android:id="@+id/studentInfo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginTop="5dp"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="center"
+                        android:text="Student Name"
+                        android:textColor="@color/black"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/viewDashDottedLine" />
+
+                    <TextView
+                        android:id="@+id/yearLevel"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginTop="5dp"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="center"
+                        android:text="Year Level"
+                        android:textColor="@color/black"
+                        android:textSize="16sp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/studentInfo" />
+
+                    <com.capstone.mdfeventmanagementsystem.Utilities.ViewDashDottedLine
+                        android:id="@+id/viewDashDottedLine2"
+                        android:layout_width="0dp"
+                        android:layout_height="20dp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/yearLevel"
+                        app:layout_constraintWidth_percent="1.0" />
+
+                    <ImageView
+                        android:id="@+id/dateIcon"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="14dp"
+                        android:src="@drawable/date"
+                        app:tint="@color/bg_green"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/dateText"
+                        app:layout_constraintBottom_toBottomOf="@+id/dateInfo" />
+
+                    <TextView
+                        android:id="@+id/dateText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="left"
+                        android:text="Date"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#545454"
+                        app:layout_constraintTop_toBottomOf="@+id/viewDashDottedLine2"
+                        app:layout_constraintStart_toEndOf="@+id/dateIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <TextView
+                        android:id="@+id/dateInfo"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_marginEnd="16dp"
+                        android:layout_marginTop="-5dp"
+                        android:gravity="left"
+                        android:text="Day, Month Date, Year"
+                        android:textSize="16sp"
+                        android:textColor="#545454"
+                        app:layout_constraintTop_toBottomOf="@+id/dateText"
+                        app:layout_constraintStart_toEndOf="@+id/dateIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <TextView
+                        android:id="@+id/endDate"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_marginTop="-5dp"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="left"
+                        android:text="End Date"
+                        android:textSize="16sp"
+                        android:textColor="#545454"
+                        android:visibility="gone"
+                        app:layout_constraintTop_toBottomOf="@+id/dateInfo"
+                        app:layout_constraintStart_toEndOf="@+id/dateIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <!-- Time Section -->
+                    <ImageView
+                        android:id="@+id/timeIcon"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginTop="8dp"
+                        android:src="@drawable/time"
+                        app:tint="@color/bg_green"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/timeText"
+                        app:layout_constraintBottom_toBottomOf="@+id/time" />
+
+                    <TextView
+                        android:id="@+id/timeText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="18dp"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="left"
+                        android:text="Time"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#545454"
+                        app:layout_constraintTop_toBottomOf="@+id/endDate"
+                        app:layout_constraintStart_toEndOf="@+id/timeIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <TextView
+                        android:id="@+id/time"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="18dp"
+                        android:layout_marginEnd="16dp"
+                        android:layout_marginTop="-5dp"
+                        android:gravity="left"
+                        android:text="Start Time - End Time"
+                        android:textSize="16sp"
+                        android:textColor="#545454"
+                        app:layout_constraintTop_toBottomOf="@+id/timeText"
+                        app:layout_constraintStart_toEndOf="@+id/timeIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <!-- Grace Time Section -->
+                    <ImageView
+                        android:id="@+id/graceTimeIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginTop="8dp"
+                        android:src="@drawable/grace_time"
+                        app:tint="@color/bg_green"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/graceTimeText"
+                        app:layout_constraintBottom_toBottomOf="@+id/graceTime" />
+
+                    <TextView
+                        android:id="@+id/graceTimeText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="18dp"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="left"
+                        android:text="Grace Time"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#545454"
+                        app:layout_constraintTop_toBottomOf="@+id/time"
+                        app:layout_constraintStart_toEndOf="@+id/graceTimeIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <TextView
+                        android:id="@+id/graceTime"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="18dp"
+                        android:layout_marginEnd="16dp"
+                        android:layout_marginTop="-5dp"
+                        android:gravity="left"
+                        android:text="Grace Time"
+                        android:textSize="16sp"
+                        android:textColor="#545454"
+                        app:layout_constraintTop_toBottomOf="@+id/graceTimeText"
+                        app:layout_constraintStart_toEndOf="@+id/graceTimeIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <!-- Event Span Section -->
+                    <ImageView
+                        android:id="@+id/eventSpanIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginTop="8dp"
+                        android:src="@drawable/span"
+                        app:tint="@color/bg_green"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/eventSpanText"
+                        app:layout_constraintBottom_toBottomOf="@+id/eventSpan" />
+
+                    <TextView
+                        android:id="@+id/eventSpanText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="18dp"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="left"
+                        android:text="Event Span"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#545454"
+
+                        app:layout_constraintTop_toBottomOf="@+id/graceTime"
+                        app:layout_constraintStart_toEndOf="@+id/eventSpanIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <TextView
+                        android:id="@+id/eventSpan"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="18dp"
+                        android:layout_marginEnd="16dp"
+                        android:layout_marginTop="-5dp"
+                        android:gravity="left"
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:text="Event Span"
+                        android:textSize="16sp"
+                        android:textColor="#545454"
+                        app:layout_constraintTop_toBottomOf="@+id/eventSpanText"
+                        app:layout_constraintStart_toEndOf="@+id/eventSpanIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <!-- Venue Section -->
+                    <ImageView
+                        android:id="@+id/venueIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginTop="8dp"
+                        android:src="@drawable/loc"
+                        app:tint="@color/bg_green"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/venueText"
+                        app:layout_constraintBottom_toBottomOf="@+id/venue" />
+
+                    <TextView
+                        android:id="@+id/venueText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="18dp"
+                        android:layout_marginTop="10dp"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="left"
+                        android:text="Event Venue"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#545454"
+
+                        app:layout_constraintTop_toBottomOf="@+id/eventSpan"
+                        app:layout_constraintStart_toEndOf="@+id/venueIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <TextView
+                        android:id="@+id/venue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="18dp"
+                        android:layout_marginEnd="16dp"
+                        android:layout_marginTop="-5dp"
+                        android:gravity="left"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Venue"
+                        android:textSize="16sp"
+                        android:textColor="#545454"
+                        app:layout_constraintTop_toBottomOf="@+id/venueText"
+                        app:layout_constraintStart_toEndOf="@+id/venueIcon"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <Button
+                        android:id="@+id/downloadButton"
+                        android:layout_width="200dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="30dp"
+                        android:layout_marginBottom="5dp"
+                        android:backgroundTint="@color/bg_green_btn"
+                        android:text="Download"
+                        android:textAllCaps="true"
+                        android:textColor="@android:color/white"
+                        android:visibility="visible"
+                        app:layout_constraintTop_toBottomOf="@+id/venue"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <View
+                        android:id="@+id/first_circle"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_marginStart="-20dp"
+                        android:layout_marginTop="-10dp"
+                        android:background="@drawable/circle_shape"
+                        android:backgroundTint="@color/bg_green"
+                        app:layout_constraintDimensionRatio="1:1"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/viewDashDottedLine"
+                        app:layout_constraintWidth_percent="0.12" />
+
+                    <View
+                        android:id="@+id/second_circle"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_marginEnd="-20dp"
+                        android:layout_marginTop="-10dp"
+                        android:background="@drawable/circle_shape"
+                        android:backgroundTint="@color/bg_green"
+                        app:layout_constraintDimensionRatio="1:1"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@+id/viewDashDottedLine"
+                        app:layout_constraintWidth_percent="0.12" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.cardview.widget.CardView>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </ScrollView>
+</androidx.constraintlayout.widget.ConstraintLayout>
