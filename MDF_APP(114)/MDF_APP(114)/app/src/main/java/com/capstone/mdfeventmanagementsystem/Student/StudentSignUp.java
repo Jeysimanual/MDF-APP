@@ -1,5 +1,6 @@
 package com.capstone.mdfeventmanagementsystem.Student;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
@@ -48,7 +49,7 @@ public class StudentSignUp extends BaseActivity {
 
     private static final String TAG = "SignUpTest";
 
-    private EditText idNumber, etFirstName, etLastName, etEmail;
+    private EditText idNumber, etFirstName, etLastName, etMiddleName, etEmail;
     private EditText etPassword, etConfirmPassword;
     private TextView checkLength, checkUpperCase, checkLowerCase, checkDigit, checkSpecialChar;
 
@@ -62,6 +63,7 @@ public class StudentSignUp extends BaseActivity {
         return input.substring(0, 1).toUpperCase() + input.substring(1).toLowerCase();
     }
 
+    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -73,6 +75,7 @@ public class StudentSignUp extends BaseActivity {
         idNumber = findViewById(R.id.idNumber);
         etFirstName = findViewById(R.id.etFirstName);
         etLastName = findViewById(R.id.etLastName);
+        etMiddleName = findViewById(R.id.etMiddleName);
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         etConfirmPassword = findViewById(R.id.etConfirmPassword);
@@ -116,14 +119,14 @@ public class StudentSignUp extends BaseActivity {
         View.OnClickListener goBackListener = v -> {
             Intent intent = new Intent(StudentSignUp.this, StudentLogin.class);
             startActivity(intent);
-            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right); // 🔄 Add this line
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
             finish();
         };
 
         backBtn.setOnClickListener(goBackListener);
         backText.setOnClickListener(goBackListener);
 
-        //add ko
+        // Real-time validation for First Name
         etFirstName.addTextChangedListener(new TextWatcher() {
             private boolean isEditing = false;
 
@@ -185,6 +188,37 @@ public class StudentSignUp extends BaseActivity {
             }
         });
 
+        // Real-time validation for Middle Name (optional)
+        etMiddleName.addTextChangedListener(new TextWatcher() {
+            private boolean isEditing = false;
+
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (!s.toString().isEmpty() && !s.toString().matches("[a-zA-Z]*")) {
+                    etMiddleName.setError("Only letters are allowed!");
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (isEditing) return;
+                isEditing = true;
+
+                String input = s.toString();
+                String formatted = capitalizeFirstLetter(input);
+
+                if (!input.equals(formatted)) {
+                    etMiddleName.setText(formatted);
+                    etMiddleName.setSelection(formatted.length());
+                }
+
+                isEditing = false;
+            }
+        });
+
         idNumber.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -205,7 +239,6 @@ public class StudentSignUp extends BaseActivity {
                 }
             }
         });
-        //end add
 
         // Add password validation TextWatcher
         etPassword.addTextChangedListener(new TextWatcher() {
@@ -249,7 +282,7 @@ public class StudentSignUp extends BaseActivity {
         spinnerYearLevel.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                String selectedYear = parent.getItemAtPosition(position).toString().replace(" ", "-"); // Ensure it matches Firebase keys
+                String selectedYear = parent.getItemAtPosition(position).toString().replace(" ", "-");
                 Log.d(TAG, "Year level selected: " + selectedYear);
 
                 DatabaseReference sectionsRef = FirebaseDatabase.getInstance().getReference("yearLvls").child(selectedYear);
@@ -404,6 +437,7 @@ public class StudentSignUp extends BaseActivity {
         String studentIdNumber = idNumber.getText().toString().trim();
         String firstName = etFirstName.getText().toString().trim();
         String lastName = etLastName.getText().toString().trim();
+        String middleName = etMiddleName.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString();
         String confirmPassword = etConfirmPassword.getText().toString();
@@ -411,10 +445,10 @@ public class StudentSignUp extends BaseActivity {
         String section = spinnerSection.getSelectedItem() != null ? spinnerSection.getSelectedItem().toString() : "";
 
         Log.d(TAG, "User input: ID=" + studentIdNumber + ", First Name=" + firstName + ", Last Name=" + lastName +
-                ", Email=" + email + ", Year Level=" + yearLevel + ", Section=" + section);
+                ", Middle Name=" + middleName + ", Email=" + email + ", Year Level=" + yearLevel + ", Section=" + section);
 
-        // Validation checks...
-        if (etFirstName.getError() != null || etLastName.getError() != null) {
+        // Validation checks
+        if (etFirstName.getError() != null || etLastName.getError() != null || etMiddleName.getError() != null) {
             Log.w(TAG, "Validation failed: Fields contain errors");
             Toast.makeText(this, "Please correct the errors before submitting!", Toast.LENGTH_SHORT).show();
             return;
@@ -473,14 +507,14 @@ public class StudentSignUp extends BaseActivity {
                         Log.d(TAG, "Checking student record: ID=" + student.getIdNumber() +
                                 ", Year Level=" + studentYearLevel + ", Section=" + studentSection);
 
-                        // FIXED: Extract just the numeric part from the year level for comparison
+                        // Extract just the numeric part from the year level for comparison
                         String yearLevelNumber = extractNumberFromYearLevel(yearLevel);
 
                         if ((studentYearLevel.equals(yearLevelNumber) || studentYearLevel.equalsIgnoreCase(yearLevel)) &&
                                 studentSection.trim().equalsIgnoreCase(section.trim())) {
 
                             Log.d(TAG, "Match found! Updating student record...");
-                            updateStudentData(studentKey, firstName, lastName, email, password);
+                            updateStudentData(studentKey, firstName, lastName, middleName, email, password);
                             return;
                         } else {
                             Log.d(TAG, "Mismatch: Found ID but year level/section does not match.");
@@ -501,16 +535,14 @@ public class StudentSignUp extends BaseActivity {
             }
         });
     }
+
     private String extractNumberFromYearLevel(String yearLevel) {
-        // Check if yearLevel contains a number
         if (yearLevel == null || yearLevel.isEmpty()) {
             return "";
         }
-
-        // Remove all non-digit characters and return just the number
         return yearLevel.replaceAll("\\D+", "");
     }
-    //add ko
+
     private boolean isValidEmail(String email) {
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             return false;
@@ -527,20 +559,22 @@ public class StudentSignUp extends BaseActivity {
 
         return false;
     }
-    //end ng add
 
-    // Update student data instead of creating a new record
-    private void updateStudentData(String studentKey, String firstName, String lastName, String email, String password) {
+    // Update student data including middleName
+    private void updateStudentData(String studentKey, String firstName, String lastName, String middleName, String email, String password) {
         int otp = (int) (Math.random() * 900000) + 100000; // Generate 6-digit OTP
         String hashedOtp = hashOtp(String.valueOf(otp));
 
-        // Format fullName as "LastName, FirstName M."
-        String fullName = lastName + ", " + firstName;
+        // Format fullName as "LastName, FirstName M." or "LastName, FirstName" if no middleName
+        String fullName = middleName.isEmpty() ? lastName + ", " + firstName : lastName + ", " + firstName + " " + middleName.charAt(0) + ".";
 
         Map<String, Object> studentUpdates = new HashMap<>();
         studentUpdates.put("firstName", firstName);
         studentUpdates.put("lastName", lastName);
-        studentUpdates.put("fullName", fullName); // Add fullName field
+        if (!middleName.isEmpty()) {
+            studentUpdates.put("middleName", middleName);
+        }
+        studentUpdates.put("fullName", fullName);
         studentUpdates.put("email", email);
         studentUpdates.put("role", "student");
         studentUpdates.put("isVerified", false);

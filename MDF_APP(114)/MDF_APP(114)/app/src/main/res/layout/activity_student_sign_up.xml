@@ -102,7 +102,7 @@
                     android:inputType="text"
                     android:paddingStart="20dp"
                     android:textSize="16sp"
-                    app:layout_constraintEnd_toStartOf="@+id/etLastName"
+                    app:layout_constraintEnd_toStartOf="@+id/etMiddleName"
                     app:layout_constraintHorizontal_chainStyle="packed"
                     app:layout_constraintHorizontal_weight="1"
                     app:layout_constraintStart_toStartOf="parent"
@@ -125,7 +125,7 @@
                     app:layout_constraintStart_toStartOf="parent" />
 
                 <EditText
-                    android:id="@+id/etLastName"
+                    android:id="@+id/etMiddleName"
                     android:layout_width="0dp"
                     android:layout_height="50dp"
                     android:layout_marginStart="4dp"
@@ -142,10 +142,41 @@
                     app:layout_constraintTop_toTopOf="@+id/etFirstName" />
 
                 <TextView
-                    android:id="@+id/last_name_text"
+                    android:id="@+id/middle_name_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
+                    android:layout_marginBottom="-12dp"
+                    android:background="@color/white"
+                    android:fontFamily="@font/host_grotesk_light"
+                    android:padding="5dp"
+                    android:text="Middle Name"
+                    android:textColor="@android:color/black"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    app:layout_constraintBottom_toTopOf="@+id/etMiddleName"
+                    app:layout_constraintStart_toStartOf="@+id/etMiddleName" />
+
+                <EditText
+                    android:id="@+id/etLastName"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/spinner_background"
+                    android:inputType="text"
+                    android:digits="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    android:paddingStart="20dp"
+                    android:textSize="16sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/etFirstName" />
+
+                <TextView
+                    android:id="@+id/last_name_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="24dp"
                     android:layout_marginBottom="-12dp"
                     android:background="@color/white"
                     android:fontFamily="@font/host_grotesk_light"
@@ -155,9 +186,8 @@
                     android:textSize="15sp"
                     android:textStyle="bold"
                     app:layout_constraintBottom_toTopOf="@+id/etLastName"
-                    app:layout_constraintStart_toStartOf="@+id/etLastName" />
+                    app:layout_constraintStart_toStartOf="parent" />
 
-                <!-- Rest of the fields with improved constraints -->
                 <EditText
                     android:id="@+id/idNumber"
                     android:layout_width="0dp"
@@ -169,14 +199,15 @@
                     android:paddingStart="20dp"
                     android:textSize="16sp"
                     app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.75"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/etFirstName" />
+                    app:layout_constraintTop_toBottomOf="@+id/etLastName" />
 
                 <TextView
                     android:id="@+id/idNumber_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="26dp"
+                    android:layout_marginStart="24dp"
                     android:layout_marginBottom="-12dp"
                     android:background="@color/white"
                     android:fontFamily="@font/host_grotesk_light"
@@ -188,7 +219,6 @@
                     app:layout_constraintBottom_toTopOf="@+id/idNumber"
                     app:layout_constraintStart_toStartOf="parent" />
 
-                <!-- Similar pattern for remaining fields... -->
                 <EditText
                     android:id="@+id/etEmail"
                     android:layout_width="0dp"

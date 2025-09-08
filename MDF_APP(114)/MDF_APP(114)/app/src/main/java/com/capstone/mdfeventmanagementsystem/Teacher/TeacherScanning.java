@@ -40,8 +40,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -74,6 +74,8 @@ public class TeacherScanning extends BaseActivity {
     private static final int BATCH_SIZE = 10;
     // Checkout grace period in minutes (e.g., 60 minutes = 1 hour after event end)
     private static final int CHECKOUT_GRACE_PERIOD_MINUTES = 60;
+    // Time window for re-scan check (30 minutes)
+    private static final long RECENT_SCAN_WINDOW_MS = 30 * 60 * 1000; // 30 minutes in milliseconds
 
     // SQLite Database Helper
     private static class TicketDatabaseHelper extends SQLiteOpenHelper {
@@ -368,6 +370,14 @@ public class TeacherScanning extends BaseActivity {
             return;
         }
 
+        // Check if ticket was recently scanned
+        if (isTicketRecentlyScanned(studentId, eventId)) {
+            showUsedTicket();
+            usedText.setText("Ticket already scanned recently. Try again later.");
+            scanTicketBtn.setVisibility(Button.VISIBLE);
+            return;
+        }
+
         if (isNetworkAvailable()) {
             fetchEventDataFromFirebase(eventId, ticketData, studentId);
         } else {
@@ -487,12 +497,14 @@ public class TeacherScanning extends BaseActivity {
             } else {
                 boolean isLate = (timeStatus == TIME_STATUS_LATE);
                 processCheckIn(studentId, eventId, dayKey, currentDate, isLate);
+                saveRecentScan(studentId, eventId); // Save scan timestamp
             }
         } else if (hasCheckedIn && !hasCheckedOut) {
             if (timeStatus == TIME_STATUS_ENDED || timeStatus == TIME_STATUS_CHECKIN_ENDED) {
                 // Allow checkout within the checkout grace period
                 if (isWithinCheckoutGracePeriod(ticketData)) {
                     processCheckOut(studentId, eventId, dayKey, currentDate, checkInTime, isLateCheckin);
+                    saveRecentScan(studentId, eventId); // Save scan timestamp
                 } else {
                     showNotAllowedTicket();
                     notAllowedText.setText("Event has ended and checkout grace period expired");
@@ -500,6 +512,7 @@ public class TeacherScanning extends BaseActivity {
                 }
             } else {
                 processCheckOut(studentId, eventId, dayKey, currentDate, checkInTime, isLateCheckin);
+                saveRecentScan(studentId, eventId); // Save scan timestamp
             }
         } else if (hasCheckedOut) {
             showUsedTicket();
@@ -846,6 +859,26 @@ public class TeacherScanning extends BaseActivity {
         invalidText.setVisibility(TextView.GONE);
         notAllowedTicket.setVisibility(ImageView.GONE);
         notAllowedText.setVisibility(TextView.GONE);
+    }
+
+    private boolean isTicketRecentlyScanned(String studentId, String eventId) {
+        String key = studentId + "_" + eventId;
+        long lastScanTime = sharedPreferences.getLong("last_scan_" + key, 0);
+        long currentTime = System.currentTimeMillis();
+
+        if (lastScanTime == 0) {
+            return false; // No previous scan recorded
+        }
+
+        // Check if the last scan was within the 30-minute window
+        return (currentTime - lastScanTime) < RECENT_SCAN_WINDOW_MS;
+    }
+
+    private void saveRecentScan(String studentId, String eventId) {
+        String key = studentId + "_" + eventId;
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putLong("last_scan_" + key, System.currentTimeMillis());
+        editor.apply();
     }
 
     public void resetPersistentState() {
