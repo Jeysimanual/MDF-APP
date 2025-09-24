@@ -1,0 +1,1052 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/organizer_create"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    tools:context=".Teacher.TeacherCreateEventActivity">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:paddingBottom="90dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="20dp">
+
+            <!-- Title for Create -->
+            <TextView
+                android:id="@+id/titleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="15dp"
+                android:text="Create Event"
+                android:textSize="@dimen/_20ssp"
+                android:textStyle="bold"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/black"
+                android:visibility="visible"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/stepsLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:layout_marginStart="34dp"
+                android:layout_marginEnd="34dp"
+                app:layout_constraintTop_toBottomOf="@id/titleText"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <!-- Step 1 -->
+                <TextView
+                    android:id="@+id/stepBasicInfo"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:background="@drawable/progress_bar_active"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toStartOf="@id/connector1" />
+
+                <!-- Connector 1 -->
+                <View
+                    android:id="@+id/connector1"
+                    android:layout_width="0dp"
+                    android:layout_height="2dp"
+                    android:background="#E0E0E0"
+                    app:layout_constraintTop_toTopOf="@id/stepBasicInfo"
+                    app:layout_constraintBottom_toBottomOf="@id/stepBasicInfo"
+                    app:layout_constraintStart_toEndOf="@id/stepBasicInfo"
+                    app:layout_constraintEnd_toStartOf="@id/stepSchedule"
+                    app:layout_constraintWidth_default="spread" />
+
+                <!-- Step 2 -->
+                <TextView
+                    android:id="@+id/stepSchedule"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:background="@drawable/progress_bar_background"
+                    android:gravity="center"
+                    android:text="2"
+                    android:textColor="@color/gray"
+                    android:textSize="10sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toEndOf="@id/connector1"
+                    app:layout_constraintEnd_toStartOf="@id/connector2" />
+
+                <!-- Connector 2 -->
+                <View
+                    android:id="@+id/connector2"
+                    android:layout_width="0dp"
+                    android:layout_height="2dp"
+                    android:background="#E0E0E0"
+                    app:layout_constraintTop_toTopOf="@id/stepSchedule"
+                    app:layout_constraintBottom_toBottomOf="@id/stepSchedule"
+                    app:layout_constraintStart_toEndOf="@id/stepSchedule"
+                    app:layout_constraintEnd_toStartOf="@id/stepMedia"
+                    app:layout_constraintWidth_default="spread" />
+
+                <!-- Step 3 -->
+                <TextView
+                    android:id="@+id/stepMedia"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:background="@drawable/progress_bar_background"
+                    android:gravity="center"
+                    android:text="3"
+                    android:textColor="@color/gray"
+                    android:textSize="10sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toEndOf="@id/connector2"
+                    app:layout_constraintEnd_toEndOf="parent" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <!-- Page1 Form -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/page1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="visible"
+                app:layout_constraintTop_toBottomOf="@id/stepsLayout"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <!-- Event Name Field -->
+                <TextView
+                    android:id="@+id/eventNameLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Event Name "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/eventNameLabel"
+                    app:layout_constraintStart_toEndOf="@id/eventNameLabel" />
+
+                <EditText
+                    android:id="@+id/eventName"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    app:layout_constraintTop_toBottomOf="@id/eventNameLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Event Description Field -->
+                <TextView
+                    android:id="@+id/eventDescriptionLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Event Description "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/eventName"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/eventDescriptionLabel"
+                    app:layout_constraintStart_toEndOf="@id/eventDescriptionLabel" />
+
+                <EditText
+                    android:id="@+id/eventDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="100dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:gravity="top"
+                    android:inputType="textMultiLine"
+                    android:paddingStart="15dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="15dp"
+                    android:paddingBottom="10dp"
+                    android:textSize="15sp"
+                    app:layout_constraintTop_toBottomOf="@id/eventDescriptionLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Event Type Field -->
+                <TextView
+                    android:id="@+id/eventTypeLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Event Type "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/eventDescription"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/eventTypeLabel"
+                    app:layout_constraintStart_toEndOf="@id/eventTypeLabel" />
+
+                <Spinner
+                    android:id="@+id/eventTypeSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    app:layout_constraintTop_toBottomOf="@id/eventTypeLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <ImageView
+                    android:id="@+id/eventTypeDropdown"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginRight="5dp"
+                    android:src="@drawable/ic_dropdown"
+                    app:layout_constraintBottom_toBottomOf="@+id/eventTypeSpinner"
+                    app:layout_constraintEnd_toEndOf="@+id/eventTypeSpinner"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintStart_toStartOf="@+id/eventTypeSpinner"
+                    app:layout_constraintTop_toTopOf="@+id/eventTypeSpinner"
+                    app:layout_constraintVertical_bias="0.0" />
+
+                <!-- Specify Event Type Field (Initially Hidden) -->
+                <TextView
+                    android:id="@+id/specifyEventTypeLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Specify Event Type "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/eventTypeSpinner"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:id="@+id/specifyEventTypeAsterisk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:visibility="gone"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/specifyEventTypeLabel"
+                    app:layout_constraintStart_toEndOf="@id/specifyEventTypeLabel" />
+
+                <EditText
+                    android:id="@+id/specifyEventTypeField"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/edit_text_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:hint="Enter specific event type"
+                    android:inputType="text"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/specifyEventTypeLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Event Is For Field -->
+                <TextView
+                    android:id="@+id/eventForLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="The Event is For "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/specifyEventTypeField"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/eventForLabel"
+                    app:layout_constraintStart_toEndOf="@id/eventForLabel" />
+
+                <Spinner
+                    android:id="@+id/eventForSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    app:layout_constraintTop_toBottomOf="@id/eventForLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <ImageView
+                    android:id="@+id/eventForDropdown"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginRight="5dp"
+                    android:src="@drawable/ic_dropdown"
+                    app:layout_constraintBottom_toBottomOf="@+id/eventForSpinner"
+                    app:layout_constraintEnd_toEndOf="@+id/eventForSpinner"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintStart_toStartOf="@+id/eventForSpinner"
+                    app:layout_constraintTop_toTopOf="@+id/eventForSpinner"
+                    app:layout_constraintVertical_bias="0.0" />
+
+                <!-- Target Number of Participants Field -->
+                <TextView
+                    android:id="@+id/targetParticipantsLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Target Number of Participants "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/eventForSpinner"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/targetParticipantsLabel"
+                    app:layout_constraintStart_toEndOf="@id/targetParticipantsLabel" />
+
+                <Spinner
+                    android:id="@+id/targetParticipantsSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    app:layout_constraintTop_toBottomOf="@id/targetParticipantsLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <ImageView
+                    android:id="@+id/targetParticipantsDropdown"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginRight="5dp"
+                    android:src="@drawable/ic_dropdown"
+                    app:layout_constraintBottom_toBottomOf="@+id/targetParticipantsSpinner"
+                    app:layout_constraintEnd_toEndOf="@+id/targetParticipantsSpinner"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintStart_toStartOf="@+id/targetParticipantsSpinner"
+                    app:layout_constraintTop_toTopOf="@+id/targetParticipantsSpinner"
+                    app:layout_constraintVertical_bias="0.0" />
+
+                <!-- Enter Custom Number Field (Initially Hidden) -->
+                <TextView
+                    android:id="@+id/customParticipantsLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Enter Custom Number "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/targetParticipantsSpinner"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:id="@+id/customParticipantsAsterisk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:visibility="gone"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/customParticipantsLabel"
+                    app:layout_constraintStart_toEndOf="@id/customParticipantsLabel" />
+
+                <EditText
+                    android:id="@+id/customParticipantsField"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/edit_text_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:hint="Enter number of participants"
+                    android:inputType="number"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toBottomOf="@id/customParticipantsLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+
+                <!-- Navigation Buttons -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/navigationButtonsContainer1"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_40sdp"
+                    android:layout_marginBottom="16dp"
+                    app:layout_constraintTop_toBottomOf="@id/customParticipantsField"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <Button
+                        android:id="@+id/cancelBtn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="#E0E0E0"
+                        android:fontFamily="@font/host_grotesk_bold"
+                        android:text="Cancel"
+                        android:textColor="@android:color/black"
+                        android:textAllCaps="false"
+                        android:visibility="gone"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent" />
+
+                    <Button
+                        android:id="@+id/nextButton1"
+                        android:layout_width="170dp"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="@color/primary"
+                        android:fontFamily="@font/host_grotesk_bold"
+                        android:text="Next"
+                        android:textColor="@android:color/white"
+                        android:textAllCaps="false"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <!-- Page2 Form -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/page2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/stepsLayout"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <!-- Venue Field -->
+                <TextView
+                    android:id="@+id/venueLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Venue "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/venueLabel"
+                    app:layout_constraintStart_toEndOf="@id/venueLabel" />
+
+                <EditText
+                    android:id="@+id/venue"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    app:layout_constraintTop_toBottomOf="@id/venueLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Event Span Field -->
+                <TextView
+                    android:id="@+id/eventSpanLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Event Span "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/venue"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/eventSpanLabel"
+                    app:layout_constraintStart_toEndOf="@id/eventSpanLabel" />
+
+                <RadioGroup
+                    android:id="@+id/eventTypeGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    app:layout_constraintTop_toBottomOf="@id/eventSpanLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <RadioButton
+                        android:id="@+id/radioSingleDayEvent"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:buttonTint="@color/black"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        android:text="Single Day Event"
+                        android:textSize="14sp" />
+
+                    <RadioButton
+                        android:id="@+id/radioMultiDayEvent"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:buttonTint="@color/black"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        android:text="Multi-Day Event"
+                        android:textSize="14sp" />
+                </RadioGroup>
+
+                <!-- Event Date Field -->
+                <TextView
+                    android:id="@+id/eventDateLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Event Date "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/eventTypeGroup"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/eventDateLabel"
+                    app:layout_constraintStart_toEndOf="@id/eventDateLabel" />
+
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/dateContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:layout_constraintTop_toBottomOf="@id/eventDateLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <EditText
+                        android:id="@+id/startDate"
+                        android:layout_width="0dp"
+                        android:layout_height="45dp"
+                        android:background="@drawable/spinner_background"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:inputType="date"
+                        android:paddingStart="15dp"
+                        android:paddingEnd="15dp"
+                        android:textSize="15sp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toStartOf="@+id/dateSeparator"
+                        app:layout_constraintWidth_percent="0.45" />
+
+                    <TextView
+                        android:id="@+id/dateSeparator"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" - "
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/startDate"
+                        app:layout_constraintEnd_toStartOf="@id/endDate" />
+
+                    <EditText
+                        android:id="@+id/endDate"
+                        android:layout_width="0dp"
+                        android:layout_height="45dp"
+                        android:background="@drawable/spinner_background"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:inputType="date"
+                        android:paddingStart="15dp"
+                        android:paddingEnd="15dp"
+                        android:textSize="15sp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toEndOf="@+id/dateSeparator"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintWidth_percent="0.45" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Event Time Field -->
+                <TextView
+                    android:id="@+id/eventTimeLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Event Time "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/dateContainer"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/eventTimeLabel"
+                    app:layout_constraintStart_toEndOf="@id/eventTimeLabel" />
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/timeContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:layout_constraintTop_toBottomOf="@id/eventTimeLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <EditText
+                        android:id="@+id/startTime"
+                        android:layout_width="0dp"
+                        android:layout_height="45dp"
+                        android:background="@drawable/spinner_background"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:inputType="time"
+                        android:paddingStart="15dp"
+                        android:paddingEnd="15dp"
+                        android:textSize="15sp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toStartOf="@+id/timeSeparator"
+                        app:layout_constraintWidth_percent="0.45" />
+
+                    <TextView
+                        android:id="@+id/timeSeparator"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" - "
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/startTime"
+                        app:layout_constraintEnd_toStartOf="@id/endTime" />
+
+                    <EditText
+                        android:id="@+id/endTime"
+                        android:layout_width="0dp"
+                        android:layout_height="45dp"
+                        android:background="@drawable/spinner_background"
+                        android:clickable="true"
+                        android:focusable="false"
+                        android:inputType="time"
+                        android:paddingStart="15dp"
+                        android:paddingEnd="15dp"
+                        android:textSize="15sp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toEndOf="@+id/timeSeparator"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintWidth_percent="0.45" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Grace Time Field -->
+                <TextView
+                    android:id="@+id/graceTimeLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Grace Time "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/timeContainer"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/graceTimeLabel"
+                    app:layout_constraintStart_toEndOf="@id/graceTimeLabel" />
+
+                <Spinner
+                    android:id="@+id/graceTimeSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="15dp"
+                    android:textSize="15sp"
+                    app:layout_constraintTop_toBottomOf="@id/graceTimeLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <ImageView
+                    android:id="@+id/graceTimeDropdown"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginRight="5dp"
+                    android:src="@drawable/ic_dropdown"
+                    app:layout_constraintBottom_toBottomOf="@+id/graceTimeSpinner"
+                    app:layout_constraintEnd_toEndOf="@+id/graceTimeSpinner"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintStart_toStartOf="@+id/graceTimeSpinner"
+                    app:layout_constraintTop_toTopOf="@+id/graceTimeSpinner"
+                    app:layout_constraintVertical_bias="0.0" />
+
+                <!-- Standard Navigation Buttons Layout - Page 2 -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/navigationButtonsContainer2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    app:layout_constraintTop_toBottomOf="@id/graceTimeSpinner"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:weightSum="2"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent">
+
+                        <Button
+                            android:id="@+id/backPg1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="8dp"
+                            android:backgroundTint="#E0E0E0"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:text="Back"
+                            android:textColor="@android:color/black"
+                            android:textAllCaps="false" />
+
+                        <Button
+                            android:id="@+id/nextPg3"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:backgroundTint="@color/primary"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:text="Next"
+                            android:textColor="@android:color/white"
+                            android:textAllCaps="false" />
+                    </LinearLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+            <!-- Page3 Form -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/page3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/stepsLayout"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <!-- Upload Cover Photo Field -->
+                <TextView
+                    android:id="@+id/coverPhotoLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Upload Cover Photo "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/coverPhotoLabel"
+                    app:layout_constraintStart_toEndOf="@id/coverPhotoLabel" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/uploadCoverPhotoCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:layout_marginTop="8dp"
+                    app:cardBackgroundColor="@android:color/white"
+                    app:cardCornerRadius="4dp"
+                    app:cardElevation="0dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/coverPhotoLabel"
+                    app:strokeColor="#E0E0E0"
+                    app:strokeWidth="1dp">
+
+                    <ImageView
+                        android:id="@+id/uploadCoverPhoto"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="Uploaded Cover Photo"
+                        android:src="@drawable/ic_add" />
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Upload Event Proposal Field -->
+                <TextView
+                    android:id="@+id/proposalLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Upload Event Proposal "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toBottomOf="@id/uploadCoverPhotoCard"
+                    app:layout_constraintStart_toStartOf="parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="*"
+                    android:textColor="#FF0000"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/host_grotesk_medium"
+                    app:layout_constraintTop_toTopOf="@id/proposalLabel"
+                    app:layout_constraintStart_toEndOf="@id/proposalLabel" />
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/fileUploadContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/spinner_background"
+                    app:layout_constraintTop_toBottomOf="@id/proposalLabel"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <Button
+                        android:id="@+id/chooseFileButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:backgroundTint="#E0E0E0"
+                        android:text="Choose File"
+                        android:textSize="14sp"
+                        android:textColor="@android:color/black"
+                        android:textAllCaps="false"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="4dp"
+                        android:minHeight="0dp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/fileNameLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        android:textSize="15sp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/chooseFileButton"
+                        app:layout_constraintTop_toTopOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Standard Navigation Buttons Layout - Page 3 -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/navigationButtonsContainer3"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="16dp"
+                    app:layout_constraintTop_toBottomOf="@id/fileUploadContainer"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:weightSum="2"
+                        android:layout_marginTop="@dimen/_140sdp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent">
+
+                        <Button
+                            android:id="@+id/backPg2"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="8dp"
+                            android:backgroundTint="#E0E0E0"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:text="Back"
+                            android:textColor="@android:color/black"
+                            android:textAllCaps="false" />
+
+                        <Button
+                            android:id="@+id/createButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:backgroundTint="@color/primary"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:text="Create"
+                            android:textColor="@android:color/white"
+                            android:textAllCaps="false" />
+                    </LinearLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Bottom App Bar with Bottom Navigation -->
+    <com.google.android.material.bottomappbar.BottomAppBar
+        android:id="@+id/bottomAppBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:backgroundTint="@color/white"
+        app:fabCradleMargin="10dp"
+        app:fabCradleRoundedCornerRadius="20dp"
+        app:elevation="8dp">
+
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottom_navigation_teacher"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="20dp"
+            android:background="@android:color/transparent"
+            app:menu="@menu/bottom_nav_teacher" />
+    </com.google.android.material.bottomappbar.BottomAppBar>
+
+    <!-- FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_create"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@color/primary"
+        android:src="@drawable/create_nav"
+        app:tint="@android:color/white"
+        app:layout_anchor="@id/bottomAppBar"
+        app:elevation="10dp"
+        app:fabSize="normal"
+        app:maxImageSize="24dp"/>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

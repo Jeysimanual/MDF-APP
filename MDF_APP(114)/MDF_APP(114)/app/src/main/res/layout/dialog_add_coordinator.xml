@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="0dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp">
+
+            <!-- X Button at the top right - red circle border with transparent background and red X -->
+            <ImageButton
+                android:id="@+id/cancelButton"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/circle_border_background"
+                android:contentDescription="Cancel button"
+                android:importantForAccessibility="yes"
+                android:src="@drawable/ic_close"
+                app:tint="@color/red"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <!-- Email input with plus button beside it -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/emailInputLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/cancelButton">
+
+                <EditText
+                    android:id="@+id/emailEditText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/spinner_background"
+                    android:contentDescription="Email input field"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:gravity="start|top"
+                    android:hint="Enter Email"
+                    android:textSize="@dimen/_10ssp"
+                    android:importantForAccessibility="yes"
+                    android:inputType="textEmailAddress|textMultiLine"
+                    android:lines="1"
+                    android:maxLines="1"
+                    android:padding="15dp"
+                    android:layout_marginRight="@dimen/_10ssp"
+                    android:scrollbars="vertical"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toStartOf="@+id/addEmailButton"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <!-- Square blue button with white plus icon -->
+                <ImageButton
+                    android:id="@+id/addEmailButton"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/square_button"
+                    android:backgroundTint="@color/primary"
+                    android:contentDescription="Add email button"
+                    android:importantForAccessibility="yes"
+                    android:src="@drawable/ic_add_plus"
+                    app:tint="@color/white"
+                    app:layout_constraintBottom_toBottomOf="@+id/emailEditText"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/emailEditText" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <TextView
+                android:id="@+id/textView23"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Make sure when adding multiple email, separate it by comma or it will not be considered as valid email."
+                android:textColor="@color/red"
+                android:textSize="12sp"
+                android:textStyle="italic"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/emailInputLayout" />
+
+            <!-- Added Emails Header -->
+            <TextView
+                android:id="@+id/addedEmailsHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:fontFamily="@font/host_grotesk_bold"
+                android:text="Added Email(s):"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/textView23" />
+
+            <ScrollView
+                android:id="@+id/addedEmailsTextView_holder"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:layout_marginTop="8dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/addedEmailsHeader">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/addedEmailsRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="Added email addresses"
+                    android:importantForAccessibility="yes"
+                    android:scrollbars="vertical" />
+            </ScrollView>
+
+            <Button
+                android:id="@+id/addCoordinatorButton"
+                android:layout_width="250dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:backgroundTint="@color/primary"
+                android:contentDescription="Add coordinators button"
+                android:fontFamily="@font/host_grotesk_bold"
+                android:importantForAccessibility="yes"
+                android:text="Add Student Assistant"
+                android:textSize="12sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/addedEmailsTextView_holder" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
