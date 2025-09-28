@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="@dimen/_10sdp"
+    android:layout_marginEnd="@dimen/_10sdp"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/filter_dialog_background">
+
+    <!-- Title -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Filter Certificates"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:textColor="@color/bg_green"
+        android:paddingBottom="12dp"/>
+
+    <!-- Year Section -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Year"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp" />
+
+    <Spinner
+        android:id="@+id/yearSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="@drawable/spinner_background2"
+        android:paddingStart="12dp"
+        android:paddingEnd="36dp"
+        android:spinnerMode="dropdown"
+        android:elevation="2dp"/>
+
+    <!-- Month Buttons Section -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Months"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Select one or more months"
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:paddingBottom="8dp" />
+
+
+    <GridLayout
+        android:id="@+id/monthGrid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="3"
+        android:rowCount="4"
+        android:alignmentMode="alignMargins"
+        android:columnOrderPreserved="true"
+        android:paddingTop="8dp"
+        android:paddingBottom="12dp">
+        <!-- Month buttons will be added dynamically -->
+    </GridLayout>
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:paddingTop="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonClear"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Clear"
+            android:textAllCaps="false"
+            app:cornerRadius="16dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            app:strokeColor="@color/bg_green"
+            app:strokeWidth="1dp"
+            android:backgroundTint="#FFFFFF"
+            android:textColor="@color/bg_green"
+            android:layout_marginEnd="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonApply"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Apply"
+            android:textAllCaps="false"
+            app:cornerRadius="16dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:backgroundTint="@color/bg_green"
+            android:textColor="@android:color/white" />
+    </LinearLayout>
+</LinearLayout>

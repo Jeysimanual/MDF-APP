@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Your existing dimension -->
+    <dimen name="fab_margin">16dp</dimen>
+
+    <!-- New responsive dimensions -->
+    <dimen name="standard_padding">16dp</dimen>
+    <dimen name="small_padding">4dp</dimen>
+    <dimen name="medium_padding">8dp</dimen>
+    <dimen name="large_padding">24dp</dimen>
+    <dimen name="bottom_padding">100dp</dimen>
+
+    <dimen name="small_margin">4dp</dimen>
+    <dimen name="medium_margin">12dp</dimen>
+    <dimen name="large_margin">20dp</dimen>
+    <dimen name="nav_end_margin">20dp</dimen>
+
+    <dimen name="profile_image_size">40dp</dimen>
+    <dimen name="icon_size">25dp</dimen>
+    <dimen name="fab_icon_size">30dp</dimen>
+
+    <dimen name="tab_height">40dp</dimen>
+    <dimen name="fab_cradle_margin">10dp</dimen>
+    <dimen name="fab_cradle_corner_radius">50dp</dimen>
+
+    <!-- Text sizes -->
+    <dimen name="title_text_size">18sp</dimen>
+    <dimen name="tab_text_size">16sp</dimen>
+    <dimen name="message_text_size">12sp</dimen>
+
+    <!-- Filter dialog dimensions -->
+    <dimen name="filter_chip_height">32dp</dimen>
+    <dimen name="filter_padding">24dp</dimen>
+    <dimen name="filter_radius">16dp</dimen>
+
+</resources>
