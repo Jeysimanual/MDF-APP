@@ -1839,8 +1839,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
                         coverPhotoRef.getDownloadUrl().addOnSuccessListener(uri -> {
                             eventData.put("eventPhotoUrl", uri.toString());
                             eventData.put("eventPhotoPath", eventName + "/" + finalOriginalFileName);
-                            // Proceed with updating the event after photo upload
-                            proceedWithEventUpdate();
+                            // Proceed with proposal handling after photo upload
+                            handleProposalUpdate();
                         });
                     })
                     .addOnFailureListener(e -> {
@@ -1850,7 +1850,33 @@ public class TeacherCreateEventActivity extends BaseActivity {
                                 Toast.LENGTH_SHORT).show();
                     });
         } else {
-            // No new cover photo selected, proceed with updating the event
+            // No new cover photo selected, proceed with proposal handling
+            handleProposalUpdate();
+        }
+    }
+
+    private void handleProposalUpdate() {
+        if (isProposal && proposalFileUri != null) {
+            String eventName = eventData.containsKey("eventName") ?
+                    eventData.get("eventName").toString() : "event_" + eventId;
+            StorageReference proposalRef = storageRef.child(eventName + "/event_proposal/" + proposalFileName);
+
+            proposalRef.putFile(proposalFileUri)
+                    .addOnSuccessListener(taskSnapshot -> {
+                        proposalRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                            eventData.put("eventProposal", uri.toString());
+                            // Proceed with updating the event after proposal upload
+                            proceedWithEventUpdate();
+                        });
+                    })
+                    .addOnFailureListener(e -> {
+                        createButton.setEnabled(true);
+                        Toast.makeText(TeacherCreateEventActivity.this,
+                                "Failed to upload event proposal: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        } else {
+            // No new proposal file or not a proposal, proceed with updating the event
             proceedWithEventUpdate();
         }
     }

@@ -73,6 +73,7 @@ public class EventApprovalInside extends AppCompatActivity {
     private String eventName;
     private String proposalDocUrl;
     private String photoUrl;
+    private String targetParticipant;
     private DatabaseReference eventProposalsRef;
 
     @SuppressLint("MissingInflatedId")
@@ -266,6 +267,7 @@ public class EventApprovalInside extends AppCompatActivity {
         photoUrl = dataSnapshot.child("eventPhotoUrl").getValue(String.class);
         String status = dataSnapshot.child("status").getValue(String.class);
         String reason = dataSnapshot.child("reason").getValue(String.class);
+        targetParticipant = dataSnapshot.child("targetParticipant").getValue(String.class);
 
         eventStatus = status;
 
@@ -307,6 +309,7 @@ public class EventApprovalInside extends AppCompatActivity {
             photoUrl = intent.getStringExtra("EVENT_PHOTO_URL");
             String reason = intent.getStringExtra("EVENT_REJECTION_REASON");
             proposalDocUrl = intent.getStringExtra("EVENT_PROPOSAL_URL");
+            targetParticipant = intent.getStringExtra("TARGET_PARTICIPANTS");
 
             if (proposalDocUrl != null && !proposalDocUrl.isEmpty()) {
                 proposalCardView.setVisibility(View.VISIBLE);
@@ -659,6 +662,7 @@ public class EventApprovalInside extends AppCompatActivity {
         intent.putExtra("EVENT_FOR", eventForText.getText().toString());
         intent.putExtra("EVENT_PROPOSAL_URL", proposalDocUrl);
         intent.putExtra("EVENT_PHOTO_URL", photoUrl);
+        intent.putExtra("TARGET_PARTICIPANTS", targetParticipant);
 
         // Start the activity
         startActivity(intent);
@@ -679,6 +683,7 @@ public class EventApprovalInside extends AppCompatActivity {
 
         // Pass event data to pre-fill the form
         intent.putExtra("IS_EDITING", true);
+        intent.putExtra("IS_PROPOSAL", true);
         intent.putExtra("EVENT_ID", eventId);
         intent.putExtra("EVENT_NAME", eventNameText.getText().toString());
         intent.putExtra("EVENT_DESCRIPTION", eventDescriptionText.getText().toString());
@@ -693,6 +698,7 @@ public class EventApprovalInside extends AppCompatActivity {
         intent.putExtra("EVENT_FOR", eventForText.getText().toString());
         intent.putExtra("EVENT_PROPOSAL_URL", proposalDocUrl);
         intent.putExtra("EVENT_PHOTO_URL", photoUrl);
+        intent.putExtra("TARGET_PARTICIPANTS", targetParticipant);
 
         // Start the activity
         startActivity(intent);

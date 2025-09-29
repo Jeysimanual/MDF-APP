@@ -314,6 +314,7 @@ public class TeacherDashboard extends BaseActivity {
                 assignedEventList.clear();
                 List<Event> allEventsList = new ArrayList<>();
                 Set<CalendarDay> eventDates = new HashSet<>();
+                LocalDate currentDate = LocalDate.now(); // Get current date
                 for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
                     Event event = dataSnapshot.getValue(Event.class);
                     if (event != null) {
@@ -335,7 +336,19 @@ public class TeacherDashboard extends BaseActivity {
                 for (Event event : allEventsList) {
                     boolean shouldAdd = false;
                     String eventFor = event.getEventFor();
-                    if (eventFor != null) {
+                    // Check if event start date is after the current date
+                    boolean isFutureEvent = true;
+                    try {
+                        LocalDate eventDate = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
+                        if (!eventDate.isAfter(currentDate)) {
+                            isFutureEvent = false;
+                            Log.d(TAG, "Excluding event on or before current date: " + event.getEventName() +
+                                    ", StartDate: " + event.getStartDate());
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing event date for filtering: " + event.getEventName(), e);
+                    }
+                    if (eventFor != null && isFutureEvent) {
                         String normalizedEventFor = eventFor.toLowerCase();
                         if (normalizedEventFor.contains("all") ||
                                 normalizedEventFor.contains("everyone") ||
