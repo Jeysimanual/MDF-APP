@@ -11,10 +11,10 @@ android {
 
     defaultConfig {
         applicationId = "com.capstone.mdfeventmanagementsystem"
-        minSdk = 33
+        minSdk = 30
         //noinspection EditedTargetSdkVersion,ExpiredTargetSdkVersion
         targetSdk = 35
-        versionCode = 12
+        versionCode = 14
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -22,7 +22,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

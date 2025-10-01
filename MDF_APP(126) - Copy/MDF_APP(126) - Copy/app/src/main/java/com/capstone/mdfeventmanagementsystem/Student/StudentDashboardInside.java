@@ -20,6 +20,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
 import com.capstone.mdfeventmanagementsystem.R;
@@ -52,6 +53,7 @@ public class StudentDashboardInside extends BaseActivity {
     private Button registerButton, ticketButton, evalButton;
     private Object targetParticipant = null;
     private TextView textViewParticipantCount;
+    private SwipeRefreshLayout swipeRefreshLayout;
 
     private FirebaseAuth mAuth;
     private String eventUID;
@@ -128,11 +130,22 @@ public class StudentDashboardInside extends BaseActivity {
         ImageView backButton = findViewById(R.id.back_button);
         TextView eventType = findViewById(R.id.eventType);
         TextView eventFor = findViewById(R.id.eventFor);
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
 
         backButton.setOnClickListener(v -> finish());
 
         // Add OnClickListener for eventImage to show popup
         eventImage.setOnClickListener(v -> showImagePopup(eventPhotoUrl)); // Use class variable
+
+        // Set up SwipeRefreshLayout listener
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            // Refresh data by calling existing methods
+            displayEventDetails();
+            checkRegistrationStatus();
+            getTargetParticipant(eventUID);
+            // Stop the refreshing animation
+            swipeRefreshLayout.setRefreshing(false);
+        });
     }
 
     private void showImagePopup(String imageUrl) {
@@ -190,7 +203,7 @@ public class StudentDashboardInside extends BaseActivity {
         TextView eventType = findViewById(R.id.eventType);
         TextView eventFor = findViewById(R.id.eventFor);
         eventType.setText(intent.getStringExtra("eventType"));
-        String eventForValue = intent.getStringExtra("eventFor"); // First and only definition
+        String eventForValue = intent.getStringExtra("eventFor");
         if (eventForValue != null && !eventForValue.isEmpty()) {
             // Split the eventFor string by commas
             String[] grades = eventForValue.split(",");
@@ -228,7 +241,7 @@ public class StudentDashboardInside extends BaseActivity {
         }
 
         // Check if the event is for the correct year level
-        Log.d(TAG, "Intent eventFor: " + eventForValue); // Use the existing eventForValue
+        Log.d(TAG, "Intent eventFor: " + eventForValue);
         Log.d(TAG, "SharedPreferences yearLevel: " + studentYearLevel);
 
         if (studentYearLevel != null && eventForValue != null) {
@@ -758,9 +771,6 @@ public class StudentDashboardInside extends BaseActivity {
 
     /**
      * Set dynamic background color for eventType based on event type
-     */
-    /**
-     * Set dynamic background color for eventType based on event type and adjust text color to a darker shade
      */
     private void setEventTypeStyle(TextView eventType, ImageView badgeIcon) {
         if (eventType == null) return;

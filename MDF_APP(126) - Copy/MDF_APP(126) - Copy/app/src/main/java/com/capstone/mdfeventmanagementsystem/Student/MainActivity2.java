@@ -560,8 +560,13 @@ public class MainActivity2 extends BaseActivity {
                         event.setEventUID(dataSnapshot.getKey());
                         try {
                             LocalDate eventDate = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
-                            if (!eventDate.isBefore(today) && !eventDate.isAfter(maxDate)) {
+                            // Only include events after the current date
+                            if (eventDate.isAfter(today) && !eventDate.isAfter(maxDate)) {
                                 eventList.add(event);
+                                Log.d(TAG, "Added event: " + event.getEventName() + ", Date: " + event.getStartDate());
+                            } else {
+                                Log.d(TAG, "Excluding event: " + event.getEventName() + ", Date: " + event.getStartDate() +
+                                        " (either on or before today or after max date)");
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "Error parsing event date for event " + event.getEventUID(), e);
