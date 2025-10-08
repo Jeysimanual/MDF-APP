@@ -41,9 +41,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import android.widget.AutoCompleteTextView;
+import java.util.Locale;
 
 import javax.mail.MessagingException;
 
@@ -76,9 +75,9 @@ public class StudentSignUp extends BaseActivity {
         tvSignUp = findViewById(R.id.tvSignUp);
 
         idNumber = findViewById(R.id.idNumber);
-        etFirstName = findViewById(R.id.etFirstName);   // now AutoCompleteTextView in XML
-        etLastName = findViewById(R.id.etLastName);     // now AutoCompleteTextView
-        etMiddleName = findViewById(R.id.etMiddleName); // now AutoCompleteTextView
+        etFirstName = findViewById(R.id.etFirstName);
+        etLastName = findViewById(R.id.etLastName);
+        etMiddleName = findViewById(R.id.etMiddleName);
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         etConfirmPassword = findViewById(R.id.etConfirmPassword);
@@ -162,53 +161,50 @@ public class StudentSignUp extends BaseActivity {
             private boolean isEditing = false;
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.toString().contains("  ")) {
-                    etFirstName.setError("Only one whitespace is allowed!");
-                }
-                validateOnlyCharacters(s.toString());
+                validateFirstName(s.toString());
             }
             @Override public void afterTextChanged(Editable s) {
                 if (isEditing) return;
                 isEditing = true;
                 String input = s.toString().trim();
-                String[] names = input.split("\\s+");
-                if (names.length > 1) {
-                    names[0] = capitalizeFirstLetter(names[0]);
-                    names[1] = capitalizeFirstLetter(names[1]);
-                    String formatted = names[0] + " " + names[1];
-                    if (!input.equals(formatted)) {
-                        etFirstName.setText(formatted);
-                        etFirstName.setSelection(formatted.length());
-                    }
-                } else {
-                    String formatted = capitalizeFirstLetter(input);
-                    if (!input.equals(formatted)) {
-                        etFirstName.setText(formatted);
-                        etFirstName.setSelection(formatted.length());
-                    }
+                String[] parts = input.split("\\s+");
+                for (int i = 0; i < parts.length; i++) {
+                    parts[i] = capitalizeFirstLetter(parts[i]);
                 }
+                String formatted = String.join(" ", parts);
+                if (!input.equals(formatted)) {
+                    etFirstName.setText(formatted);
+                    etFirstName.setSelection(formatted.length());
+                }
+                validateFirstName(etFirstName.getText().toString());
                 isEditing = false;
             }
         });
 
-        // 🔹 Real-time validation for Last Name
         etLastName.addTextChangedListener(new TextWatcher() {
             private boolean isEditing = false;
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (!s.toString().matches("[a-zA-Z]*")) {
-                    etLastName.setError("Only letters are allowed!");
-                }
+                validateLastName(s.toString());
             }
             @Override public void afterTextChanged(Editable s) {
                 if (isEditing) return;
                 isEditing = true;
-                String input = s.toString();
-                String formatted = capitalizeFirstLetter(input);
+                String input = s.toString().trim();
+                String[] parts = input.split("\\s+");
+                if (parts.length > 2) {
+                    etLastName.setError("Only one space is allowed!");
+                    return;
+                }
+                for (int i = 0; i < parts.length; i++) {
+                    parts[i] = capitalizeFirstLetter(parts[i]);
+                }
+                String formatted = String.join(" ", parts);
                 if (!input.equals(formatted)) {
                     etLastName.setText(formatted);
                     etLastName.setSelection(formatted.length());
                 }
+                validateLastName(etLastName.getText().toString());
                 isEditing = false;
             }
         });
@@ -218,18 +214,29 @@ public class StudentSignUp extends BaseActivity {
             private boolean isEditing = false;
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (!s.toString().isEmpty() && !s.toString().matches("[a-zA-Z]*")) {
-                    etMiddleName.setError("Only letters are allowed!");
+                if (!s.toString().isEmpty()) {
+                    validateMiddleName(s.toString());
                 }
             }
             @Override public void afterTextChanged(Editable s) {
                 if (isEditing) return;
                 isEditing = true;
-                String input = s.toString();
-                String formatted = capitalizeFirstLetter(input);
+                String input = s.toString().trim();
+                String[] parts = input.split("\\s+");
+                if (parts.length > 2) {
+                    etMiddleName.setError("Only one space is allowed!");
+                    return;
+                }
+                for (int i = 0; i < parts.length; i++) {
+                    parts[i] = capitalizeFirstLetter(parts[i]);
+                }
+                String formatted = String.join(" ", parts);
                 if (!input.equals(formatted)) {
                     etMiddleName.setText(formatted);
                     etMiddleName.setSelection(formatted.length());
+                }
+                if (!etMiddleName.getText().toString().isEmpty()) {
+                    validateMiddleName(etMiddleName.getText().toString());
                 }
                 isEditing = false;
             }
@@ -269,15 +276,27 @@ public class StudentSignUp extends BaseActivity {
             }
         });
 
-        // 🔹 Populate Year Level Spinner
+        // 🔹 Populate Year Level Spinner with "Select" as first option
         yearLvlsReference = FirebaseDatabase.getInstance().getReference("yearLvls");
-        String[] yearLevels = {"Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"};
+        List<String> yearLevels = new ArrayList<>();
+        yearLevels.add("Select");
+        yearLevels.add("Grade 7");
+        yearLevels.add("Grade 8");
+        yearLevels.add("Grade 9");
+        yearLevels.add("Grade 10");
+        yearLevels.add("Grade 11");
+        yearLevels.add("Grade 12");
         ArrayAdapter<String> yearAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, yearLevels);
         spinnerYearLevel.setAdapter(yearAdapter);
 
         spinnerYearLevel.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position == 0) {
+                    // "Select" option selected, clear section spinner
+                    spinnerSection.setAdapter(null);
+                    return;
+                }
                 String selectedYear = parent.getItemAtPosition(position).toString().replace(" ", "-");
                 DatabaseReference sectionsRef = yearLvlsReference.child(selectedYear);
                 sectionsRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -285,6 +304,7 @@ public class StudentSignUp extends BaseActivity {
                     public void onDataChange(DataSnapshot snapshot) {
                         if (snapshot.exists()) {
                             List<String> sectionsList = new ArrayList<>();
+                            sectionsList.add("Select"); // Add "Select" as first option
                             for (DataSnapshot sectionSnapshot : snapshot.getChildren()) {
                                 String sectionName = sectionSnapshot.getValue(String.class);
                                 sectionsList.add(sectionName);
@@ -309,6 +329,42 @@ public class StudentSignUp extends BaseActivity {
         });
 
         btnSignUp.setOnClickListener(view -> validateAndRegister());
+    }
+
+    private void validateFirstName(String input) {
+        if (!input.matches("[a-zA-ZñÑ\\s.]*")) {
+            etFirstName.setError("Only letters (including ñ), spaces, and one dot are allowed!");
+        } else if (input.chars().filter(ch -> ch == '.').count() > 1) {
+            etFirstName.setError("Only one dot is allowed!");
+        } else if (input.contains("  ")) {
+            etFirstName.setError("Only single spaces are allowed!");
+        } else {
+            etFirstName.setError(null);
+        }
+    }
+
+    private void validateLastName(String input) {
+        if (!input.matches("[a-zA-ZñÑ\\s]*")) {
+            etLastName.setError("Only letters (including ñ) and one space are allowed!");
+        } else if (input.contains("  ")) {
+            etLastName.setError("Only single spaces are allowed!");
+        } else if (input.split("\\s+").length > 2) {
+            etLastName.setError("Only one space is allowed!");
+        } else {
+            etLastName.setError(null);
+        }
+    }
+
+    private void validateMiddleName(String input) {
+        if (!input.matches("[a-zA-ZñÑ\\s]*")) {
+            etMiddleName.setError("Only letters (including ñ) and one space are allowed!");
+        } else if (input.contains("  ")) {
+            etMiddleName.setError("Only single spaces are allowed!");
+        } else if (input.split("\\s+").length > 2) {
+            etMiddleName.setError("Only one space is allowed!");
+        } else {
+            etMiddleName.setError(null);
+        }
     }
 
     private void showPasswordRequirements() {
@@ -458,6 +514,12 @@ public class StudentSignUp extends BaseActivity {
             return;
         }
 
+        if (yearLevel.equals("Select") || section.equals("Select")) {
+            Log.w(TAG, "Validation failed: Year Level or Section not selected");
+            Toast.makeText(this, "Please select a valid Year Level and Section!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             Log.w(TAG, "Validation failed: Invalid email format");
             Toast.makeText(this, "Enter a valid email address!", Toast.LENGTH_SHORT).show();
@@ -507,8 +569,10 @@ public class StudentSignUp extends BaseActivity {
                                     .setMessage("The ID number exists, but the Year Level or Section you entered does not match our records.\n\nPlease check and try again.")
                                     .setPositiveButton("OK", (dialog, which) -> {
                                         dialog.dismiss();
-                                        btnSignUp.setEnabled(true); // ✅ Re-enable button
+                                        btnSignUp.setEnabled(true); // Re-enable button
+                                        // Allow user to correct and retry
                                     })
+                                    .setCancelable(false)
                                     .show();
                             return;
                         }
@@ -521,11 +585,12 @@ public class StudentSignUp extends BaseActivity {
                             .setMessage("No student record found for this ID, Year Level, and Section.\n\nPlease double-check your information.")
                             .setPositiveButton("OK", (dialog, which) -> {
                                 dialog.dismiss();
-                                btnSignUp.setEnabled(true); // ✅ Re-enable button
+                                btnSignUp.setEnabled(true); // Re-enable button
+                                // Allow user to correct and retry
                             })
+                            .setCancelable(false)
                             .show();
                 }
-
             }
 
             @Override
@@ -534,7 +599,6 @@ public class StudentSignUp extends BaseActivity {
                 Toast.makeText(StudentSignUp.this, "Failed to validate student data!", Toast.LENGTH_SHORT).show();
                 btnSignUp.setEnabled(true); // Re-enable on error
             }
-
         });
     }
 
@@ -563,8 +627,6 @@ public class StudentSignUp extends BaseActivity {
     }
 
     // Update student data including middleName
-    // Inside updateStudentData(), remove saving email + password
-
     private void updateStudentData(String studentKey, String firstName, String lastName, String middleName, String email, String password) {
         int otp = (int) (Math.random() * 900000) + 100000; // Generate 6-digit OTP
         String hashedOtp = hashOtp(String.valueOf(otp));
@@ -584,7 +646,6 @@ public class StudentSignUp extends BaseActivity {
         studentUpdates.put("role", "student");
         studentUpdates.put("isVerified", false);
         studentUpdates.put("otp", hashedOtp);
-        //Still not saving email/password here yet
 
         databaseReference.child(studentKey).updateChildren(studentUpdates)
                 .addOnSuccessListener(aVoid -> {
@@ -593,20 +654,20 @@ public class StudentSignUp extends BaseActivity {
 
                     SharedPreferences sharedPreferences = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
                     SharedPreferences.Editor editor = sharedPreferences.edit();
-                    editor.putString("studentID", studentKey);      // Firebase key
+                    editor.putString("studentID", studentKey);
                     editor.putString("idNumber", idNumber.getText().toString().trim());
                     editor.putString("tempEmail", email);
                     editor.putString("tempPassword", password);
                     editor.apply();
 
                     sendOtpEmail(email, firstName, otp);
-                    btnSignUp.setEnabled(true); // ✅ Ensure button is re-enabled before navigating
+                    btnSignUp.setEnabled(true);
                     navigateToOtpVerification(studentKey, email, password);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to update student data: " + e.getMessage());
                     Toast.makeText(StudentSignUp.this, "Failed to update student data!", Toast.LENGTH_SHORT).show();
-                    btnSignUp.setEnabled(true); // ✅ Re-enable if update fails
+                    btnSignUp.setEnabled(true);
                 });
     }
 
@@ -651,11 +712,4 @@ public class StudentSignUp extends BaseActivity {
         });
     }
 
-    private void validateOnlyCharacters(String input) {
-        if (!input.matches("[a-zA-Z\\s]*")) {
-            etFirstName.setError("Only letters are allowed!");
-        } else {
-            etFirstName.setError(null);
-        }
-    }
 }

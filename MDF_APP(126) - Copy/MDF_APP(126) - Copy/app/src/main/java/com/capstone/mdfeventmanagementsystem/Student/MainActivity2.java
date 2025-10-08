@@ -152,7 +152,7 @@ public class MainActivity2 extends BaseActivity {
 
         findViewById(R.id.fab_scan).setOnClickListener(v -> {
             startActivity(new Intent(getApplicationContext(), QRCheckInActivity.class));
-            overridePendingTransition(0, 0);
+            overridePendingTransition(100, 100);
         });
 
         BottomAppBar bottomAppBar = findViewById(R.id.bottomAppBar);

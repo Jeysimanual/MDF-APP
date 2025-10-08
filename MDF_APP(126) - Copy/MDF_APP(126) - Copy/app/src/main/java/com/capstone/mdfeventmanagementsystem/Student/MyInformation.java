@@ -538,7 +538,7 @@ public class MyInformation extends AppCompatActivity {
                             lastNameText = safeGetString(dataSnapshot, "lastname");
                         }
                         if (middleNameText.equals("--")) {
-                            middleNameText = safeGetString(dataSnapshot, "middleName");
+                            middleNameText = safeGetString(dataSnapshot, "middlename");
                         }
                         if (idNumberText.equals("--")) {
                             idNumberText = safeGetString(dataSnapshot, "idNumber");
@@ -558,9 +558,14 @@ public class MyInformation extends AppCompatActivity {
                         safeSetText(yearLevel, yearLevelText);
                         safeSetText(section, sectionText);
 
-                        String fullName = (firstNameText != null ? firstNameText : "") + " " +
-                                (middleNameText != null && !middleNameText.equals("--") ? middleNameText + " " : "") +
-                                (lastNameText != null ? lastNameText : "");
+                        String fullName = (firstNameText != null ? firstNameText : "") + " ";
+                        if (middleNameText != null && !middleNameText.equals("--") && !middleNameText.equals("N/A")) {
+                            fullName += middleNameText + " ";
+                        } else {
+                            fullName += " ";
+                        }
+                        fullName += (lastNameText != null ? lastNameText : "");
+
                         safeSetText(userFullname, fullName.trim());
                     } else {
                         Log.w(TAG, "Student data not found for UID: " + uid);

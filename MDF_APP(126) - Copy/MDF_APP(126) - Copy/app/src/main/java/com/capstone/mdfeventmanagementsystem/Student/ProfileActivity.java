@@ -357,9 +357,13 @@ public class ProfileActivity extends BaseActivity {
                         }
 
                         // Build full name
-                        String fullName = (firstNameText != null && !firstNameText.equals("--") ? firstNameText : "") + " " +
-                                (middleNameText != null && !middleNameText.equals("--") ? middleNameText + " " : "") +
-                                (lastNameText != null && !lastNameText.equals("--") ? lastNameText : "");
+                        String fullName = (firstNameText != null && !firstNameText.equals("--") ? firstNameText : "") + " ";
+                        if (middleNameText != null && !middleNameText.equals("--") && !middleNameText.equals("N/A")) {
+                            fullName += middleNameText + " ";
+                        } else {
+                            fullName += " ";
+                        }
+                        fullName += (lastNameText != null && !lastNameText.equals("--") ? lastNameText : "");
 
                         // Set the user's full name
                         if (!fullName.trim().isEmpty()) {
