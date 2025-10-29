@@ -9,13 +9,15 @@ import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import android.widget.ProgressBar;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
@@ -50,10 +52,12 @@ public class StudentDashboardInside extends BaseActivity {
     private ImageView eventImage;
     private TextView textViewCheckInTime, textViewCheckOutTime, textViewCurrentDay, textViewStatus;
     private CardView attendanceStatusCard;
-    private Button registerButton, ticketButton, evalButton;
+    private Button registerButton, ticketButton, evalButton, responseButton;
+    private ProgressBar registerProgressBar, ticketProgressBar, evalProgressBar, responseProgressBar; // Added ProgressBars
     private Object targetParticipant = null;
     private TextView textViewParticipantCount;
     private SwipeRefreshLayout swipeRefreshLayout;
+    private boolean qrCodeGenerationFailed = false; // Track QR code generation status
 
     private FirebaseAuth mAuth;
     private String eventUID;
@@ -67,12 +71,10 @@ public class StudentDashboardInside extends BaseActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_student_dashboard_inside);
 
-        // Initialize UI elements
         initializeViews();
         mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();
 
-        // Initially hide attendance status card
         attendanceStatusCard.setVisibility(View.GONE);
 
         if (currentUser == null) {
@@ -81,7 +83,6 @@ public class StudentDashboardInside extends BaseActivity {
             return;
         }
 
-        // Retrieve studentID from UserSession SharedPreferences
         SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
         studentID = sharedPreferences.getString("studentID", null);
         studentYearLevel = sharedPreferences.getString("yearLevel", null);
@@ -89,7 +90,6 @@ public class StudentDashboardInside extends BaseActivity {
         if (studentID == null || studentID.isEmpty()) {
             Toast.makeText(this, "Student ID not found! Please log in again.", Toast.LENGTH_SHORT).show();
             Log.e(TAG, "No studentID found in SharedPreferences!");
-            // Redirect back to login
             Intent intent = new Intent(StudentDashboardInside.this, StudentLogin.class);
             startActivity(intent);
             finish();
@@ -99,10 +99,16 @@ public class StudentDashboardInside extends BaseActivity {
         Log.d(TAG, "Using studentID from SharedPreferences: " + studentID);
         Log.d(TAG, "Using yearLevel from SharedPreferences: " + studentYearLevel);
 
-        // Get event details from intent and display them
+        // **FIX: Call displayEventDetails FIRST**
         displayEventDetails();
 
-        // Set up button click listeners
+        // **DELAY logging until eventUID is set**
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (eventUID != null) {
+                logRegistrationStatus(eventUID);
+            }
+        }, 500);
+
         setupButtonListeners();
     }
 
@@ -121,6 +127,11 @@ public class StudentDashboardInside extends BaseActivity {
         registerButton = findViewById(R.id.registerButton);
         ticketButton = findViewById(R.id.ticketButton);
         evalButton = findViewById(R.id.evalButton);
+        responseButton = findViewById(R.id.responseButton);
+        registerProgressBar = findViewById(R.id.registerProgressBar); // Initialize ProgressBars
+        ticketProgressBar = findViewById(R.id.ticketProgressBar);
+        evalProgressBar = findViewById(R.id.evalProgressBar);
+        responseProgressBar = findViewById(R.id.responseProgressBar);
         textViewParticipantCount = findViewById(R.id.textViewParticipantCount);
         attendanceStatusCard = findViewById(R.id.attendanceStatusCard);
         textViewCheckInTime = findViewById(R.id.textViewCheckInTime);
@@ -143,6 +154,20 @@ public class StudentDashboardInside extends BaseActivity {
             displayEventDetails();
             checkRegistrationStatus();
             getTargetParticipant(eventUID);
+            // Retry QR code generation if it previously failed
+            if (qrCodeGenerationFailed) {
+                Log.d(TAG, "Retrying QR code generation due to previous failure");
+                DatabaseReference ticketRef = FirebaseDatabase.getInstance()
+                        .getReference("students")
+                        .child(studentID)
+                        .child("tickets")
+                        .child(eventUID);
+                ticketRef.get().addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult().exists()) {
+                        generateAndUploadQRCode();
+                    }
+                });
+            }
             // Stop the refreshing animation
             swipeRefreshLayout.setRefreshing(false);
         });
@@ -184,8 +209,8 @@ public class StudentDashboardInside extends BaseActivity {
         eventDescription.setText(intent.getStringExtra("eventDescription"));
         startDate.setText(formatDate(intent.getStringExtra("startDate")));
         endDate.setText(formatDate(intent.getStringExtra("endDate")));
-        startTime.setText(formatTo12HourTime(intent.getStringExtra("startTime")));
-        endTime.setText(formatTo12HourTime(intent.getStringExtra("endTime")));
+        /* startTime.setText(formatTo12HourTime(intent.getStringExtra("startTime"))); */
+        /*endTime.setText(formatTo12HourTime(intent.getStringExtra("endTime"))); */
         venue.setText(intent.getStringExtra("venue"));
         eventSpan.setText(intent.getStringExtra("eventSpan"));
         String graceTimeValue = intent.getStringExtra("graceTime");
@@ -265,15 +290,21 @@ public class StudentDashboardInside extends BaseActivity {
     }
 
     private void setupButtonListeners() {
-        registerButton.setOnClickListener(v -> registerForEvent());
+        registerButton.setOnClickListener(v -> {
+            showRegisterLoading();
+            registerForEvent();
+        });
 
         ticketButton.setOnClickListener(v -> {
+            showTicketLoading();
             Intent ticketIntent = new Intent(StudentDashboardInside.this, StudentTickets.class);
             ticketIntent.putExtra("eventUID", eventUID);
             startActivity(ticketIntent);
+            hideTicketLoading();
         });
 
         evalButton.setOnClickListener(v -> {
+            showEvalLoading();
             // Determine the node based on event status
             DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
             eventRef.get().addOnCompleteListener(eventTask -> {
@@ -291,6 +322,7 @@ public class StudentDashboardInside extends BaseActivity {
                         Intent viewResponseIntent = new Intent(StudentDashboardInside.this, StudentResponse.class);
                         viewResponseIntent.putExtra("eventUID", eventUID);
                         startActivity(viewResponseIntent);
+                        hideEvalLoading();
                     } else {
                         eventQuestionsRef.child("isSubmitted").get().addOnCompleteListener(questionsTask -> {
                             boolean questionsAvailable = questionsTask.isSuccessful() &&
@@ -305,11 +337,77 @@ public class StudentDashboardInside extends BaseActivity {
                                 Toast.makeText(StudentDashboardInside.this,
                                         "Evaluation questions not yet available", Toast.LENGTH_SHORT).show();
                             }
+                            hideEvalLoading();
                         });
                     }
                 });
             });
         });
+
+        responseButton.setOnClickListener(v -> {
+            showResponseLoading();
+            Intent viewResponseIntent = new Intent(StudentDashboardInside.this, StudentResponse.class);
+            viewResponseIntent.putExtra("eventUID", eventUID);
+            startActivity(viewResponseIntent);
+            hideResponseLoading();
+        });
+    }
+
+    // ProgressBar show/hide methods
+    private void showRegisterLoading() {
+        registerProgressBar.setVisibility(View.VISIBLE);
+        registerButton.setEnabled(false);
+        registerButton.setText("Registering...");
+        Log.d(TAG, "Showing register button loading");
+    }
+
+    private void hideRegisterLoading() {
+        registerProgressBar.setVisibility(View.GONE);
+        registerButton.setEnabled(true);
+        registerButton.setText("Register");
+        Log.d(TAG, "Hiding register button loading");
+    }
+
+    private void showTicketLoading() {
+        ticketProgressBar.setVisibility(View.VISIBLE);
+        ticketButton.setEnabled(false);
+        ticketButton.setText("Loading...");
+        Log.d(TAG, "Showing ticket button loading");
+    }
+
+    private void hideTicketLoading() {
+        ticketProgressBar.setVisibility(View.GONE);
+        ticketButton.setEnabled(true);
+        ticketButton.setText("See Ticket");
+        Log.d(TAG, "Hiding ticket button loading");
+    }
+
+    private void showEvalLoading() {
+        evalProgressBar.setVisibility(View.VISIBLE);
+        evalButton.setEnabled(false);
+        evalButton.setText("Loading...");
+        Log.d(TAG, "Showing eval button loading");
+    }
+
+    private void hideEvalLoading() {
+        evalProgressBar.setVisibility(View.GONE);
+        evalButton.setEnabled(true);
+        evalButton.setText("Answer Evaluation");
+        Log.d(TAG, "Hiding eval button loading");
+    }
+
+    private void showResponseLoading() {
+        responseProgressBar.setVisibility(View.VISIBLE);
+        responseButton.setEnabled(false);
+        responseButton.setText("Loading...");
+        Log.d(TAG, "Showing response button loading");
+    }
+
+    private void hideResponseLoading() {
+        responseProgressBar.setVisibility(View.GONE);
+        responseButton.setEnabled(true);
+        responseButton.setText("See Response");
+        Log.d(TAG, "Hiding response button loading");
     }
 
     @Override
@@ -361,6 +459,13 @@ public class StudentDashboardInside extends BaseActivity {
         String status = eventSnapshot.child("status").getValue(String.class);
         String currentEventVersion = eventSnapshot.child("version").getValue(String.class);
 
+        // **CRITICAL LOGGING - ADD THIS**
+        Log.d(TAG, "=== handleEventData DEBUG ===");
+        Log.d(TAG, "registrationAllowed from Firebase: " + registrationAllowed);
+        Log.d(TAG, "node: " + node);
+        Log.d(TAG, "targetParticipant: " + targetParticipant);
+        Log.d(TAG, "event status: " + status);
+
         // Check if student is eligible for this event
         if (!isStudentEligible(eventFor, studentYearLevel)) {
             hideAllButtons();
@@ -376,7 +481,8 @@ public class StudentDashboardInside extends BaseActivity {
             registerButton.setVisibility(View.GONE);
             ticketButton.setVisibility(View.GONE);
             attendanceStatusCard.setVisibility(View.GONE);
-            checkEvaluationStatus(node); // Pass the node ("events" or "archive_events")
+            checkEvaluationStatus(node);
+            Log.d(TAG, "Event is expired. Hiding registration buttons.");
             return;
         }
 
@@ -404,7 +510,13 @@ public class StudentDashboardInside extends BaseActivity {
                         }
                     }
                 }
-                Log.d(TAG, "Ticket count for event " + eventUID + ": " + ticketCount[0]);
+
+                // **CRITICAL LOGGING - ADD THIS**
+                Log.d(TAG, "=== TICKET COUNT DEBUG ===");
+                Log.d(TAG, "Final ticket count: " + ticketCount[0]);
+                Log.d(TAG, "registrationAllowed: " + registrationAllowed);
+                Log.d(TAG, "targetParticipant value: " + targetParticipant);
+                Log.d(TAG, "targetParticipant type: " + (targetParticipant != null ? targetParticipant.getClass().getSimpleName() : "null"));
 
                 // Check if student has a ticket
                 ticketRef.get().addOnCompleteListener(ticketTask -> {
@@ -412,19 +524,21 @@ public class StudentDashboardInside extends BaseActivity {
                         boolean hasTicket = ticketTask.getResult().exists();
 
                         if (hasTicket) {
+                            // Student is registered - existing logic stays the same
                             String studentTicketVersion = ticketTask.getResult().child("version").getValue(String.class);
-
                             if (currentEventVersion != null && !currentEventVersion.equals(studentTicketVersion)) {
                                 ticketRef.removeValue().addOnSuccessListener(aVoid -> {
                                     Log.d(TAG, "Old ticket version (" + studentTicketVersion + ") invalidated. Current version is " + currentEventVersion);
                                     Toast.makeText(this, "Event updated. Please re-register.", Toast.LENGTH_SHORT).show();
                                     updateButtonsForNonRegistered();
                                     attendanceStatusCard.setVisibility(View.GONE);
+                                    hideRegisterLoading();
                                 }).addOnFailureListener(e -> {
                                     Log.e(TAG, "Failed to remove outdated ticket: " + e.getMessage());
+                                    hideRegisterLoading();
                                 });
                             } else {
-                                Log.d(TAG, "Ticket is valid for current version: " + currentEventVersion);
+                                Log.d(TAG, "Student is registered. Showing ticket button and attendance card.");
                                 ticketButton.setText("See Ticket");
                                 ticketButton.setBackgroundColor(ContextCompat.getColor(this, R.color.bg_green));
                                 ticketButton.setEnabled(true);
@@ -433,41 +547,72 @@ public class StudentDashboardInside extends BaseActivity {
                                 fetchAttendanceData();
                             }
                         } else {
-                            if (registrationAllowed == null || !registrationAllowed) {
-                                if (targetParticipant instanceof Long && ticketCount[0] >= (Long) targetParticipant) {
-                                    registerButton.setVisibility(View.GONE);
-                                    ticketButton.setVisibility(View.VISIBLE);
-                                    ticketButton.setText("Event Full");
-                                    ticketButton.setBackgroundColor(ContextCompat.getColor(this, R.color.red));
-                                    ticketButton.setEnabled(false);
-                                    evalButton.setVisibility(View.GONE);
-                                    attendanceStatusCard.setVisibility(View.GONE);
-                                    Toast.makeText(this, "The event has reached its participant limit.", Toast.LENGTH_SHORT).show();
-                                    Log.d(TAG, "Event is full (ticketCount: " + ticketCount[0] + ", targetParticipant: " + targetParticipant + "). Showing 'Event Full' on ticket button.");
+                            // **STUDENT NOT REGISTERED - CRITICAL LOGIC**
+                            Log.d(TAG, "Student is NOT registered. Evaluating registration status...");
+
+                            // **FIXED LOGIC: Only hide buttons if registrationAllowed is explicitly FALSE**
+                            if (registrationAllowed != null && !registrationAllowed) {
+                                Log.d(TAG, "registrationAllowed is FALSE from Firebase. Hiding registration UI.");
+
+                                // Check if it's full (for better user message)
+                                if (targetParticipant instanceof String) {
+                                    try {
+                                        int targetValue = Integer.parseInt((String) targetParticipant);
+                                        if (ticketCount[0] >= targetValue) {
+                                            Log.d(TAG, "Event is FULL (count: " + ticketCount[0] + " >= " + targetValue + ")");
+                                            registerButton.setVisibility(View.GONE);
+                                            ticketButton.setVisibility(View.VISIBLE);
+                                            ticketButton.setText("Event Full");
+                                            ticketButton.setBackgroundColor(ContextCompat.getColor(this, R.color.red));
+                                            ticketButton.setEnabled(false);
+                                            evalButton.setVisibility(View.GONE);
+                                            responseButton.setVisibility(View.GONE);
+                                            attendanceStatusCard.setVisibility(View.GONE);
+                                            Toast.makeText(this, "The event has reached its participant limit.", Toast.LENGTH_SHORT).show();
+                                        } else {
+                                            Log.d(TAG, "Registration closed manually (not full). Hiding all buttons.");
+                                            registerButton.setVisibility(View.GONE);
+                                            ticketButton.setVisibility(View.GONE);
+                                            evalButton.setVisibility(View.GONE);
+                                            responseButton.setVisibility(View.GONE);
+                                            attendanceStatusCard.setVisibility(View.GONE);
+                                            Toast.makeText(this, "Registration is closed for this event.", Toast.LENGTH_SHORT).show();
+                                        }
+                                    } catch (NumberFormatException e) {
+                                        Log.e(TAG, "Invalid targetParticipant format, treating as manually closed", e);
+                                        registerButton.setVisibility(View.GONE);
+                                        ticketButton.setVisibility(View.GONE);
+                                        evalButton.setVisibility(View.GONE);
+                                        responseButton.setVisibility(View.GONE);
+                                        attendanceStatusCard.setVisibility(View.GONE);
+                                        Toast.makeText(this, "Registration is closed for this event.", Toast.LENGTH_SHORT).show();
+                                    }
                                 } else {
+                                    // No target participant limit, just show closed message
                                     registerButton.setVisibility(View.GONE);
                                     ticketButton.setVisibility(View.GONE);
                                     evalButton.setVisibility(View.GONE);
+                                    responseButton.setVisibility(View.GONE);
                                     attendanceStatusCard.setVisibility(View.GONE);
                                     Toast.makeText(this, "Registration is closed for this event.", Toast.LENGTH_SHORT).show();
-                                    Log.d(TAG, "Registration is closed but event is not full (ticketCount: " + ticketCount[0] + "). Hiding all buttons.");
                                 }
                             } else {
+                                // **REGISTRATION IS OPEN - SHOW REGISTER BUTTON**
+                                Log.d(TAG, "Registration is OPEN. Showing register button.");
                                 updateButtonsForNonRegistered();
-                                ticketButton.setText("See Ticket");
-                                ticketButton.setBackgroundColor(ContextCompat.getColor(this, R.color.bg_green));
-                                ticketButton.setEnabled(true);
+                                // Keep ticket button hidden for non-registered users
+                                ticketButton.setVisibility(View.GONE);
+                                evalButton.setVisibility(View.GONE);
+                                responseButton.setVisibility(View.GONE);
                                 attendanceStatusCard.setVisibility(View.GONE);
                             }
                         }
                     } else {
-                        Log.e(TAG, "Error checking ticket: " +
-                                (ticketTask.getException() != null ? ticketTask.getException().getMessage() : "Unknown error"));
+                        Log.e(TAG, "Error checking ticket: " + (ticketTask.getException() != null ? ticketTask.getException().getMessage() : "Unknown error"));
                     }
                 });
             } else {
-                Log.e(TAG, "Error fetching ticket count: " +
-                        (studentsTask.getException() != null ? studentsTask.getException().getMessage() : "Unknown error"));
+                Log.e(TAG, "Error fetching ticket count: " + (studentsTask.getException() != null ? studentsTask.getException().getMessage() : "Unknown error"));
             }
         });
     }
@@ -483,49 +628,41 @@ public class StudentDashboardInside extends BaseActivity {
 
         DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
 
-        final int[] ticketCount = {0}; // Use array to allow modification in lambda
+        final int[] ticketCount = {0};
 
         studentsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                ticketCount[0] = 0; // Reset count
+                ticketCount[0] = 0;
 
-                // Extract the event key from the full path
                 String eventKey = eventId;
                 if (eventId.contains("/")) {
                     String[] parts = eventId.split("/");
                     eventKey = parts[parts.length - 1];
                 }
 
-                Log.d(TAG, "Searching for tickets matching event key: " + eventKey);
-
                 for (DataSnapshot studentSnapshot : dataSnapshot.getChildren()) {
                     if (studentSnapshot.hasChild("tickets")) {
                         DataSnapshot ticketsSnapshot = studentSnapshot.child("tickets");
                         for (DataSnapshot ticketSnapshot : ticketsSnapshot.getChildren()) {
                             String ticketKey = ticketSnapshot.getKey();
-                            Log.d(TAG, "Checking ticket: " + ticketKey);
 
-                            // Method 1: Check if ticket key matches the event key
                             if (eventKey.equals(ticketKey)) {
                                 ticketCount[0]++;
-                                Log.d(TAG, "Found matching ticket by key: " + ticketKey);
                                 continue;
                             }
 
-                            // Method 2: Look for an eventUID field in the ticket
                             if (ticketSnapshot.hasChild("eventUID")) {
                                 String ticketEventUID = ticketSnapshot.child("eventUID").getValue(String.class);
                                 if (eventId.equals(ticketEventUID) || eventKey.equals(ticketEventUID)) {
                                     ticketCount[0]++;
-                                    Log.d(TAG, "Found matching ticket by eventUID field: " + ticketEventUID);
                                 }
                             }
                         }
                     }
                 }
 
-                // Update the UI with the count
+                // Update UI only - NO AUTO-CLOSE LOGIC HERE
                 String displayText;
                 if ("none".equalsIgnoreCase(String.valueOf(targetParticipant))) {
                     displayText = String.valueOf(ticketCount[0]);
@@ -542,29 +679,6 @@ public class StudentDashboardInside extends BaseActivity {
                 }
                 textViewParticipantCount.setText(displayText);
                 Log.d(TAG, "Final ticket count: " + ticketCount[0] + ", targetParticipant: " + targetParticipant);
-
-                // Auto-close registration if targetParticipant is reached
-                if (targetParticipant instanceof String) {
-                    try {
-                        int targetParticipantValue = Integer.parseInt((String) targetParticipant);
-                        if (ticketCount[0] >= targetParticipantValue) {
-                            DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
-                            eventRef.child("registrationAllowed").setValue(false)
-                                    .addOnCompleteListener(task -> {
-                                        if (task.isSuccessful()) {
-                                            Log.d(TAG, "Registration auto-closed as ticket count reached target: " + ticketCount[0] + "/" + targetParticipant);
-                                            Toast.makeText(StudentDashboardInside.this,
-                                                    "Registration closed automatically as participant limit reached",
-                                                    Toast.LENGTH_SHORT).show();
-                                        } else {
-                                            Log.e(TAG, "Failed to auto-close registration: " + task.getException());
-                                        }
-                                    });
-                        }
-                    } catch (NumberFormatException e) {
-                        Log.e(TAG, "Invalid targetParticipant format for auto-close: " + targetParticipant, e);
-                    }
-                }
             }
 
             @Override
@@ -575,6 +689,87 @@ public class StudentDashboardInside extends BaseActivity {
                 }
             }
         });
+    }
+
+    private void getCurrentTicketCount(String eventId, TicketCountCallback callback) {
+        DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
+
+        studentsRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                int ticketCount = 0;
+                String eventKey = eventId;
+                if (eventId.contains("/")) {
+                    String[] parts = eventId.split("/");
+                    eventKey = parts[parts.length - 1];
+                }
+
+                for (DataSnapshot studentSnapshot : task.getResult().getChildren()) {
+                    if (studentSnapshot.hasChild("tickets")) {
+                        DataSnapshot ticketsSnapshot = studentSnapshot.child("tickets");
+                        for (DataSnapshot ticketSnapshot : ticketsSnapshot.getChildren()) {
+                            String ticketKey = ticketSnapshot.getKey();
+                            if (eventKey.equals(ticketKey) ||
+                                    (ticketSnapshot.hasChild("eventUID") &&
+                                            (eventId.equals(ticketSnapshot.child("eventUID").getValue(String.class)) ||
+                                                    eventKey.equals(ticketSnapshot.child("eventUID").getValue(String.class))))) {
+                                ticketCount++;
+                            }
+                        }
+                    }
+                }
+                Log.d(TAG, "Current ticket count for " + eventId + ": " + ticketCount);
+                callback.onCountRetrieved(ticketCount);
+            } else {
+                Log.e(TAG, "Error fetching ticket count: " + task.getException());
+                callback.onCountRetrieved(-1); // Error indicator
+            }
+        });
+    }
+
+    // Callback interface
+    interface TicketCountCallback {
+        void onCountRetrieved(int count);
+    }
+
+    private void closeRegistrationIfNeeded(String eventId, int currentCount) {
+        if (targetParticipant instanceof String) {
+            try {
+                int targetParticipantValue = Integer.parseInt((String) targetParticipant);
+                Log.d(TAG, "Checking registration limit: currentCount=" + currentCount + ", target=" + targetParticipantValue);
+
+                if (currentCount >= targetParticipantValue) {
+                    Log.d(TAG, "LIMIT REACHED! Attempting to close registration: " + currentCount + "/" + targetParticipantValue);
+
+                    // Try events first
+                    DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
+                    eventRef.child("registrationAllowed").setValue(false)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Log.d(TAG, "SUCCESS: Registration closed in 'events' - limit reached: " + currentCount + "/" + targetParticipantValue);
+                                    Toast.makeText(this, "Registration closed - participant limit reached!", Toast.LENGTH_LONG).show();
+                                } else {
+                                    Log.e(TAG, "FAILED to close registration in 'events': " + task.getException());
+                                    // Try archive_events as fallback
+                                    DatabaseReference archiveRef = FirebaseDatabase.getInstance().getReference("archive_events").child(eventId);
+                                    archiveRef.child("registrationAllowed").setValue(false)
+                                            .addOnCompleteListener(archiveTask -> {
+                                                if (archiveTask.isSuccessful()) {
+                                                    Log.d(TAG, "SUCCESS: Registration closed in 'archive_events' - limit reached");
+                                                } else {
+                                                    Log.e(TAG, "FAILED to close registration in both locations: " + archiveTask.getException());
+                                                }
+                                            });
+                                }
+                            });
+                } else {
+                    Log.d(TAG, "Limit NOT reached: " + currentCount + " < " + targetParticipantValue + ". Registration remains open.");
+                }
+            } catch (NumberFormatException e) {
+                Log.e(TAG, "Invalid targetParticipant format for auto-close: " + targetParticipant, e);
+            }
+        } else {
+            Log.d(TAG, "No targetParticipant limit set. Registration remains open.");
+        }
     }
 
     /**
@@ -600,7 +795,7 @@ public class StudentDashboardInside extends BaseActivity {
                 // Default values
                 String checkInTime = "--:--";
                 String checkOutTime = "--:--";
-                String currentDay = "Day 1"; // Default to Day 1
+                String currentDay = "Day 1";
                 String status = "Pending";
                 int statusColor = R.color.gray;
 
@@ -622,7 +817,7 @@ public class StudentDashboardInside extends BaseActivity {
                         }
                     }
 
-                    // If today's date not found, look for the most recent past day with attendance data
+                    // If today's date not found, look for the most recent past day
                     if (activeDaySnapshot == null) {
                         Date today = new Date();
                         Date closestDate = null;
@@ -646,31 +841,36 @@ public class StudentDashboardInside extends BaseActivity {
                         }
                     }
 
-                    // If still no match, just use the first day as fallback
+                    // Fallback to first day
                     if (activeDaySnapshot == null && attendanceDaysSnapshot.getChildren().iterator().hasNext()) {
                         activeDaySnapshot = attendanceDaysSnapshot.getChildren().iterator().next();
                         activeDayKey = activeDaySnapshot.getKey();
                     }
 
-                    // Get the actual day from the key (e.g., "day_2" -> "Day 2")
                     if (activeDayKey != null) {
-                        currentDay = activeDayKey.replace("_", " ").toUpperCase().charAt(0) + activeDayKey.replace("_", " ").substring(1);
+                        currentDay = activeDayKey.replace("_", " ").toUpperCase().charAt(0) +
+                                activeDayKey.replace("_", " ").substring(1);
                     }
 
-                    // Get check-in and check-out times and convert to 12-hour format with AM/PM
-                    if (activeDaySnapshot.child("in").exists()) {
-                        String rawCheckInTime = activeDaySnapshot.child("in").getValue(String.class);
-                        checkInTime = formatTo12HourTime(rawCheckInTime);
+                    // **GET RAW TIMES DIRECTLY FROM DATABASE**
+                    // Get raw "in" time exactly as stored
+                    checkInTime = activeDaySnapshot.child("in").getValue(String.class);
+                    if (checkInTime == null) {
+                        checkInTime = "--:--"; // Default if null
                     }
 
-                    if (activeDaySnapshot.child("out").exists()) {
-                        String rawCheckOutTime = activeDaySnapshot.child("out").getValue(String.class);
-                        checkOutTime = formatTo12HourTime(rawCheckOutTime);
+                    // Get raw "out" time exactly as stored
+                    checkOutTime = activeDaySnapshot.child("out").getValue(String.class);
+                    if (checkOutTime == null) {
+                        checkOutTime = "--:--"; // Default if null
                     }
 
-                    // Determine attendance status
-                    // Prioritize checking for Ongoing status based on check-in and check-out times
-                    if (!checkInTime.equals("--:--") && checkOutTime.equals("--:--")) {
+                    Log.d(TAG, "Raw check-in time from DB: '" + checkInTime + "'");
+                    Log.d(TAG, "Raw check-out time from DB: '" + checkOutTime + "'");
+
+                    // Determine attendance status using raw times
+                    if (checkInTime != null && !checkInTime.equals("--:--") &&
+                            (checkOutTime == null || checkOutTime.equals("--:--"))) {
                         status = "Ongoing";
                         statusColor = R.color.yellow;
                     } else {
@@ -699,55 +899,13 @@ public class StudentDashboardInside extends BaseActivity {
                     }
                 }
 
-                // Update UI with attendance info
+                // Update UI with RAW times
                 updateAttendanceStatusUI(checkInTime, checkOutTime, currentDay, status, statusColor);
 
             } else {
-                // No ticket found - show default "Not Registered" status
                 updateAttendanceStatusUI("Not registered", "Not registered", "N/A", "Not Registered", R.color.red);
             }
         });
-    }
-
-    /**
-     * Format time string to 12-hour format with AM/PM
-     * @param timeString Input time string (expected format: "HH:mm" or "HH:mm:ss")
-     * @return Formatted time string in "hh:mm a" format (e.g., "09:30 AM")
-     */
-    private String formatTo12HourTime(String timeString) {
-        if (timeString == null || timeString.equals("--:--") || timeString.isEmpty()) {
-            return "--:--";
-        }
-
-        try {
-            // Parse the input time
-            SimpleDateFormat inputFormat;
-            if (timeString.contains(":")) {
-                if (timeString.split(":").length == 3) {
-                    // Format: HH:mm:ss
-                    inputFormat = new SimpleDateFormat("HH:mm:ss", Locale.US);
-                } else {
-                    // Format: HH:mm
-                    inputFormat = new SimpleDateFormat("HH:mm", Locale.US);
-                }
-            } else {
-                // Unknown format, return as is
-                return timeString;
-            }
-
-            // Convert to Date
-            Date time = inputFormat.parse(timeString);
-            if (time == null) {
-                return timeString;
-            }
-
-            // Format to 12-hour with AM/PM
-            SimpleDateFormat outputFormat = new SimpleDateFormat("hh:mm a", Locale.US);
-            return outputFormat.format(time);
-        } catch (ParseException e) {
-            Log.e(TAG, "Error formatting time: " + timeString, e);
-            return timeString; // Return original on error
-        }
     }
 
     /**
@@ -808,8 +966,8 @@ public class StudentDashboardInside extends BaseActivity {
      */
     private void updateAttendanceStatusUI(String checkInTime, String checkOutTime, String currentDay,
                                           String status, int statusColorResId) {
-        textViewCheckInTime.setText(checkInTime);
-        textViewCheckOutTime.setText(checkOutTime);
+        textViewCheckInTime.setText(checkInTime);      // Now shows raw DB value
+        textViewCheckOutTime.setText(checkOutTime);    // Now shows raw DB value
         textViewCurrentDay.setText(currentDay);
         textViewStatus.setText(status);
         textViewStatus.setTextColor(ContextCompat.getColor(this, statusColorResId));
@@ -880,6 +1038,7 @@ public class StudentDashboardInside extends BaseActivity {
         registerButton.setVisibility(View.GONE);
         ticketButton.setVisibility(View.VISIBLE);
         evalButton.setVisibility(View.GONE);
+        responseButton.setVisibility(View.GONE);
         // Show attendance card for registered students
         attendanceStatusCard.setVisibility(View.VISIBLE);
         Log.d(TAG, "Student is registered. Showing ticket button and attendance card.");
@@ -892,6 +1051,7 @@ public class StudentDashboardInside extends BaseActivity {
         registerButton.setVisibility(View.VISIBLE);
         ticketButton.setVisibility(View.GONE);
         evalButton.setVisibility(View.GONE);
+        responseButton.setVisibility(View.GONE);
         // Hide attendance card for non-registered students
         attendanceStatusCard.setVisibility(View.GONE);
         Log.d(TAG, "Student is not registered. Showing register button and hiding attendance card.");
@@ -904,6 +1064,7 @@ public class StudentDashboardInside extends BaseActivity {
         registerButton.setVisibility(View.GONE);
         ticketButton.setVisibility(View.GONE);
         evalButton.setVisibility(View.GONE);
+        responseButton.setVisibility(View.GONE);
         // Hide attendance card when all buttons are hidden
         attendanceStatusCard.setVisibility(View.GONE);
     }
@@ -914,6 +1075,7 @@ public class StudentDashboardInside extends BaseActivity {
     private void registerForEvent() {
         if (eventUID == null || eventUID.isEmpty()) {
             Toast.makeText(this, "Event ID is missing!", Toast.LENGTH_SHORT).show();
+            hideRegisterLoading();
             return;
         }
 
@@ -932,6 +1094,7 @@ public class StudentDashboardInside extends BaseActivity {
                     } else {
                         Toast.makeText(this, "Error checking registration status.", Toast.LENGTH_SHORT).show();
                         Log.e(TAG, "Event not found in events or archive_events");
+                        hideRegisterLoading();
                     }
                 });
             }
@@ -944,6 +1107,7 @@ public class StudentDashboardInside extends BaseActivity {
         if (registrationAllowed == null || !registrationAllowed) {
             hideAllButtons();
             Toast.makeText(this, "Registration is closed for this event.", Toast.LENGTH_SHORT).show();
+            hideRegisterLoading();
             return;
         }
 
@@ -953,6 +1117,7 @@ public class StudentDashboardInside extends BaseActivity {
                     if (ticketSnapshot.getKey().equals(eventUID)) {
                         Toast.makeText(this, "You are already registered!", Toast.LENGTH_SHORT).show();
                         updateButtonsForRegistered();
+                        hideRegisterLoading();
                         return;
                     }
                 }
@@ -968,9 +1133,11 @@ public class StudentDashboardInside extends BaseActivity {
                     } else {
                         hideAllButtons();
                         Toast.makeText(this, "You are not eligible for this event.", Toast.LENGTH_SHORT).show();
+                        hideRegisterLoading();
                     }
                 } else {
                     Toast.makeText(this, "Error fetching event details.", Toast.LENGTH_SHORT).show();
+                    hideRegisterLoading();
                 }
             });
         });
@@ -996,6 +1163,7 @@ public class StudentDashboardInside extends BaseActivity {
                 evalButton.setText("Not Registered");
                 evalButton.setBackgroundColor(getResources().getColor(R.color.red));
                 evalButton.setEnabled(false);
+                responseButton.setVisibility(View.GONE);
                 attendanceStatusCard.setVisibility(View.GONE);
                 Log.d(TAG, "Student not registered for this event. Showing 'Not Registered' message and hiding attendance card.");
                 return;
@@ -1030,6 +1198,7 @@ public class StudentDashboardInside extends BaseActivity {
                         evalButton.setText("No Evaluation");
                         evalButton.setBackgroundColor(getResources().getColor(R.color.red));
                         evalButton.setEnabled(false);
+                        responseButton.setVisibility(View.GONE);
                         Log.d(TAG, "Student has no valid attendance (not Present/Late). Showing 'No Evaluation'.");
                         return;
                     }
@@ -1056,16 +1225,20 @@ public class StudentDashboardInside extends BaseActivity {
                                         evalButton.setText("View Response");
                                         evalButton.setBackgroundColor(getResources().getColor(R.color.green));
                                         evalButton.setEnabled(true);
-                                        Log.d(TAG, "User has submitted feedback. Showing View Response button.");
+                                        responseButton.setVisibility(View.VISIBLE);
+                                        responseButton.setEnabled(true);
+                                        Log.d(TAG, "User has submitted feedback. Showing View Response and See Response buttons.");
                                     } else if (isSubmitted != null && isSubmitted) {
-                                        evalButton.setText("ANSWER EVALUATION");
+                                        evalButton.setText("Answer Evaluation");
                                         evalButton.setBackgroundColor(getResources().getColor(R.color.bg_green));
                                         evalButton.setEnabled(true);
+                                        responseButton.setVisibility(View.GONE);
                                         Log.d(TAG, "Event has ended. Evaluation not submitted yet. Showing Evaluate button.");
                                     } else {
                                         evalButton.setText("Event Ended");
                                         evalButton.setBackgroundColor(getResources().getColor(R.color.red));
                                         evalButton.setEnabled(false);
+                                        responseButton.setVisibility(View.GONE);
                                         Log.d(TAG, "Event has ended. No evaluation available. Showing red Event Ended indicator.");
                                     }
                                 } else {
@@ -1075,6 +1248,7 @@ public class StudentDashboardInside extends BaseActivity {
                                     evalButton.setText("Event Ended");
                                     evalButton.setBackgroundColor(getResources().getColor(R.color.red));
                                     evalButton.setEnabled(false);
+                                    responseButton.setVisibility(View.GONE);
                                 }
                             });
                         } else {
@@ -1084,6 +1258,7 @@ public class StudentDashboardInside extends BaseActivity {
                             evalButton.setText("Event Ended");
                             evalButton.setBackgroundColor(getResources().getColor(R.color.red));
                             evalButton.setEnabled(false);
+                            responseButton.setVisibility(View.GONE);
                         }
                     });
                 } else {
@@ -1091,6 +1266,7 @@ public class StudentDashboardInside extends BaseActivity {
                     evalButton.setText("No Attendance Data");
                     evalButton.setBackgroundColor(getResources().getColor(R.color.red));
                     evalButton.setEnabled(false);
+                    responseButton.setVisibility(View.GONE);
                     Log.e(TAG, "No attendance days data found for this ticket");
                 }
             });
@@ -1100,10 +1276,15 @@ public class StudentDashboardInside extends BaseActivity {
     /**
      * Proceed with actual registration after all checks
      */
+    private DatabaseReference getEventRef(String eventId, String node) {
+        return FirebaseDatabase.getInstance().getReference(node).child(eventId);
+    }
+
     private void proceedWithRegistration() {
-        final DatabaseReference[] eventRef = {FirebaseDatabase.getInstance().getReference("events").child(eventUID)};
+        DatabaseReference eventRef = getEventRef(eventUID, "events");
         DatabaseReference ticketRef = FirebaseDatabase.getInstance()
-                .getReference("students")
+                .getReference()
+                .child("students")
                 .child(studentID)
                 .child("tickets")
                 .child(eventUID);
@@ -1113,24 +1294,131 @@ public class StudentDashboardInside extends BaseActivity {
                 Toast.makeText(this, "You are already registered for this event!", Toast.LENGTH_SHORT).show();
                 Log.d(TAG, "Student already registered for event: " + eventUID);
                 updateButtonsForRegistered();
-            } else {
-                eventRef[0].get().addOnCompleteListener(eventTask -> {
+                hideRegisterLoading();
+                return;
+            }
+
+            getCurrentTicketCount(eventUID, currentCount -> {
+                if (currentCount == -1) {
+                    Toast.makeText(this, "Error checking participant limit", Toast.LENGTH_SHORT).show();
+                    hideRegisterLoading();
+                    return;
+                }
+
+                Log.d(TAG, "Pre-registration check - Current tickets: " + currentCount + ", Target: " + targetParticipant);
+
+                if (targetParticipant instanceof String) {
+                    try {
+                        int targetParticipantValue = Integer.parseInt((String) targetParticipant);
+                        if (currentCount >= targetParticipantValue) {
+                            Log.d(TAG, "Event already full before registration: " + currentCount + "/" + targetParticipantValue);
+                            Toast.makeText(this, "Event is full! Registration closed.", Toast.LENGTH_SHORT).show();
+                            registerButton.setEnabled(false);
+                            updateButtonsForNonRegistered();
+                            hideRegisterLoading();
+                            return;
+                        }
+                    } catch (NumberFormatException e) {
+                        Log.e(TAG, "Invalid targetParticipant format", e);
+                    }
+                }
+
+                // Try events first, then archive_events
+                eventRef.get().addOnCompleteListener(eventTask -> {
                     if (!eventTask.isSuccessful() || !eventTask.getResult().exists()) {
-                        // Try archive_events
-                        eventRef[0] = FirebaseDatabase.getInstance().getReference("archive_events").child(eventUID);
-                        eventRef[0].get().addOnCompleteListener(archiveTask -> {
+                        DatabaseReference archiveRef = getEventRef(eventUID, "archive_events");
+                        archiveRef.get().addOnCompleteListener(archiveTask -> {
                             if (archiveTask.isSuccessful() && archiveTask.getResult().exists()) {
-                                handleRegistrationData(archiveTask.getResult());
+                                handleRegistrationDataWithLimitCheck(archiveTask.getResult(), currentCount);
                             } else {
                                 Toast.makeText(this, "Failed to fetch event details.", Toast.LENGTH_SHORT).show();
-                                Log.e(TAG, "Error fetching event details: Event not found in events or archive_events");
+                                hideRegisterLoading();
                             }
                         });
                     } else {
-                        handleRegistrationData(eventTask.getResult());
+                        handleRegistrationDataWithLimitCheck(eventTask.getResult(), currentCount);
                     }
                 });
-            }
+            });
+        });
+    }
+
+    private void handleRegistrationDataWithLimitCheck(DataSnapshot eventSnapshot, int currentCountBeforeRegistration) {
+        String eventSpanValue = eventSnapshot.child("eventSpan").getValue(String.class);
+        String startDateValue = eventSnapshot.child("startDate").getValue(String.class);
+        String endDateValue = eventSnapshot.child("endDate").getValue(String.class);
+        String eventVersion = eventSnapshot.child("version").getValue(String.class);
+
+        long currentTimeMillis = System.currentTimeMillis();
+        String formattedTimestamp = getCurrentTimestamp();
+
+        HashMap<String, Object> ticketData = new HashMap<>();
+        ticketData.put("registeredAt", formattedTimestamp);
+        ticketData.put("timestampMillis", currentTimeMillis);
+        ticketData.put("version", eventVersion != null ? eventVersion : "v1");
+
+        boolean isMultiDay = "multi-day".equals(eventSpanValue);
+        if (isMultiDay && startDateValue != null && endDateValue != null) {
+            Log.d(TAG, "Creating attendance days for multi-day event");
+            HashMap<String, Object> attendanceDays = createAttendanceDaysForDateRange(startDateValue, endDateValue);
+            ticketData.put("attendanceDays", attendanceDays);
+        } else {
+            HashMap<String, Object> attendanceDays = new HashMap<>();
+            HashMap<String, Object> dayData = new HashMap<>();
+            dayData.put("date", startDateValue);
+            dayData.put("status", "N/A");
+            dayData.put("attendance", "pending");
+            attendanceDays.put("day_1", dayData);
+            ticketData.put("attendanceDays", attendanceDays);
+        }
+
+        DatabaseReference ticketRef = FirebaseDatabase.getInstance()
+                .getReference("students")
+                .child(studentID)
+                .child("tickets")
+                .child(eventUID);
+
+        Log.d(TAG, "Creating ticket. Current count BEFORE registration: " + currentCountBeforeRegistration);
+
+        ticketRef.setValue(ticketData)
+                .addOnSuccessListener(aVoid -> {
+                    // **FIX: New total = count BEFORE + 1 (this registration)**
+                    int newTotalCount = currentCountBeforeRegistration + 1;
+                    Log.d(TAG, "Ticket created! New total count AFTER registration: " + newTotalCount);
+
+                    Toast.makeText(this, "Registered successfully!", Toast.LENGTH_SHORT).show();
+                    Log.d(TAG, "Event registered at " + formattedTimestamp);
+
+                    // Check if THIS registration filled the limit
+                    closeRegistrationIfNeeded(eventUID, newTotalCount);
+
+                    generateAndUploadQRCode();
+                    updateButtonsForRegistered();
+
+                    // **TRIGGER UI UPDATE** - This will refresh the registration status
+                    checkRegistrationStatus();
+                    hideRegisterLoading();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Registration failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Error registering event: " + e.getMessage());
+                    hideRegisterLoading();
+                });
+    }
+
+    private void logRegistrationStatus(String eventId) {
+        // Check events node
+        DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
+        eventRef.child("registrationAllowed").get().addOnCompleteListener(task -> {
+            Boolean allowed = task.getResult().getValue(Boolean.class);
+            Log.d(TAG, "events node registrationAllowed: " + allowed);
+        });
+
+        // Check archive_events node
+        DatabaseReference archiveRef = FirebaseDatabase.getInstance().getReference("archive_events").child(eventId);
+        archiveRef.child("registrationAllowed").get().addOnCompleteListener(task -> {
+            Boolean allowed = task.getResult().getValue(Boolean.class);
+            Log.d(TAG, "archive_events node registrationAllowed: " + allowed);
         });
     }
 
@@ -1175,10 +1463,12 @@ public class StudentDashboardInside extends BaseActivity {
                     Log.d(TAG, "Event registered at " + formattedTimestamp);
                     generateAndUploadQRCode();
                     updateButtonsForRegistered();
+                    hideRegisterLoading();
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Registration failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     Log.e(TAG, "Error registering event: " + e.getMessage());
+                    hideRegisterLoading();
                 });
     }
 
@@ -1231,46 +1521,73 @@ public class StudentDashboardInside extends BaseActivity {
     }
 
     /**
-     * Generate QR code for the ticket and upload to Firebase
+     * Generate QR code for the ticket and upload to Firebase with retry mechanism
      */
     private void generateAndUploadQRCode() {
-        QrCodeGenerator.generateQRCodeWithEventAndStudentInfo(this, eventUID, new QrCodeGenerator.OnQRCodeGeneratedListener() {
-            @Override
-            public void onQRCodeGenerated(Bitmap qrCodeBitmap) {
-                Log.d(TAG, "QR Code successfully generated.");
+        final int MAX_RETRIES = 3;
+        final long RETRY_DELAY_MS = 2000; // 2 seconds delay between retries
+
+        class QRCodeRetryHandler {
+            private int retryCount = 0;
+
+            void attemptQRCodeGeneration() {
+                QrCodeGenerator.generateQRCodeWithEventAndStudentInfo(StudentDashboardInside.this, eventUID, new QrCodeGenerator.OnQRCodeGeneratedListener() {
+                    @Override
+                    public void onQRCodeGenerated(Bitmap qrCodeBitmap) {
+                        Log.d(TAG, "QR Code successfully generated.");
+                        qrCodeGenerationFailed = false; // Reset failure flag
+                    }
+
+                    @Override
+                    public void onQRCodeUploaded(String downloadUrl, String ticketID) {
+                        // Reference to the student's ticket entry
+                        DatabaseReference ticketRef = FirebaseDatabase.getInstance()
+                                .getReference("students")
+                                .child(studentID)
+                                .child("tickets")
+                                .child(eventUID);
+
+                        // Add ticketID and QR code URL (without overwriting attendanceDays if present)
+                        HashMap<String, Object> ticketData = new HashMap<>();
+                        ticketData.put("ticketID", ticketID); // Save the ticket ID
+                        ticketData.put("qrCodeUrl", downloadUrl);
+
+                        ticketRef.updateChildren(ticketData)
+                                .addOnSuccessListener(aVoid -> {
+                                    Toast.makeText(StudentDashboardInside.this, "QR Code saved!", Toast.LENGTH_SHORT).show();
+                                    Log.d(TAG, "QR Code URL saved in Firebase: " + downloadUrl);
+                                    qrCodeGenerationFailed = false; // Reset failure flag
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(StudentDashboardInside.this, "Failed to save QR Code URL!", Toast.LENGTH_SHORT).show();
+                                    Log.e(TAG, "Error saving QR Code URL: " + e.getMessage());
+                                    qrCodeGenerationFailed = true; // Set failure flag
+                                });
+                    }
+
+                    @Override
+                    public void onError(String errorMessage) {
+                        retryCount++;
+                        Log.e(TAG, "QR Code Generation Error (Attempt " + retryCount + "/" + MAX_RETRIES + "): " + errorMessage);
+                        if (retryCount < MAX_RETRIES) {
+                            Log.d(TAG, "Retrying QR code generation in " + RETRY_DELAY_MS + "ms...");
+                            new Handler(Looper.getMainLooper()).postDelayed(this::attemptQRCodeGeneration, RETRY_DELAY_MS);
+                        } else {
+                            Toast.makeText(StudentDashboardInside.this, "QR Code Generation Failed after " + MAX_RETRIES + " attempts: " + errorMessage, Toast.LENGTH_LONG).show();
+                            Log.e(TAG, "Max retries reached for QR Code Generation");
+                            qrCodeGenerationFailed = true; // Set failure flag
+                        }
+                    }
+
+                    @Override
+                    public void attemptQRCodeGeneration() {
+                        
+                    }
+                });
             }
+        }
 
-            @Override
-            public void onQRCodeUploaded(String downloadUrl, String ticketID) {
-                // Reference to the student's ticket entry
-                DatabaseReference ticketRef = FirebaseDatabase.getInstance()
-                        .getReference("students")
-                        .child(studentID)
-                        .child("tickets")
-                        .child(eventUID);
-
-                // Add ticketID and QR code URL (without overwriting attendanceDays if present)
-                HashMap<String, Object> ticketData = new HashMap<>();
-                ticketData.put("ticketID", ticketID); // Save the ticket ID
-                ticketData.put("qrCodeUrl", downloadUrl);
-
-                ticketRef.updateChildren(ticketData)
-                        .addOnSuccessListener(aVoid -> {
-                            Toast.makeText(StudentDashboardInside.this, "QR Code saved!", Toast.LENGTH_SHORT).show();
-                            Log.d(TAG, "QR Code URL saved in Firebase: " + downloadUrl);
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(StudentDashboardInside.this, "Failed to save QR Code URL!", Toast.LENGTH_SHORT).show();
-                            Log.e(TAG, "Error saving QR Code URL: " + e.getMessage());
-                        });
-            }
-
-            @Override
-            public void onError(String errorMessage) {
-                Toast.makeText(StudentDashboardInside.this, "QR Code Generation Failed: " + errorMessage, Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "QR Code Generation Error: " + errorMessage);
-            }
-        });
+        new QRCodeRetryHandler().attemptQRCodeGeneration();
     }
 
     /**

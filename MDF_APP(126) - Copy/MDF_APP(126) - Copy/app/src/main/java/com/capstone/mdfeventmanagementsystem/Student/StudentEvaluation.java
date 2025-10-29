@@ -22,9 +22,6 @@ import com.capstone.mdfeventmanagementsystem.Models.Question;
 import com.capstone.mdfeventmanagementsystem.Models.QuestionResponse;
 import com.capstone.mdfeventmanagementsystem.R;
 import com.capstone.mdfeventmanagementsystem.Models.FeedbackMetadata;
-import com.capstone.mdfeventmanagementsystem.Models.Question;
-import com.capstone.mdfeventmanagementsystem.Models.QuestionResponse;
-
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -261,55 +258,122 @@ public class StudentEvaluation extends AppCompatActivity {
         // Show loading
         showLoading();
         submitButton.setEnabled(false);
-        Log.d(RESPONSE_TAG, "All required questions answered, proceeding to save feedback");
+        Log.d(RESPONSE_TAG, "All required questions answered, proceeding to check archive_events");
 
-        // Check if student has already submitted feedback for this event
-        DatabaseReference eventFeedbackRef = FirebaseDatabase.getInstance()
-                .getReference("eventFeedback")
-                .child(eventId)
-                .child(studentId);
+        // Check if event is in archive_events
+        DatabaseReference archiveEventRef = FirebaseDatabase.getInstance()
+                .getReference("archive_events")
+                .child(eventId);
 
-        Log.d(RESPONSE_TAG, "Checking path for existing feedback: " + eventFeedbackRef.toString());
-
-        eventFeedbackRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        archiveEventRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
-                    Log.d(RESPONSE_TAG, "Student has already submitted feedback for this event");
-                } else {
-                    Log.d(RESPONSE_TAG, "No existing feedback found for this student");
-                }
+                    Log.d(RESPONSE_TAG, "Event found in archive_events");
+                    // Check if feedback already exists in eventFeedback
+                    DatabaseReference eventFeedbackRef = FirebaseDatabase.getInstance()
+                            .getReference("eventFeedback")
+                            .child(eventId)
+                            .child(studentId);
+                    eventFeedbackRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot feedbackSnapshot) {
+                            if (feedbackSnapshot.exists()) {
+                                Log.d(RESPONSE_TAG, "Student has already submitted feedback for this archived event");
+                            } else {
+                                Log.d(RESPONSE_TAG, "No existing feedback found for this student in archived event");
+                            }
+                            // Save feedback to eventFeedback and studentsFeedback to archive_events
+                            saveFeedback(studentId, studentName, responses, true);
+                        }
 
-                // Save feedback regardless of whether it exists or not
-                saveFeedback(studentId, studentName, responses);
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
+                            Log.e(RESPONSE_TAG, "Error checking existing feedback: " + databaseError.getMessage());
+                            Toast.makeText(StudentEvaluation.this, "Error submitting feedback: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
+                            hideLoading();
+                            submitButton.setEnabled(true);
+                        }
+                    });
+                } else {
+                    Log.d(RESPONSE_TAG, "Event not found in archive_events, checking events");
+                    // Check if event is in events
+                    DatabaseReference eventRef = FirebaseDatabase.getInstance()
+                            .getReference("events")
+                            .child(eventId);
+                    eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot eventSnapshot) {
+                            if (eventSnapshot.exists()) {
+                                Log.d(RESPONSE_TAG, "Event found in events");
+                                // Check if feedback already exists in eventFeedback
+                                DatabaseReference eventFeedbackRef = FirebaseDatabase.getInstance()
+                                        .getReference("eventFeedback")
+                                        .child(eventId)
+                                        .child(studentId);
+                                eventFeedbackRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(DataSnapshot feedbackSnapshot) {
+                                        if (feedbackSnapshot.exists()) {
+                                            Log.d(RESPONSE_TAG, "Student has already submitted feedback for this event");
+                                        } else {
+                                            Log.d(RESPONSE_TAG, "No existing feedback found for this student in event");
+                                        }
+                                        // Save feedback to eventFeedback and studentsFeedback to events
+                                        saveFeedback(studentId, studentName, responses, false);
+                                    }
+
+                                    @Override
+                                    public void onCancelled(DatabaseError databaseError) {
+                                        Log.e(RESPONSE_TAG, "Error checking existing feedback: " + databaseError.getMessage());
+                                        Toast.makeText(StudentEvaluation.this, "Error submitting feedback: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
+                                        hideLoading();
+                                        submitButton.setEnabled(true);
+                                    }
+                                });
+                            } else {
+                                Log.w(RESPONSE_TAG, "Event not found in events or archive_events");
+                                Toast.makeText(StudentEvaluation.this, "Event not found", Toast.LENGTH_SHORT).show();
+                                hideLoading();
+                                submitButton.setEnabled(true);
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(DatabaseError databaseError) {
+                            Log.e(RESPONSE_TAG, "Error checking events: " + databaseError.getMessage());
+                            Toast.makeText(StudentEvaluation.this, "Error checking event status: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
+                            hideLoading();
+                            submitButton.setEnabled(true);
+                        }
+                    });
+                }
             }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
-                Log.e(RESPONSE_TAG, "Error checking existing feedback: " + databaseError.getMessage());
-                Toast.makeText(StudentEvaluation.this, "Error submitting feedback: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
+                Log.e(RESPONSE_TAG, "Error checking archive_events: " + databaseError.getMessage());
+                Toast.makeText(StudentEvaluation.this, "Error checking event status: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
                 hideLoading();
                 submitButton.setEnabled(true);
             }
         });
     }
 
-    private void saveFeedback(String studentId, String studentName, List<QuestionResponse> responses) {
+    private void saveFeedback(String studentId, String studentName, List<QuestionResponse> responses, boolean isArchived) {
         // Get current date and time
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
         String dateSubmitted = sdf.format(new Date());
         long timestamp = System.currentTimeMillis();
 
-        Log.d(RESPONSE_TAG, "Starting to save feedback for student: " + studentId + " eventId: " + eventId);
+        Log.d(RESPONSE_TAG, "Starting to save feedback for student: " + studentId + " eventId: " + eventId + " isArchived: " + isArchived);
         Log.d(RESPONSE_TAG, "Total responses to save: " + responses.size());
 
         // Create feedback metadata
         FeedbackMetadata metadata = new FeedbackMetadata(eventId, dateSubmitted, timestamp, studentName);
         Log.d(RESPONSE_TAG, "Created metadata: " + metadata.toString());
 
-        // Create a separate write for metadata and responses
-        // Strategy: Use updateChildren to ensure both nodes are written atomically
-
+        // Save feedback to eventFeedback node
         DatabaseReference eventFeedbackRef = FirebaseDatabase.getInstance()
                 .getReference("eventFeedback")
                 .child(eventId)
@@ -365,11 +429,11 @@ public class StudentEvaluation extends AppCompatActivity {
         updates.put("metadata", metadataMap);
         updates.put("responses", responsesMap);
 
-        Log.d(RESPONSE_TAG, "About to write to Firebase with updateChildren");
+        Log.d(RESPONSE_TAG, "About to write to eventFeedback with updateChildren");
         Log.d(RESPONSE_TAG, "Updates map contains keys: " + updates.keySet());
         Log.d(RESPONSE_TAG, "Responses map contains " + responsesMap.size() + " responses");
 
-        // Use updateChildren to ensure atomic write
+        // Use updateChildren to ensure atomic write to eventFeedback
         eventFeedbackRef.updateChildren(updates)
                 .addOnSuccessListener(aVoid -> {
                     Log.d(RESPONSE_TAG, "Feedback saved successfully to eventFeedback node");
@@ -404,9 +468,9 @@ public class StudentEvaluation extends AppCompatActivity {
                         }
                     });
 
-                    // Now update student completion status in events
+                    // Update student completion status in either archive_events or events
                     DatabaseReference eventStudentRef = FirebaseDatabase.getInstance()
-                            .getReference("events")
+                            .getReference(isArchived ? "archive_events" : "events")
                             .child(eventId)
                             .child("studentsFeedback")
                             .child(studentId);
@@ -417,10 +481,11 @@ public class StudentEvaluation extends AppCompatActivity {
 
                     eventStudentRef.updateChildren(completionUpdate)
                             .addOnSuccessListener(aVoid2 -> {
-                                Log.d(RESPONSE_TAG, "Student completion status updated successfully");
+                                Log.d(RESPONSE_TAG, "Student completion status updated successfully in " +
+                                        (isArchived ? "archive_events" : "events"));
 
                                 // Update student attendance status from Pending to Completed
-                                updateAttendanceStatus(studentId);
+                                updateAttendanceStatus(studentId, isArchived);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(RESPONSE_TAG, "Error updating event completion status: " + e.getMessage());
@@ -437,9 +502,9 @@ public class StudentEvaluation extends AppCompatActivity {
                 });
     }
 
-    // New method to update attendance status from "Pending" to "Completed"
-    private void updateAttendanceStatus(String studentId) {
-        Log.d(RESPONSE_TAG, "Updating attendance status for student: " + studentId + " in event: " + eventId);
+    // Modified method to update attendance status, considering archived status
+    private void updateAttendanceStatus(String studentId, boolean isArchived) {
+        Log.d(RESPONSE_TAG, "Updating attendance status for student: " + studentId + " in event: " + eventId + " isArchived: " + isArchived);
 
         // First check if the student has a ticket for this event
         DatabaseReference ticketRef = FirebaseDatabase.getInstance()
@@ -456,7 +521,7 @@ public class StudentEvaluation extends AppCompatActivity {
 
                     // Get event data to check if it's a multi-day event
                     DatabaseReference eventRef = FirebaseDatabase.getInstance()
-                            .getReference("events")
+                            .getReference(isArchived ? "archive_events" : "events")
                             .child(eventId);
 
                     eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -501,7 +566,7 @@ public class StudentEvaluation extends AppCompatActivity {
                                     updateTicketStatus(ticketRef, "day_1", "Completed");
                                 }
                             } else {
-                                Log.e(RESPONSE_TAG, "Event not found in database");
+                                Log.e(RESPONSE_TAG, "Event not found in " + (isArchived ? "archive_events" : "events"));
                                 Toast.makeText(StudentEvaluation.this, "Feedback submitted successfully", Toast.LENGTH_SHORT).show();
                                 hideLoading();
                                 finish();

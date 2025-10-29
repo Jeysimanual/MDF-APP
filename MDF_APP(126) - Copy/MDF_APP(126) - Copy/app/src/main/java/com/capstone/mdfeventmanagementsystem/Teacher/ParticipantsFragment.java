@@ -1012,6 +1012,7 @@ public class ParticipantsFragment extends Fragment {
     }
 
     // 1. First, add this helper method to convert 24-hour time to 12-hour format with AM/PM
+    /*
     private String formatTo12Hour(String time24) {
         if (time24 == null || time24.isEmpty() || "N/A".equals(time24)) {
             return "";
@@ -1030,34 +1031,34 @@ public class ParticipantsFragment extends Fragment {
             return time24; // Return original if there's an error
         }
     }
+     */
 
     // 2. Modify the extractAttendanceData method to format times
     private void extractAttendanceData(Participant participant, DataSnapshot daySnapshot) {
-        // Get check-in time
-        String timeIn = "";
+        // Get raw check-in time DIRECTLY from database
+        String rawTimeIn = "";
         if (daySnapshot.child("in").exists()) {
-            timeIn = daySnapshot.child("in").getValue(String.class);
+            rawTimeIn = daySnapshot.child("in").getValue(String.class);
+            if (rawTimeIn == null) rawTimeIn = "";
         }
 
-        // Store the original 24-hour time format in Participant object (for backend processing)
-        participant.setTimeIn24(timeIn == null || "N/A".equals(timeIn) ? "" : timeIn);
-
-        // Set the formatted 12-hour time for display
-        participant.setTimeIn(formatTo12Hour(timeIn));
-
-        // Get check-out time
-        String timeOut = "";
+        // Get raw check-out time DIRECTLY from database
+        String rawTimeOut = "";
         if (daySnapshot.child("out").exists()) {
-            timeOut = daySnapshot.child("out").getValue(String.class);
+            rawTimeOut = daySnapshot.child("out").getValue(String.class);
+            if (rawTimeOut == null) rawTimeOut = "";
         }
 
-        // Store the original 24-hour time format in Participant object (for backend processing)
-        participant.setTimeOut24(timeOut == null || "N/A".equals(timeOut) ? "" : timeOut);
+        // **USE RAW TIMES FOR BOTH DISPLAY AND STORAGE**
+        // No formatting - show exactly what's in the database
+        participant.setTimeIn(rawTimeIn);           // Raw time for display
+        participant.setTimeIn24(rawTimeIn);         // Raw time for backend processing
 
-        // Set the formatted 12-hour time for display
-        participant.setTimeOut(formatTo12Hour(timeOut));
+        participant.setTimeOut(rawTimeOut);         // Raw time for display
+        participant.setTimeOut24(rawTimeOut);       // Raw time for backend processing
 
-        // Rest of the method remains the same...
+        Log.d(TAG, "Raw times for " + participant.getName() +
+                ": in='" + rawTimeIn + "', out='" + rawTimeOut + "'");
 
         // Get attendance status from database if it exists
         String status = "Pending"; // Default status
@@ -1067,19 +1068,14 @@ public class ParticipantsFragment extends Fragment {
         } else if (daySnapshot.child("status").exists()) {
             status = daySnapshot.child("status").getValue(String.class);
         } else {
-            // If no status found, determine it based on check-in/out times
-            if (!participant.getTimeIn24().isEmpty() && participant.getTimeOut24().isEmpty()) {
+            // If no status found, determine it based on raw check-in/out times
+            if (!rawTimeIn.isEmpty() && rawTimeOut.isEmpty()) {
                 status = "Ongoing";
-            } else if (!participant.getTimeIn24().isEmpty() && !participant.getTimeOut24().isEmpty()) {
-                // Check if the student was late
-                boolean isLate = false;
-                if (daySnapshot.child("isLate").exists()) {
-                    isLate = daySnapshot.child("isLate").getValue(Boolean.class);
-                } else {
-                    isLate = wasCheckInLate(participant.getTimeIn24());
-                }
+            } else if (!rawTimeIn.isEmpty() && !rawTimeOut.isEmpty()) {
+                // Check if the student was late using raw times
+                boolean isLate = wasCheckInLate(rawTimeIn);
                 status = isLate ? "Late" : "Present";
-            } else if (participant.getTimeIn24().isEmpty() && participant.getTimeOut24().isEmpty()) {
+            } else if (rawTimeIn.isEmpty() && rawTimeOut.isEmpty()) {
                 status = "Pending";
             }
         }
@@ -1088,24 +1084,26 @@ public class ParticipantsFragment extends Fragment {
     }
 
     // 3. Modify the wasCheckInLate method to use the 24-hour time
-    private boolean wasCheckInLate(String checkInTime) {
-        if (checkInTime == null || checkInTime.isEmpty() || eventStartTime == null || eventGraceTime == null) {
+    private boolean wasCheckInLate(String rawCheckInTime) {
+        if (rawCheckInTime == null || rawCheckInTime.isEmpty() ||
+                eventStartTime == null || eventGraceTime == null) {
             return false;
         }
 
         try {
-            // Parse times - make sure we're using the 24-hour format time for comparison
+            // Use raw 24-hour format for comparison
             SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
-            Date startTimeDate = timeFormat.parse(eventStartTime);
-
-            // If the check-in time is already in 12-hour format, we need to convert it back
-            Date checkInTimeDate;
-            if (checkInTime.contains("AM") || checkInTime.contains("PM")) {
-                SimpleDateFormat format12 = new SimpleDateFormat("hh:mm a", Locale.getDefault());
-                checkInTimeDate = format12.parse(checkInTime);
-            } else {
-                checkInTimeDate = timeFormat.parse(checkInTime);
+            // Handle both HH:mm and HH:mm:ss formats
+            if (rawCheckInTime.contains(":")) {
+                String[] timeParts = rawCheckInTime.split(":");
+                if (timeParts.length == 3) {
+                    // HH:mm:ss format - truncate to HH:mm
+                    rawCheckInTime = timeParts[0] + ":" + timeParts[1];
+                }
             }
+
+            Date startTimeDate = timeFormat.parse(eventStartTime);
+            Date checkInTimeDate = timeFormat.parse(rawCheckInTime);
 
             // Calculate grace period
             int graceMinutes = 0;
@@ -1125,7 +1123,9 @@ public class ParticipantsFragment extends Fragment {
             return checkInTimeDate.after(graceEndTime);
 
         } catch (ParseException e) {
-            Log.e(TAG, "Error parsing times for late check: " + e.getMessage());
+            Log.e(TAG, "Error parsing raw times for late check: " + e.getMessage());
+            Log.e(TAG, "Raw check-in time: '" + rawCheckInTime + "'");
+            Log.e(TAG, "Event start time: '" + eventStartTime + "'");
             return false;
         }
     }
@@ -1276,45 +1276,30 @@ public class ParticipantsFragment extends Fragment {
 
         // Loop through all participants
         for (Participant participant : participantList) {
-            String timeIn = participant.getTimeIn();
-            String timeOut = participant.getTimeOut();
+            // Use raw times from Participant object
+            String rawTimeIn = participant.getTimeIn24();  // Raw time
+            String rawTimeOut = participant.getTimeOut24(); // Raw time
             String currentStatus = participant.getStatus();
 
-            // Debug log to show current participant status
             Log.d(TAG, "Checking participant: " + participant.getName() +
                     ", Status: " + currentStatus +
-                    ", TimeIn: " + (timeIn.isEmpty() ? "empty" : timeIn) +
-                    ", TimeOut: " + (timeOut.isEmpty() ? "empty" : timeOut));
+                    ", RawTimeIn: '" + rawTimeIn + "'" +
+                    ", RawTimeOut: '" + rawTimeOut + "'");
 
             // Check if status is "Pending" (no check-in, no check-out)
             if ((currentStatus.equalsIgnoreCase("Pending") || currentStatus.equalsIgnoreCase("pending"))
-                    && timeIn.isEmpty() && timeOut.isEmpty()) {
-
-                // Mark status as "absent" for display
+                    && rawTimeIn.isEmpty() && rawTimeOut.isEmpty()) {
                 participant.setStatus("Absent");
-
-                // Update in Firebase with lowercase "absent"
                 updatePendingToAbsentInFirebase(participant.getId(), participant.getTicketRef());
-
-                Log.d(TAG, "Changed status from pending to absent for student " +
-                        participant.getId() + " after event end + 1 hour");
             }
-            // ADDING THIS NEW CONDITION: Check if status is "Ongoing" (has check-in but no check-out)
+            // Check if status is "Ongoing" (has check-in but no check-out)
             else if ((currentStatus.equalsIgnoreCase("Ongoing") || currentStatus.equalsIgnoreCase("ongoing"))
-                    && !timeIn.isEmpty() && timeOut.isEmpty()) {
-
-                // Mark status as "absent" for display
+                    && !rawTimeIn.isEmpty() && rawTimeOut.isEmpty()) {
                 participant.setStatus("Absent");
-
-                // Update in Firebase
                 updateIncompleteCheckoutToAbsentInFirebase(participant.getId(), participant.getTicketRef());
-
-                Log.d(TAG, "Changed status from ongoing to absent for student " +
-                        participant.getId() + " after event end + 1 hour");
             }
         }
 
-        // Update adapter to refresh UI
         if (adapter != null) {
             adapter.notifyDataSetChanged();
         }
@@ -1946,13 +1931,13 @@ public class ParticipantsFragment extends Fragment {
                 statusValueCell.setCellStyle(centerAlignedStyle);
 
                 Cell timeInValueCell = row.createCell(startCol + 1);
-                String formattedTimeIn = formatTo12Hour(attendanceData.getTimeIn());
-                timeInValueCell.setCellValue(formattedTimeIn); // Use the formatted time!
+                /*String formattedTimeIn = formatTo12Hour(attendanceData.getTimeIn()); */
+                /*timeInValueCell.setCellValue(formattedTimeIn); // Use the formatted time!*/
                 timeInValueCell.setCellStyle(centerAlignedStyle);
 
                 Cell timeOutValueCell = row.createCell(startCol + 2);
-                String formattedTimeOut = formatTo12Hour(attendanceData.getTimeOut());
-                timeOutValueCell.setCellValue(formattedTimeOut); // Use the formatted time!
+                /*String formattedTimeOut = formatTo12Hour(attendanceData.getTimeOut());*/
+                /*timeOutValueCell.setCellValue(formattedTimeOut); // Use the formatted time!*/
                 timeOutValueCell.setCellStyle(centerAlignedStyle);
             }
         }

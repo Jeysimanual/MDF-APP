@@ -146,22 +146,22 @@ public class StudentTickets extends BaseActivity {
     /**
      * Logout the user and clear cache
 
-    public void logout() {
-        // Sign out from Firebase
-        FirebaseAuth.getInstance().signOut();
+     public void logout() {
+     // Sign out from Firebase
+     FirebaseAuth.getInstance().signOut();
 
-        // Clear profile image cache
-        clearProfileImageCache();
+     // Clear profile image cache
+     clearProfileImageCache();
 
-        // Clear user session data
-        SharedPreferences sessionPrefs = getSharedPreferences("UserSession", MODE_PRIVATE);
-        sessionPrefs.edit().clear().apply();
+     // Clear user session data
+     SharedPreferences sessionPrefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+     sessionPrefs.edit().clear().apply();
 
-        // Redirect to login screen
-        Intent intent = new Intent(this, StudentLogin.class);
-        startActivity(intent);
-        finish();
-    } */
+     // Redirect to login screen
+     Intent intent = new Intent(this, StudentLogin.class);
+     startActivity(intent);
+     finish();
+     } */
 
     private void fetchStudentUID() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
@@ -262,46 +262,72 @@ public class StudentTickets extends BaseActivity {
         eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!snapshot.exists()) {
-                    Log.w(TAG, "Event not found for UID: " + eventUID);
-                    swipeRefreshLayout.setRefreshing(false);
-                    return;
-                }
-
-                String eventName = snapshot.child("eventName").getValue(String.class);
-                String eventType = snapshot.child("eventType").getValue(String.class);
-                String startDate = snapshot.child("startDate").getValue(String.class);
-                String endDate = snapshot.child("endDate").getValue(String.class);
-                String startTime = snapshot.child("startTime").getValue(String.class);
-                String endTime = snapshot.child("endTime").getValue(String.class);
-                String graceTime = snapshot.child("graceTime").getValue(String.class);
-                String eventSpan = snapshot.child("eventSpan").getValue(String.class);
-                String venue = snapshot.child("venue").getValue(String.class);
-                String eventDescription = snapshot.child("eventDescription").getValue(String.class);
-
-                if (eventName != null && eventType != null && startDate != null && startTime != null && venue != null) {
-                    EventTicket ticket = new EventTicket(
-                            eventName, eventType, startDate, endDate, startTime, endTime,
-                            graceTime, eventSpan, venue, eventDescription, qrCodeUrl, ticketID
-                    );
-
-                    ticketList.add(ticket);
-                    adapter.notifyDataSetChanged();
-                    updateEmptyState(ticketList.isEmpty());
-                    swipeRefreshLayout.setRefreshing(false);
+                if (snapshot.exists()) {
+                    processEventSnapshot(snapshot, eventUID, qrCodeUrl, ticketID);
                 } else {
-                    Log.e(TAG, "Missing event details for EventUID: " + eventUID);
-                    swipeRefreshLayout.setRefreshing(false);
+                    Log.w(TAG, "Event not found in events for UID: " + eventUID);
+                    // Check archive_events collection
+                    DatabaseReference archiveEventRef = FirebaseDatabase.getInstance().getReference("archive_events").child(eventUID);
+                    archiveEventRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot archiveSnapshot) {
+                            if (archiveSnapshot.exists()) {
+                                Log.d(TAG, "Event found in archive_events for UID: " + eventUID);
+                                processEventSnapshot(archiveSnapshot, eventUID, qrCodeUrl, ticketID);
+                            } else {
+                                Log.w(TAG, "Event not found in archive_events for UID: " + eventUID);
+                                swipeRefreshLayout.setRefreshing(false);
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError error) {
+                            Log.e(TAG, "Error fetching event details from archive_events: " + error.getMessage());
+                            swipeRefreshLayout.setRefreshing(false);
+                        }
+                    });
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Error fetching event details: " + error.getMessage());
-                updateEmptyState(ticketList.isEmpty());
+                Log.e(TAG, "Error fetching event details from events: " + error.getMessage());
                 swipeRefreshLayout.setRefreshing(false);
             }
         });
+    }
+
+    private void processEventSnapshot(DataSnapshot snapshot, String eventUID, String qrCodeUrl, String ticketID) {
+        String eventName = snapshot.child("eventName").getValue(String.class);
+        String eventType = snapshot.child("eventType").getValue(String.class);
+        String startDate = snapshot.child("startDate").getValue(String.class);
+        String endDate = snapshot.child("endDate").getValue(String.class);
+        String startTime = snapshot.child("startTime").getValue(String.class);
+        String endTime = snapshot.child("endTime").getValue(String.class);
+        String graceTime = snapshot.child("graceTime").getValue(String.class);
+        String eventSpan = snapshot.child("eventSpan").getValue(String.class);
+        String venue = snapshot.child("venue").getValue(String.class);
+        String eventDescription = snapshot.child("eventDescription").getValue(String.class);
+
+        // Truncate venue to 20 characters and add ellipses if longer
+        if (venue != null && venue.length() > 20) {
+            venue = venue.substring(0, 17) + "...";
+        }
+
+        if (eventName != null && eventType != null && startDate != null && startTime != null && venue != null) {
+            EventTicket ticket = new EventTicket(
+                    eventName, eventType, startDate, endDate, startTime, endTime,
+                    graceTime, eventSpan, venue, eventDescription, qrCodeUrl, ticketID
+            );
+
+            ticketList.add(ticket);
+            adapter.notifyDataSetChanged();
+            updateEmptyState(ticketList.isEmpty());
+            swipeRefreshLayout.setRefreshing(false);
+        } else {
+            Log.e(TAG, "Missing event details for EventUID: " + eventUID);
+            swipeRefreshLayout.setRefreshing(false);
+        }
     }
 
     private void updateEmptyState(boolean showEmptyState) {

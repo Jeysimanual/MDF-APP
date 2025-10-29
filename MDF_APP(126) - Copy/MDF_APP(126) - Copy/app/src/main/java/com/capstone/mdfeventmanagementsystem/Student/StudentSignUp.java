@@ -1,6 +1,7 @@
 package com.capstone.mdfeventmanagementsystem.Student;
 
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
@@ -21,10 +22,12 @@ import android.widget.Toast;
 import android.text.TextUtils;
 import android.text.method.PasswordTransformationMethod;
 import android.view.MotionEvent;
+import android.widget.ProgressBar;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.capstone.mdfeventmanagementsystem.Utilities.BaseActivity;
 import com.capstone.mdfeventmanagementsystem.Utilities.MailSender;
@@ -54,10 +57,10 @@ public class StudentSignUp extends BaseActivity {
     AutoCompleteTextView etFirstName, etMiddleName, etLastName;
     private EditText etPassword, etConfirmPassword;
     private TextView checkLength, checkUpperCase, checkLowerCase, checkDigit, checkSpecialChar;
-
     private Spinner spinnerYearLevel, spinnerSection;
     private TextView tvSignUp;
     private Button btnSignUp;
+    private ProgressBar signUpProgressBar;
     private DatabaseReference databaseReference, yearLvlsReference;
 
     private String capitalizeFirstLetter(String input) {
@@ -73,7 +76,6 @@ public class StudentSignUp extends BaseActivity {
         setContentView(R.layout.activity_student_sign_up);
 
         tvSignUp = findViewById(R.id.tvSignUp);
-
         idNumber = findViewById(R.id.idNumber);
         etFirstName = findViewById(R.id.etFirstName);
         etLastName = findViewById(R.id.etLastName);
@@ -84,10 +86,10 @@ public class StudentSignUp extends BaseActivity {
         spinnerYearLevel = findViewById(R.id.spinnerYearLevel);
         spinnerSection = findViewById(R.id.spinnerSection);
         btnSignUp = findViewById(R.id.btnSignUp);
+        signUpProgressBar = findViewById(R.id.signUpProgressBar);
         ImageView backBtn = findViewById(R.id.backBtn);
         TextView backText = findViewById(R.id.back_text);
 
-        // Initialize the validation TextViews
         checkLength = findViewById(R.id.checkLength);
         checkUpperCase = findViewById(R.id.checkUpperCase);
         checkLowerCase = findViewById(R.id.checkLowerCase);
@@ -117,7 +119,6 @@ public class StudentSignUp extends BaseActivity {
         backBtn.setOnClickListener(goBackListener);
         backText.setOnClickListener(goBackListener);
 
-        // 🔹 Setup Adapters for suggestions
         ArrayAdapter<String> firstNameAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, new ArrayList<>());
         ArrayAdapter<String> middleNameAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, new ArrayList<>());
         ArrayAdapter<String> lastNameAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, new ArrayList<>());
@@ -126,7 +127,6 @@ public class StudentSignUp extends BaseActivity {
         etMiddleName.setAdapter(middleNameAdapter);
         etLastName.setAdapter(lastNameAdapter);
 
-        // 🔹 Fetch unverified student names
         databaseReference = FirebaseDatabase.getInstance().getReference("students");
         databaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -156,7 +156,6 @@ public class StudentSignUp extends BaseActivity {
             }
         });
 
-        // 🔹 Real-time validation for First Name
         etFirstName.addTextChangedListener(new TextWatcher() {
             private boolean isEditing = false;
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -209,7 +208,6 @@ public class StudentSignUp extends BaseActivity {
             }
         });
 
-        // 🔹 Real-time validation for Middle Name (optional)
         etMiddleName.addTextChangedListener(new TextWatcher() {
             private boolean isEditing = false;
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -242,7 +240,6 @@ public class StudentSignUp extends BaseActivity {
             }
         });
 
-        // 🔹 ID validation
         idNumber.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -259,7 +256,6 @@ public class StudentSignUp extends BaseActivity {
             }
         });
 
-        // 🔹 Password validation
         etPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -276,7 +272,6 @@ public class StudentSignUp extends BaseActivity {
             }
         });
 
-        // 🔹 Populate Year Level Spinner with "Select" as first option
         yearLvlsReference = FirebaseDatabase.getInstance().getReference("yearLvls");
         List<String> yearLevels = new ArrayList<>();
         yearLevels.add("Select");
@@ -293,7 +288,6 @@ public class StudentSignUp extends BaseActivity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (position == 0) {
-                    // "Select" option selected, clear section spinner
                     spinnerSection.setAdapter(null);
                     return;
                 }
@@ -304,7 +298,7 @@ public class StudentSignUp extends BaseActivity {
                     public void onDataChange(DataSnapshot snapshot) {
                         if (snapshot.exists()) {
                             List<String> sectionsList = new ArrayList<>();
-                            sectionsList.add("Select"); // Add "Select" as first option
+                            sectionsList.add("Select");
                             for (DataSnapshot sectionSnapshot : snapshot.getChildren()) {
                                 String sectionName = sectionSnapshot.getValue(String.class);
                                 sectionsList.add(sectionName);
@@ -374,7 +368,6 @@ public class StudentSignUp extends BaseActivity {
         checkDigit.setVisibility(View.VISIBLE);
         checkSpecialChar.setVisibility(View.VISIBLE);
 
-        // If password has been entered, update the validation status
         if (!TextUtils.isEmpty(etPassword.getText())) {
             validatePassword(etPassword.getText().toString());
         }
@@ -389,16 +382,13 @@ public class StudentSignUp extends BaseActivity {
     }
 
     private void setPasswordToggle() {
-        // Initially set the drawables
         etPassword.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.hide, 0);
         etConfirmPassword.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.hide, 0);
 
         etPassword.setOnTouchListener((v, event) -> {
             final int DRAWABLE_RIGHT = 2;
-
             if (event.getAction() == MotionEvent.ACTION_UP) {
                 if (etPassword.getCompoundDrawables()[DRAWABLE_RIGHT] != null) {
-                    // Check if touch is within the bounds of the right drawable
                     if (event.getRawX() >= (etPassword.getRight() - etPassword.getCompoundDrawables()[DRAWABLE_RIGHT].getBounds().width() - etPassword.getPaddingRight())) {
                         togglePasswordVisibility(etPassword);
                         return true;
@@ -410,10 +400,8 @@ public class StudentSignUp extends BaseActivity {
 
         etConfirmPassword.setOnTouchListener((v, event) -> {
             final int DRAWABLE_RIGHT = 2;
-
             if (event.getAction() == MotionEvent.ACTION_UP) {
                 if (etConfirmPassword.getCompoundDrawables()[DRAWABLE_RIGHT] != null) {
-                    // Check if touch is within the bounds of the right drawable
                     if (event.getRawX() >= (etConfirmPassword.getRight() - etConfirmPassword.getCompoundDrawables()[DRAWABLE_RIGHT].getBounds().width() - etConfirmPassword.getPaddingRight())) {
                         togglePasswordVisibility(etConfirmPassword);
                         return true;
@@ -426,17 +414,14 @@ public class StudentSignUp extends BaseActivity {
 
     private void togglePasswordVisibility(EditText editText) {
         if (editText.getTransformationMethod() instanceof PasswordTransformationMethod) {
-            // Show password
             editText.setTransformationMethod(null);
             editText.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.view, 0);
         } else {
-            // Hide password
             editText.setTransformationMethod(PasswordTransformationMethod.getInstance());
             editText.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.hide, 0);
         }
     }
 
-    /** PASSWORD VALIDATION **/
     private void validatePassword(String password) {
         boolean isLengthValid = password.length() >= 8;
         boolean hasUpperCase = !password.equals(password.toLowerCase());
@@ -444,23 +429,20 @@ public class StudentSignUp extends BaseActivity {
         boolean hasDigit = password.matches(".*\\d.*");
         boolean hasSpecialChar = password.matches(".*[!@#$%^&*(),.?\":{}|<>].*");
 
-        // Update UI indicators - color only, no visibility change
         checkLength.setTextColor(isLengthValid ? getColor(R.color.green) : getColor(R.color.red));
         checkUpperCase.setTextColor(hasUpperCase ? getColor(R.color.green) : getColor(R.color.red));
         checkLowerCase.setTextColor(hasLowerCase ? getColor(R.color.green) : getColor(R.color.red));
         checkDigit.setTextColor(hasDigit ? getColor(R.color.green) : getColor(R.color.red));
         checkSpecialChar.setTextColor(hasSpecialChar ? getColor(R.color.green) : getColor(R.color.red));
 
-        // Enable sign-up button only if all conditions are met
         btnSignUp.setEnabled(isLengthValid && hasUpperCase && hasLowerCase && hasDigit && hasSpecialChar);
     }
 
-    /** CONFIRM PASSWORD VALIDATION **/
     private void validateConfirmPassword() {
         if (!TextUtils.equals(etPassword.getText().toString(), etConfirmPassword.getText().toString())) {
             etConfirmPassword.setError("Passwords do not match!");
         } else {
-            etConfirmPassword.setError(null); // Clear the error if passwords match
+            etConfirmPassword.setError(null);
         }
     }
 
@@ -472,6 +454,17 @@ public class StudentSignUp extends BaseActivity {
                 password.matches(".*[!@#$%^&*(),.?\":{}|<>].*");
     }
 
+    private void setLoading(boolean isLoading) {
+        if (isLoading) {
+            signUpProgressBar.setVisibility(View.VISIBLE);
+            btnSignUp.setText("");
+        } else {
+            signUpProgressBar.setVisibility(View.GONE);
+            btnSignUp.setText("Sign Up");
+        }
+        btnSignUp.setEnabled(!isLoading);
+    }
+
     private void validateAndRegister() {
         Log.d(TAG, "validateAndRegister() called");
 
@@ -479,7 +472,7 @@ public class StudentSignUp extends BaseActivity {
         String firstName = etFirstName.getText().toString().trim();
         String lastName = etLastName.getText().toString().trim();
         String middleName = etMiddleName.getText().toString().trim();
-        String email = etEmail.getText().toString().trim();
+        String email = etEmail.getText().toString().trim().toLowerCase();
         String password = etPassword.getText().toString();
         String confirmPassword = etConfirmPassword.getText().toString();
         String yearLevel = spinnerYearLevel.getSelectedItem() != null ? spinnerYearLevel.getSelectedItem().toString() : "";
@@ -488,7 +481,6 @@ public class StudentSignUp extends BaseActivity {
         Log.d(TAG, "User input: ID=" + studentIdNumber + ", First Name=" + firstName + ", Last Name=" + lastName +
                 ", Middle Name=" + middleName + ", Email=" + email + ", Year Level=" + yearLevel + ", Section=" + section);
 
-        // Validation checks
         if (etFirstName.getError() != null || etLastName.getError() != null || etMiddleName.getError() != null) {
             Log.w(TAG, "Validation failed: Fields contain errors");
             Toast.makeText(this, "Please correct the errors before submitting!", Toast.LENGTH_SHORT).show();
@@ -532,19 +524,37 @@ public class StudentSignUp extends BaseActivity {
             return;
         }
 
-        Log.d(TAG, "Validation passed. Checking student existence in Firebase...");
+        Log.d(TAG, "Validation passed. Checking student existence and email uniqueness in Firebase...");
 
-        // Disable button to prevent double clicks
-        btnSignUp.setEnabled(false);
+        setLoading(true);
 
-        // Validate student existence in Firebase
         DatabaseReference studentsRef = FirebaseDatabase.getInstance().getReference("students");
 
         studentsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                boolean found = false;
+                // Check for email uniqueness first
+                for (DataSnapshot studentSnapshot : snapshot.getChildren()) {
+                    Student student = studentSnapshot.getValue(Student.class);
+                    if (student != null && email.equalsIgnoreCase(student.getEmail())) {
+                        new androidx.appcompat.app.AlertDialog.Builder(StudentSignUp.this)
+                                .setTitle("Email Already in Use")
+                                .setMessage("This email address is already registered. Please use a different email or log in.")
+                                .setPositiveButton("OK", (dialog, which) -> {
+                                    dialog.dismiss();
+                                    setLoading(false);
+                                    Intent intent = new Intent(StudentSignUp.this, StudentLogin.class);
+                                    startActivity(intent);
+                                    finish();
+                                })
+                                .setCancelable(false)
+                                .show();
+                        return;
+                    }
+                }
 
+                // Check student ID and verification status
+                boolean found = false;
                 for (DataSnapshot studentSnapshot : snapshot.getChildren()) {
                     Student student = studentSnapshot.getValue(Student.class);
 
@@ -554,23 +564,36 @@ public class StudentSignUp extends BaseActivity {
                         String studentYearLevel = student.getYearLevel();
                         String studentSection = student.getSection();
 
+                        // Check if the student is already verified
+                        if (student.isVerified()) {
+                            new androidx.appcompat.app.AlertDialog.Builder(StudentSignUp.this)
+                                    .setTitle("Account Already Exists")
+                                    .setMessage("This student ID already has a verified account. Please log in instead.")
+                                    .setPositiveButton("OK", (dialog, which) -> {
+                                        dialog.dismiss();
+                                        setLoading(false);
+                                        Intent intent = new Intent(StudentSignUp.this, StudentLogin.class);
+                                        startActivity(intent);
+                                        finish();
+                                    })
+                                    .setCancelable(false)
+                                    .show();
+                            return;
+                        }
+
                         String yearLevelNumber = extractNumberFromYearLevel(yearLevel);
 
                         if ((studentYearLevel.equals(yearLevelNumber) || studentYearLevel.equalsIgnoreCase(yearLevel)) &&
                                 studentSection.trim().equalsIgnoreCase(section.trim())) {
-
-                            // ✅ Valid match → proceed with update
                             updateStudentData(studentKey, firstName, lastName, middleName, email, password);
                             return;
                         } else {
-                            // ❌ ID found but wrong year/section → show AlertDialog
                             new androidx.appcompat.app.AlertDialog.Builder(StudentSignUp.this)
                                     .setTitle("Invalid Information")
                                     .setMessage("The ID number exists, but the Year Level or Section you entered does not match our records.\n\nPlease check and try again.")
                                     .setPositiveButton("OK", (dialog, which) -> {
                                         dialog.dismiss();
-                                        btnSignUp.setEnabled(true); // Re-enable button
-                                        // Allow user to correct and retry
+                                        setLoading(false);
                                     })
                                     .setCancelable(false)
                                     .show();
@@ -585,8 +608,7 @@ public class StudentSignUp extends BaseActivity {
                             .setMessage("No student record found for this ID, Year Level, and Section.\n\nPlease double-check your information.")
                             .setPositiveButton("OK", (dialog, which) -> {
                                 dialog.dismiss();
-                                btnSignUp.setEnabled(true); // Re-enable button
-                                // Allow user to correct and retry
+                                setLoading(false);
                             })
                             .setCancelable(false)
                             .show();
@@ -597,7 +619,7 @@ public class StudentSignUp extends BaseActivity {
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Database error: " + error.getMessage());
                 Toast.makeText(StudentSignUp.this, "Failed to validate student data!", Toast.LENGTH_SHORT).show();
-                btnSignUp.setEnabled(true); // Re-enable on error
+                setLoading(false);
             }
         });
     }
@@ -626,9 +648,8 @@ public class StudentSignUp extends BaseActivity {
         return false;
     }
 
-    // Update student data including middleName
     private void updateStudentData(String studentKey, String firstName, String lastName, String middleName, String email, String password) {
-        int otp = (int) (Math.random() * 900000) + 100000; // Generate 6-digit OTP
+        int otp = (int) (Math.random() * 900000) + 100000;
         String hashedOtp = hashOtp(String.valueOf(otp));
 
         String fullName = middleName.isEmpty()
@@ -644,14 +665,12 @@ public class StudentSignUp extends BaseActivity {
         }
         studentUpdates.put("fullName", fullName);
         studentUpdates.put("role", "student");
-        studentUpdates.put("isVerified", false);
         studentUpdates.put("otp", hashedOtp);
+        studentUpdates.put("isVerified", false); // Only for unverified students
 
         databaseReference.child(studentKey).updateChildren(studentUpdates)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Updating student with studentKey: " + studentKey);
-                    Log.d(TAG, "Student data updated (without email/password). Waiting for OTP verification.");
-
+                    Log.d(TAG, "Student data updated successfully");
                     SharedPreferences sharedPreferences = getSharedPreferences("MyAppPrefs", MODE_PRIVATE);
                     SharedPreferences.Editor editor = sharedPreferences.edit();
                     editor.putString("studentID", studentKey);
@@ -659,15 +678,14 @@ public class StudentSignUp extends BaseActivity {
                     editor.putString("tempEmail", email);
                     editor.putString("tempPassword", password);
                     editor.apply();
-
                     sendOtpEmail(email, firstName, otp);
-                    btnSignUp.setEnabled(true);
+                    setLoading(false);
                     navigateToOtpVerification(studentKey, email, password);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to update student data: " + e.getMessage());
                     Toast.makeText(StudentSignUp.this, "Failed to update student data!", Toast.LENGTH_SHORT).show();
-                    btnSignUp.setEnabled(true);
+                    setLoading(false);
                 });
     }
 
@@ -711,5 +729,4 @@ public class StudentSignUp extends BaseActivity {
             }
         });
     }
-
 }

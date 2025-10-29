@@ -674,73 +674,130 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/attendanceStatusCard">
 
-                        <Button
-                            android:id="@+id/registerButton"
+                        <FrameLayout
                             android:layout_width="200dp"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
-                            android:layout_weight="1"
-                            android:backgroundTint="@color/bg_green_btn"
-                            android:text="Register"
-                            android:textAllCaps="true"
-                            android:textColor="@android:color/white"
-                            android:visibility="gone"
                             app:layout_constraintBottom_toBottomOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent" />
+                            app:layout_constraintTop_toTopOf="parent">
 
-                        <Button
-                            android:id="@+id/ticketButton"
+                            <Button
+                                android:id="@+id/registerButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:backgroundTint="@color/bg_green_btn"
+                                android:text="Register"
+                                android:textAllCaps="true"
+                                android:textColor="@android:color/white"
+                                android:visibility="gone" />
+
+                            <ProgressBar
+                                android:id="@+id/registerProgressBar"
+                                style="?android:attr/progressBarStyleSmall"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="16dp"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
+
+                        <FrameLayout
                             android:layout_width="200dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:backgroundTint="@color/bg_green_btn"
                             android:layout_marginTop="10dp"
-                            android:clickable="false"
-                            android:text="SEE TICKET"
-                            android:textAllCaps="true"
-                            android:textColor="@android:color/white"
-                            android:visibility="gone"
                             app:layout_constraintBottom_toBottomOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent" />
+                            app:layout_constraintTop_toBottomOf="@+id/registerButton"
+                            tools:ignore="NotSibling">
 
-                        <Button
-                            android:id="@+id/evalButton"
+                            <Button
+                                android:id="@+id/ticketButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:backgroundTint="@color/bg_green_btn"
+                                android:text="SEE TICKET"
+                                android:textAllCaps="true"
+                                android:textColor="@android:color/white"
+                                android:visibility="gone" />
+
+                            <ProgressBar
+                                android:id="@+id/ticketProgressBar"
+                                style="?android:attr/progressBarStyleSmall"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="16dp"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
+
+                        <FrameLayout
                             android:layout_width="200dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:backgroundTint="@color/bg_green_btn"
-                            android:clickable="false"
-                            android:text="ANSWER EVALUATION"
-                            android:textAllCaps="true"
-                            android:textColor="@android:color/white"
-                            android:visibility="gone"
+                            android:layout_marginTop="10dp"
                             app:layout_constraintBottom_toBottomOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent" />
+                            app:layout_constraintTop_toBottomOf="@+id/ticketButton"
+                            tools:ignore="NotSibling">
 
-                        <Button
-                            android:id="@+id/responseButton"
+                            <Button
+                                android:id="@+id/evalButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:backgroundTint="@color/bg_green_btn"
+                                android:text="ANSWER EVALUATION"
+                                android:textAllCaps="true"
+                                android:textColor="@android:color/white"
+                                android:visibility="gone" />
+
+                            <ProgressBar
+                                android:id="@+id/evalProgressBar"
+                                style="?android:attr/progressBarStyleSmall"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="16dp"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
+
+                        <FrameLayout
                             android:layout_width="200dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:backgroundTint="@color/bg_green_btn"
-                            android:clickable="false"
-                            android:text="SEE RESPONSE"
-                            android:textAllCaps="true"
-                            android:textColor="@android:color/white"
-                            android:visibility="gone"
+                            android:layout_marginTop="10dp"
                             app:layout_constraintBottom_toBottomOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent" />
+                            app:layout_constraintTop_toBottomOf="@+id/evalButton"
+                            tools:ignore="NotSibling">
+
+                            <Button
+                                android:id="@+id/responseButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:backgroundTint="@color/bg_green_btn"
+                                android:text="SEE RESPONSE"
+                                android:textAllCaps="true"
+                                android:textColor="@android:color/white"
+                                android:visibility="gone" />
+
+                            <ProgressBar
+                                android:id="@+id/responseProgressBar"
+                                style="?android:attr/progressBarStyleSmall"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="16dp"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
 
                     </androidx.constraintlayout.widget.ConstraintLayout>
-
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
             </ScrollView>

@@ -26,8 +26,11 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class StudentResponse extends AppCompatActivity {
 
@@ -127,10 +130,18 @@ public class StudentResponse extends AppCompatActivity {
                         // Get date submitted from metadata
                         String dateSubmitted = metadataSnapshot.child("dateSubmitted").getValue(String.class);
 
-                        // Set header text with only submission date
+                        // Set header text with formatted submission date
                         String headerText = "";
                         if (dateSubmitted != null) {
-                            headerText = "Submitted on " + dateSubmitted;
+                            try {
+                                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                                SimpleDateFormat outputFormat = new SimpleDateFormat("MMMM d, yyyy, h:mm:ss a", Locale.getDefault());
+                                Date date = inputFormat.parse(dateSubmitted);
+                                headerText = "Submitted on " + outputFormat.format(date);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error parsing dateSubmitted: " + e.getMessage());
+                                headerText = "Submitted on " + dateSubmitted; // Fallback to raw value
+                            }
                         }
                         headerTextView.setText(headerText);
                         Log.d(TAG, "Setting header text: " + headerText);

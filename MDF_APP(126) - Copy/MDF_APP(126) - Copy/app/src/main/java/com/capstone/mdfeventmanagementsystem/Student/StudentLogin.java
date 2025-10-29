@@ -179,37 +179,45 @@ public class StudentLogin extends BaseActivity {
     private void fetchStudentID(String userEmail) {
         studentRef = FirebaseDatabase.getInstance().getReference("students");
         Log.d(TAG, "Querying database at path: " + studentRef.toString());
+        // Use .get() for a one-time server query to avoid cache
         studentRef.orderByChild("email").equalTo(userEmail).get().addOnCompleteListener(task -> {
-            if (task.isSuccessful() && task.getResult().exists()) {
-                DataSnapshot firstMatch = null;
-                int matchCount = 0;
-                for (DataSnapshot studentSnapshot : task.getResult().getChildren()) {
-                    String emailInDatabase = studentSnapshot.child("email").getValue(String.class);
-                    if (emailInDatabase != null && emailInDatabase.equalsIgnoreCase(userEmail)) {
-                        firstMatch = studentSnapshot;
-                        matchCount++;
+            if (task.isSuccessful()) {
+                DataSnapshot dataSnapshot = task.getResult();
+                if (dataSnapshot.exists()) {
+                    DataSnapshot firstMatch = null;
+                    int matchCount = 0;
+                    for (DataSnapshot studentSnapshot : dataSnapshot.getChildren()) {
+                        String emailInDatabase = studentSnapshot.child("email").getValue(String.class);
+                        if (emailInDatabase != null && emailInDatabase.equalsIgnoreCase(userEmail)) {
+                            firstMatch = studentSnapshot;
+                            matchCount++;
+                        }
                     }
-                }
-                if (matchCount > 1) {
-                    Log.w(TAG, "Multiple studentIDs found for email: " + userEmail);
-                }
-                if (firstMatch != null) {
-                    String studentID = firstMatch.getKey();
-                    String yearLevel = firstMatch.child("yearLevel").getValue(String.class);
-                    saveStudentSession(studentID, userEmail);
-                    if (yearLevel != null) {
-                        SharedPreferences userSession = getSharedPreferences("UserSession", MODE_PRIVATE);
-                        userSession.edit().putString("yearLevel", yearLevel).apply();
+                    if (matchCount > 1) {
+                        Log.w(TAG, "Multiple studentIDs found for email: " + userEmail);
                     }
-                    navigateToDashboard();
+                    if (firstMatch != null) {
+                        String studentID = firstMatch.getKey();
+                        String yearLevel = firstMatch.child("yearLevel").getValue(String.class);
+                        saveStudentSession(studentID, userEmail);
+                        if (yearLevel != null) {
+                            SharedPreferences userSession = getSharedPreferences("UserSession", MODE_PRIVATE);
+                            userSession.edit().putString("yearLevel", yearLevel).apply();
+                        }
+                        navigateToDashboard();
+                    } else {
+                        Log.e(TAG, "No matching studentID found for email: " + userEmail);
+                        Toast.makeText(this, "Student ID not found for this email", Toast.LENGTH_SHORT).show();
+                        setLoading(false);
+                    }
                 } else {
-                    Log.e(TAG, "No matching studentID found for email: " + userEmail);
-                    Toast.makeText(this, "Student ID not found for this email", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "No data found for email: " + userEmail);
+                    Toast.makeText(this, "Student data not found", Toast.LENGTH_SHORT).show();
                     setLoading(false);
                 }
             } else {
                 Log.e(TAG, "Failed to fetch student list: " + (task.getException() != null ? task.getException().getMessage() : "Unknown error"));
-                Toast.makeText(this, "Failed to fetch student data", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Failed to fetch student data. Please check your connection.", Toast.LENGTH_SHORT).show();
                 setLoading(false);
             }
         });

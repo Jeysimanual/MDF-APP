@@ -118,7 +118,7 @@
                     android:background="@color/white"
                     android:fontFamily="@font/host_grotesk_light"
                     android:padding="5dp"
-                    android:text="Name"
+                    android:text="First Name"
                     android:textColor="@android:color/black"
                     android:textSize="15sp"
                     android:textStyle="bold"
@@ -454,6 +454,16 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@+id/spinnerYearLevel" />
+
+                <ProgressBar
+                    android:id="@+id/signUpProgressBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    app:layout_constraintTop_toTopOf="@id/btnSignUp"
+                    app:layout_constraintBottom_toBottomOf="@id/btnSignUp"
+                    app:layout_constraintStart_toStartOf="@id/btnSignUp"
+                    app:layout_constraintEnd_toEndOf="@id/btnSignUp" />
 
                 <LinearLayout
                     android:id="@+id/signupContainer"

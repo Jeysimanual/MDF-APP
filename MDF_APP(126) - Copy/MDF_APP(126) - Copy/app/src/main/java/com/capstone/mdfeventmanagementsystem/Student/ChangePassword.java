@@ -1,5 +1,6 @@
 package com.capstone.mdfeventmanagementsystem.Student;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -33,9 +34,6 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class ChangePassword extends AppCompatActivity {
 
     private static final String TAG = "StudentChangePassword";
@@ -64,16 +62,13 @@ public class ChangePassword extends AppCompatActivity {
 
         backBtn.setOnClickListener(goBackListener);
 
-        View mainView = findViewById(R.id.main);
-        if (mainView != null) {
-            ViewCompat.setOnApplyWindowInsetsListener(mainView, (v, insets) -> {
-                Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-                v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-                return insets;
-            });
-        } else {
-            Log.e(TAG, "mainView is null!");
-        }
+        View rootView = findViewById(android.R.id.content).getRootView();
+        ViewCompat.setOnApplyWindowInsetsListener(rootView, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
+
 
         // Initialize UI components
         changeOldPassword = findViewById(R.id.changeOldPassword);
@@ -351,39 +346,23 @@ public class ChangePassword extends AppCompatActivity {
     }
 
     private void updatePassword(String newPassword) {
-        if (studentRef == null) {
-            Log.e(TAG, "Student reference is null");
-            Toast.makeText(this, "Error: User data not initialized", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Update Firebase Auth password
         FirebaseUser user = auth.getCurrentUser();
         if (user != null) {
             user.updatePassword(newPassword)
                     .addOnSuccessListener(aVoid -> {
-                        // Now update the password in Realtime Database
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("password", newPassword);
-
-                        studentRef.updateChildren(updates)
-                                .addOnSuccessListener(dbVoid -> {
-                                    Log.d(TAG, "Password successfully updated in both Auth and Database");
-                                    Toast.makeText(ChangePassword.this, "Password successfully changed", Toast.LENGTH_SHORT).show();
-
-                                    // Log the user out and redirect to MainActivity
-                                    logout();
-                                })
-                                .addOnFailureListener(e -> {
-                                    Log.e(TAG, "Error updating password in Database: " + e.getMessage());
-                                    Toast.makeText(ChangePassword.this, "Password updated in Auth but failed in Database", Toast.LENGTH_SHORT).show();
-                                    logout(); // Still logout as auth password is changed
-                                });
+                        Log.d(TAG, "Password successfully updated in Firebase Authentication");
+                        Toast.makeText(ChangePassword.this, "Password successfully changed", Toast.LENGTH_SHORT).show();
+                        // Log the user out and redirect to MainActivity
+                        logout();
                     })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "Error updating password in Auth: " + e.getMessage());
                         Toast.makeText(ChangePassword.this, "Failed to update password: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     });
+        } else {
+            Log.e(TAG, "User is null");
+            Toast.makeText(this, "Error: User not authenticated", Toast.LENGTH_SHORT).show();
+            navigateToMainActivity();
         }
     }
 

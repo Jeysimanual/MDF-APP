@@ -31,6 +31,8 @@ public class QrCodeGenerator {
         void onQRCodeGenerated(Bitmap qrCodeBitmap);
         void onQRCodeUploaded(String downloadUrl, String ticketID); // Updated to pass ticketID
         void onError(String errorMessage);
+
+        void attemptQRCodeGeneration();
     }
 
     public static void generateQRCodeWithEventAndStudentInfo(Context context, final String eventUID, final OnQRCodeGeneratedListener listener) {

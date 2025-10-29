@@ -192,6 +192,7 @@ public class StudentTicketsInside extends BaseActivity {
         }
 
         // Fetch eventPhotoUrl using ticketId
+        // Fetch eventPhotoUrl using ticketId
         if (ticketId != null && !ticketId.isEmpty()) {
             mDatabase.child("tickets").child(ticketId).addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
@@ -202,9 +203,9 @@ public class StudentTicketsInside extends BaseActivity {
                             // Fetch eventPhotoUrl from events node
                             mDatabase.child("events").child(eventId).child("eventPhotoUrl").addListenerForSingleValueEvent(new ValueEventListener() {
                                 @Override
-                                public void onDataChange(@NonNull DataSnapshot snapshot) {
-                                    if (snapshot.exists()) {
-                                        String eventPhotoUrl = snapshot.getValue(String.class);
+                                public void onDataChange(@NonNull DataSnapshot eventSnapshot) {
+                                    if (eventSnapshot.exists()) {
+                                        String eventPhotoUrl = eventSnapshot.getValue(String.class);
                                         if (eventPhotoUrl != null && !eventPhotoUrl.isEmpty()) {
                                             Glide.with(StudentTicketsInside.this)
                                                     .load(eventPhotoUrl)
@@ -216,15 +217,44 @@ public class StudentTicketsInside extends BaseActivity {
                                             fetchByEventName(eventNameText);
                                         }
                                     } else {
-                                        Log.w(TAG, "Event not found for eventId: " + eventId);
-                                        // Fallback to query by eventName
-                                        fetchByEventName(eventNameText);
+                                        Log.w(TAG, "Event not found in events for eventId: " + eventId);
+                                        // Check archive_events collection
+                                        mDatabase.child("archive_events").child(eventId).child("eventPhotoUrl").addListenerForSingleValueEvent(new ValueEventListener() {
+                                            @Override
+                                            public void onDataChange(@NonNull DataSnapshot archiveSnapshot) {
+                                                if (archiveSnapshot.exists()) {
+                                                    String eventPhotoUrl = archiveSnapshot.getValue(String.class);
+                                                    if (eventPhotoUrl != null && !eventPhotoUrl.isEmpty()) {
+                                                        Log.d(TAG, "eventPhotoUrl found in archive_events for eventId: " + eventId);
+                                                        Glide.with(StudentTicketsInside.this)
+                                                                .load(eventPhotoUrl)
+                                                                .error(R.drawable.placeholder_image)
+                                                                .into(eventImage);
+                                                    } else {
+                                                        Log.w(TAG, "eventPhotoUrl is null or empty in archive_events for eventId: " + eventId);
+                                                        // Fallback to query by eventName
+                                                        fetchByEventName(eventNameText);
+                                                    }
+                                                } else {
+                                                    Log.w(TAG, "Event not found in archive_events for eventId: " + eventId);
+                                                    // Fallback to query by eventName
+                                                    fetchByEventName(eventNameText);
+                                                }
+                                            }
+
+                                            @Override
+                                            public void onCancelled(@NonNull DatabaseError error) {
+                                                Log.e(TAG, "Failed to fetch eventPhotoUrl from archive_events: " + error.getMessage());
+                                                // Fallback to query by eventName
+                                                fetchByEventName(eventNameText);
+                                            }
+                                        });
                                     }
                                 }
 
                                 @Override
                                 public void onCancelled(@NonNull DatabaseError error) {
-                                    Log.e(TAG, "Failed to fetch eventPhotoUrl: " + error.getMessage());
+                                    Log.e(TAG, "Failed to fetch eventPhotoUrl from events: " + error.getMessage());
                                     // Fallback to query by eventName
                                     fetchByEventName(eventNameText);
                                 }
@@ -350,14 +380,46 @@ public class StudentTicketsInside extends BaseActivity {
                             return; // Exit after first match
                         }
                     } else {
-                        Log.w(TAG, "No event found for eventName: " + eventNameText);
-                        eventImage.setImageResource(R.drawable.placeholder_image);
+                        Log.w(TAG, "No event found in events for eventName: " + eventNameText);
+                        // Check archive_events collection
+                        mDatabase.child("archive_events").orderByChild("eventName").equalTo(eventNameText).addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(@NonNull DataSnapshot archiveSnapshot) {
+                                if (archiveSnapshot.exists()) {
+                                    // Take the first match (assumes eventName is unique)
+                                    for (DataSnapshot archiveEventSnapshot : archiveSnapshot.getChildren()) {
+                                        String eventPhotoUrl = archiveEventSnapshot.child("eventPhotoUrl").getValue(String.class);
+                                        if (eventPhotoUrl != null && !eventPhotoUrl.isEmpty()) {
+                                            Log.d(TAG, "eventPhotoUrl found in archive_events for eventName: " + eventNameText);
+                                            Glide.with(StudentTicketsInside.this)
+                                                    .load(eventPhotoUrl)
+                                                    .error(R.drawable.placeholder_image)
+                                                    .into(eventImage);
+                                        } else {
+                                            Log.w(TAG, "eventPhotoUrl is null or empty in archive_events for eventName: " + eventNameText);
+                                            eventImage.setImageResource(R.drawable.placeholder_image);
+                                        }
+                                        return; // Exit after first match
+                                    }
+                                } else {
+                                    Log.w(TAG, "No event found in archive_events for eventName: " + eventNameText);
+                                    eventImage.setImageResource(R.drawable.placeholder_image);
+                                }
+                            }
+
+                            @Override
+                            public void onCancelled(@NonNull DatabaseError error) {
+                                Log.e(TAG, "Failed to fetch event by eventName from archive_events: " + error.getMessage());
+                                eventImage.setImageResource(R.drawable.placeholder_image);
+                                Toast.makeText(StudentTicketsInside.this, "Failed to load event image", Toast.LENGTH_SHORT).show();
+                            }
+                        });
                     }
                 }
 
                 @Override
                 public void onCancelled(@NonNull DatabaseError error) {
-                    Log.e(TAG, "Failed to fetch event by eventName: " + error.getMessage());
+                    Log.e(TAG, "Failed to fetch event by eventName from events: " + error.getMessage());
                     eventImage.setImageResource(R.drawable.placeholder_image);
                     Toast.makeText(StudentTicketsInside.this, "Failed to load event image", Toast.LENGTH_SHORT).show();
                 }

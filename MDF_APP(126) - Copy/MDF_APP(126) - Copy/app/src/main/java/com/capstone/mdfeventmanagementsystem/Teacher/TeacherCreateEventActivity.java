@@ -9,6 +9,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,6 +21,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.RadioButton;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -242,6 +245,30 @@ public class TeacherCreateEventActivity extends BaseActivity {
         setupPageNavigation();
         setupBottomNavigation();
         showPage(1); // Show first page initially
+
+    }
+    @Override
+    public void onBackPressed() {
+        // Check if any meaningful data is entered
+        boolean hasData = !eventNameField.getText().toString().trim().isEmpty() ||
+                !eventDescriptionField.getText().toString().trim().isEmpty() ||
+                !selectedYearLevels.isEmpty() ||
+                coverPhotoUri != null ||
+                proposalFileUri != null ||
+                !startDateField.getText().toString().trim().isEmpty();
+
+        if (hasData) {
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Leave Event Creation?")
+                    .setMessage("You have unsaved changes. Are you sure you want to leave?")
+                    .setPositiveButton("Leave", (dialog, which) -> super.onBackPressed())
+                    .setNegativeButton("Stay", null)
+                    .setCancelable(false)
+                    .show();
+        } else {
+            // No data entered → safe to go back
+            super.onBackPressed();
+        }
     }
 
     private void checkForResubmissionOrEdit() {
@@ -712,6 +739,89 @@ public class TeacherCreateEventActivity extends BaseActivity {
         customParticipantsAsterisk = findViewById(R.id.customParticipantsAsterisk);
         customParticipantsField = findViewById(R.id.customParticipantsField);
         setupTargetParticipantsSpinner();
+
+        // Add character limit counters and input restrictions
+        setupInputFieldRestrictions();
+    }
+
+    private void setupInputFieldRestrictions() {
+        // Character counter for eventNameField (max 200 characters)
+        final TextView eventNameCharCount = findViewById(R.id.eventNameCharCount);
+        eventNameField.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                int length = s.length();
+                eventNameCharCount.setText(length + "/200");
+                if (length > 200) {
+                    eventNameField.setError("Event name cannot exceed 200 characters");
+                    eventNameCharCount.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                } else {
+                    eventNameField.setError(null);
+                    eventNameCharCount.setTextColor(getResources().getColor(R.color.gray));
+                }
+            }
+        });
+
+        // Character counter for eventDescriptionField (max 500 characters)
+        final TextView eventDescriptionCharCount = findViewById(R.id.eventDescriptionCharCount);
+        eventDescriptionField.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                int length = s.length();
+                eventDescriptionCharCount.setText(length + "/500");
+                if (length > 500) {
+                    eventDescriptionField.setError("Event description cannot exceed 500 characters");
+                    eventDescriptionCharCount.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                } else {
+                    eventDescriptionField.setError(null);
+                    eventDescriptionCharCount.setTextColor(getResources().getColor(R.color.gray));
+                }
+            }
+        });
+
+        // Restrict customParticipantsField to 3 digits (max 999)
+        customParticipantsField.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String input = s.toString();
+                if (!input.isEmpty()) {
+                    try {
+                        int value = Integer.parseInt(input);
+                        if (value > 999) {
+                            customParticipantsField.setText("999");
+                            customParticipantsField.setSelection(3);
+                            customParticipantsField.setError("Maximum participants is 999");
+                        } else if (value <= 0) {
+                            customParticipantsField.setError("Number must be greater than 0");
+                        } else {
+                            customParticipantsField.setError(null);
+                        }
+                    } catch (NumberFormatException e) {
+                        customParticipantsField.setError("Please enter a valid number");
+                    }
+                } else {
+                    customParticipantsField.setError(null);
+                }
+            }
+        });
     }
 
     private void setupTargetParticipantsSpinner() {
@@ -1701,6 +1811,12 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void uploadFilesAndSaveEvent() {
+        // Initialize ProgressBar
+        ProgressBar createProgressBar = findViewById(R.id.createProgressBar);
+
+        // Show ProgressBar and disable button
+        createProgressBar.setVisibility(View.VISIBLE);
+        createButton.setVisibility(View.GONE);
         createButton.setEnabled(false);
         Toast.makeText(this, isEditing ? "Updating event..." : "Uploading files and creating event...", Toast.LENGTH_SHORT).show();
 
@@ -1718,6 +1834,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
                                 proceedWithUpload();
                             }
                         } else {
+                            createProgressBar.setVisibility(View.GONE);
+                            createButton.setVisibility(View.VISIBLE);
                             createButton.setEnabled(true);
                             Toast.makeText(TeacherCreateEventActivity.this,
                                     "Could not find your teacher profile. Please contact support.",
@@ -1727,6 +1845,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError databaseError) {
+                        createProgressBar.setVisibility(View.GONE);
+                        createButton.setVisibility(View.VISIBLE);
                         createButton.setEnabled(true);
                         Toast.makeText(TeacherCreateEventActivity.this,
                                 "Error finding teacher profile: " + databaseError.getMessage(),
@@ -1734,6 +1854,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     }
                 });
             } else {
+                createProgressBar.setVisibility(View.GONE);
+                createButton.setVisibility(View.VISIBLE);
                 createButton.setEnabled(true);
                 Toast.makeText(this, "You must be logged in to create an event", Toast.LENGTH_SHORT).show();
             }
@@ -1882,6 +2004,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void proceedWithEventUpdate() {
+        ProgressBar createProgressBar = findViewById(R.id.createProgressBar);
         // Check if the event exists in eventProposals or events
         DatabaseReference eventProposalsRef = database.getReference("eventProposals").child(eventId);
         eventProposalsRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -1891,6 +2014,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     // Event is a proposal, update in eventProposals node
                     eventData.put("status", "pending"); // Ensure it remains pending
                     eventProposalsRef.updateChildren(eventData, (databaseError, databaseReference) -> {
+                        createProgressBar.setVisibility(View.GONE);
+                        createButton.setVisibility(View.VISIBLE);
                         createButton.setEnabled(true);
                         if (databaseError == null) {
                             Toast.makeText(TeacherCreateEventActivity.this,
@@ -1909,17 +2034,18 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     deleteStudentTickets(eventId);
                     DatabaseReference eventRef = database.getReference("events").child(eventId);
                     eventRef.updateChildren(eventData, (databaseError, databaseReference) -> {
+                        createProgressBar.setVisibility(View.GONE);
+                        createButton.setVisibility(View.VISIBLE);
                         createButton.setEnabled(true);
                         if (databaseError == null) {
                             Toast.makeText(TeacherCreateEventActivity.this,
                                     "Event updated successfully",
-
                                     Toast.LENGTH_SHORT).show();
                             startActivity(new Intent(TeacherCreateEventActivity.this, TeacherEvents.class));
                             finish();
                         } else {
                             Toast.makeText(TeacherCreateEventActivity.this,
-                                    "Failed to update event proposal: " + databaseError.getMessage(),
+                                    "Failed to update event: " + databaseError.getMessage(),
                                     Toast.LENGTH_LONG).show();
                         }
                     });
@@ -1928,6 +2054,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
+                createProgressBar.setVisibility(View.GONE);
+                createButton.setVisibility(View.VISIBLE);
                 createButton.setEnabled(true);
                 Toast.makeText(TeacherCreateEventActivity.this,
                         "Error checking event status: " + databaseError.getMessage(),
@@ -2011,6 +2139,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void uploadEventProposal(String eventId) {
+        ProgressBar createProgressBar = findViewById(R.id.createProgressBar);
         if (proposalFileUri != null) {
             String eventName = eventData.get("eventName").toString();
             StorageReference proposalRef = storageRef.child(eventName + "/event_proposal/" + proposalFileName);
@@ -2023,6 +2152,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
                         });
                     })
                     .addOnFailureListener(e -> {
+                        createProgressBar.setVisibility(View.GONE);
+                        createButton.setVisibility(View.VISIBLE);
                         createButton.setEnabled(true);
                         Toast.makeText(TeacherCreateEventActivity.this, "Failed to upload event proposal: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     });
@@ -2033,12 +2164,15 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
             saveEventToFirebase(eventId);
         } else {
+            createProgressBar.setVisibility(View.GONE);
+            createButton.setVisibility(View.VISIBLE);
             createButton.setEnabled(true);
             Toast.makeText(this, "Please upload an event proposal", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void saveEventToFirebase(String eventId) {
+        ProgressBar createProgressBar = findViewById(R.id.createProgressBar);
         boolean isResubmission = eventData.containsKey("resubmissionOf");
         final String originalEventId = isResubmission ? eventData.get("resubmissionOf").toString() : null;
 
@@ -2069,8 +2203,10 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         } catch (ParseException e) {
             Log.e("DateParsing", "Error parsing dates: " + e.getMessage());
-            Toast.makeText(this, "Invalid date format", Toast.LENGTH_SHORT).show();
+            createProgressBar.setVisibility(View.GONE);
+            createButton.setVisibility(View.VISIBLE);
             createButton.setEnabled(true);
+            Toast.makeText(this, "Invalid date format", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -2080,6 +2216,8 @@ public class TeacherCreateEventActivity extends BaseActivity {
         } else {
             // Save new event or resubmission
             eventProposalRef.child(eventId).setValue(eventData, (databaseError, databaseReference) -> {
+                createProgressBar.setVisibility(View.GONE);
+                createButton.setVisibility(View.VISIBLE);
                 createButton.setEnabled(true);
                 if (databaseError == null) {
                     String message = isResubmission ? "Event resubmitted successfully" : "Event created successfully";

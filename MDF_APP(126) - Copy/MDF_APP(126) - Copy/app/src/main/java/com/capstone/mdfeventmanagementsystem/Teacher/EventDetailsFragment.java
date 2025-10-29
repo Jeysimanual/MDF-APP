@@ -1565,7 +1565,10 @@ public class EventDetailsFragment extends Fragment {
             Log.d("EventDetails", "Event data not found for ID: " + eventUID);
         }
     }
-
+    private boolean isEventExpired(DataSnapshot snapshot) {
+        String status = snapshot.child("status").getValue(String.class);
+        return "expired".equalsIgnoreCase(status);
+    }
     private void checkEventStartTimeAndUpdateRegistration(String startDate, String startTime) {
         if (!isAdded() || registrationCard == null) return;
         try {
@@ -1636,23 +1639,36 @@ public class EventDetailsFragment extends Fragment {
             if (currentTime.compareTo(eventStartTime) >= 0) {
                 Log.d("EventStartTime", "Event has started, hiding registration");
                 registrationCard.setVisibility(View.GONE);
+
                 DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventUID);
                 eventRef.get().addOnCompleteListener(task -> {
+                    if (!isAdded()) return;
                     String node = task.isSuccessful() && task.getResult().exists() ? "events" : "archive_events";
                     DatabaseReference finalEventRef = FirebaseDatabase.getInstance().getReference(node).child(eventUID);
-                    finalEventRef.child("registrationAllowed").setValue(false)
-                            .addOnCompleteListener(regTask -> {
-                                if (regTask.isSuccessful()) {
-                                    Log.d("EventStartTime", "Registration auto-closed due to event start time");
-                                    if (isAdded()) {
-                                        Toast.makeText(getContext(),
-                                                "Registration closed automatically as event has started",
-                                                Toast.LENGTH_SHORT).show();
+
+                    finalEventRef.get().addOnSuccessListener(eventSnapshot -> {
+                        if (isEventExpired(eventSnapshot)) {
+                            // expired → silently close registration, **no toast**
+                            finalEventRef.child("registrationAllowed").setValue(false);
+                            Log.d("EventStartTime", "Expired event – registration closed silently");
+                            return;
+                        }
+
+                        // normal case – close + toast
+                        finalEventRef.child("registrationAllowed").setValue(false)
+                                .addOnCompleteListener(regTask -> {
+                                    if (regTask.isSuccessful()) {
+                                        Log.d("EventStartTime", "Registration auto-closed due to event start time");
+                                        if (isAdded()) {
+                                            Toast.makeText(getContext(),
+                                                    "Registration closed automatically as event has started",
+                                                    Toast.LENGTH_SHORT).show();
+                                        }
+                                    } else {
+                                        Log.e("EventStartTime", "Failed to auto-close registration: " + regTask.getException());
                                     }
-                                } else {
-                                    Log.e("EventStartTime", "Failed to auto-close registration: " + regTask.getException());
-                                }
-                            });
+                                });
+                    });
                 });
             } else {
                 registrationCard.setVisibility(View.VISIBLE);
@@ -2002,25 +2018,33 @@ public class EventDetailsFragment extends Fragment {
                 if (targetParticipant != null && !targetParticipant.isEmpty() && !targetParticipant.equals("none")) {
                     try {
                         int targetParticipantValue = Integer.parseInt(targetParticipant);
+                        // inside getTicketCount(...) after counting tickets
                         if (ticketCount >= targetParticipantValue) {
                             int finalTicketCount = ticketCount;
                             DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
                             eventRef.get().addOnCompleteListener(task -> {
                                 String node = task.isSuccessful() && task.getResult().exists() ? "events" : "archive_events";
                                 DatabaseReference finalEventRef = FirebaseDatabase.getInstance().getReference(node).child(eventId);
-                                finalEventRef.child("registrationAllowed").setValue(false)
-                                        .addOnCompleteListener(regTask -> {
-                                            if (regTask.isSuccessful()) {
-                                                Log.d("TicketCount", "Registration auto-closed as ticket count reached target: " + finalTicketCount + "/" + targetParticipant);
-                                                if (isAdded()) {
-                                                    Toast.makeText(getContext(),
-                                                            "Registration closed automatically as participant limit reached",
-                                                            Toast.LENGTH_SHORT).show();
+
+                                finalEventRef.get().addOnSuccessListener(eventSnapshot -> {
+                                    if (isEventExpired(eventSnapshot)) {
+                                        finalEventRef.child("registrationAllowed").setValue(false);
+                                        Log.d("TicketCount", "Expired event – registration closed silently (limit reached)");
+                                        return;
+                                    }
+
+                                    finalEventRef.child("registrationAllowed").setValue(false)
+                                            .addOnCompleteListener(regTask -> {
+                                                if (regTask.isSuccessful()) {
+                                                    Log.d("TicketCount", "Registration auto-closed as ticket count reached target");
+                                                    if (isAdded()) {
+                                                        Toast.makeText(getContext(),
+                                                                "Registration closed automatically as participant limit reached",
+                                                                Toast.LENGTH_SHORT).show();
+                                                    }
                                                 }
-                                            } else {
-                                                Log.e("TicketCount", "Failed to auto-close registration: " + regTask.getException());
-                                            }
-                                        });
+                                            });
+                                });
                             });
                         }
                     } catch (NumberFormatException e) {
