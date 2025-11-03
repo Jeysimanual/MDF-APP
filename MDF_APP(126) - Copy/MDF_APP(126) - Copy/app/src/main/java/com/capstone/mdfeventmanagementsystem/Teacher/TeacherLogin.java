@@ -139,6 +139,16 @@ public class TeacherLogin extends BaseActivity {
                                 String teacherId = snapshot.getKey();
 
                                 if ("teacher".equals(role)) {
+                                    // ---------- NEW VERIFICATION CHECK ----------
+                                    Boolean verified = snapshot.child("verified").getValue(Boolean.class);
+                                    if (verified == null || !verified) {
+                                        setLoading(false);
+                                        Toast.makeText(TeacherLogin.this,
+                                                "Your account is not verified", Toast.LENGTH_SHORT).show();
+                                        return;   // stop further processing for this user
+                                    }
+                                    // --------------------------------------------
+
                                     auth.signInWithEmailAndPassword(email, password)
                                             .addOnCompleteListener(task -> {
                                                 if (task.isSuccessful()) {
@@ -152,7 +162,7 @@ public class TeacherLogin extends BaseActivity {
                                                         editor.apply();
 
                                                         Intent serviceIntent = new Intent(TeacherLogin.this, NotificationService.class);
-                                                        serviceIntent.putExtra("processMissed", true); // Trigger processing of missed notifications
+                                                        serviceIntent.putExtra("processMissed", true);
                                                         startService(serviceIntent);
 
                                                         Intent intent = new Intent(TeacherLogin.this, TeacherDashboard.class);
@@ -162,24 +172,29 @@ public class TeacherLogin extends BaseActivity {
                                                     }
                                                 } else {
                                                     setLoading(false);
-                                                    Toast.makeText(TeacherLogin.this, "Authentication Failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                                                    Toast.makeText(TeacherLogin.this,
+                                                            "Authentication Failed: " + task.getException().getMessage(),
+                                                            Toast.LENGTH_SHORT).show();
                                                 }
                                             });
                                 } else {
                                     setLoading(false);
-                                    Toast.makeText(TeacherLogin.this, "You are not authorized as a Teacher", Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(TeacherLogin.this,
+                                            "You are not authorized as a Teacher", Toast.LENGTH_SHORT).show();
                                 }
                             }
                         } else {
                             setLoading(false);
-                            Toast.makeText(TeacherLogin.this, "No teacher found with this email", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(TeacherLogin.this,
+                                    "No teacher found with this email", Toast.LENGTH_SHORT).show();
                         }
                     }
 
                     @Override
                     public void onCancelled(DatabaseError databaseError) {
                         setLoading(false);
-                        Toast.makeText(TeacherLogin.this, "Database error: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(TeacherLogin.this,
+                                "Database error: " + databaseError.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }

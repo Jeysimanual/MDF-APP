@@ -14,8 +14,9 @@ import javax.mail.internet.MimeMessage;
 
 public class MailSender {
 
-    private final String senderEmail = "gracevillanueva001@gmail.com"; // Replace with your email
-    private final String senderPassword = "eeox zfpe ildl icxy"; // Use App Password
+    private final String senderEmail = "mdf.events.team@gmail.com"; // Replace with your email
+    private final String senderPassword = "fljncpkhmiiqcjqe"; // Use App Password
+    private final String senderName = "MDF Events"; // Add your desired sender name here
 
     public void sendEmail(String recipientEmail, String subject, String messageBody) throws MessagingException {
         Log.d("TestApp", "Initializing email sending process...");
@@ -40,7 +41,7 @@ public class MailSender {
         try {
             // Create email message
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(senderEmail));
+            message.setFrom(new InternetAddress(senderEmail, senderName));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipientEmail));
             message.setSubject(subject);
             message.setText(messageBody);
@@ -54,6 +55,9 @@ public class MailSender {
         } catch (MessagingException e) {
             Log.e("TestApp", "Error sending email: " + e.getMessage(), e);
             throw e; // Rethrow exception to handle it where called
+        } catch (Exception e) {
+            Log.e("TestApp", "Unexpected error: " + e.getMessage(), e);
+            throw new MessagingException("Failed to send email", e);
         }
     }
 }
