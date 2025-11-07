@@ -209,8 +209,8 @@ public class StudentDashboardInside extends BaseActivity {
         eventDescription.setText(intent.getStringExtra("eventDescription"));
         startDate.setText(formatDate(intent.getStringExtra("startDate")));
         endDate.setText(formatDate(intent.getStringExtra("endDate")));
-        /* startTime.setText(formatTo12HourTime(intent.getStringExtra("startTime"))); */
-        /*endTime.setText(formatTo12HourTime(intent.getStringExtra("endTime"))); */
+         startTime.setText(formatTo12HourTime(intent.getStringExtra("startTime")));
+        endTime.setText(formatTo12HourTime(intent.getStringExtra("endTime")));
         venue.setText(intent.getStringExtra("venue"));
         eventSpan.setText(intent.getStringExtra("eventSpan"));
         String graceTimeValue = intent.getStringExtra("graceTime");
@@ -911,6 +911,42 @@ public class StudentDashboardInside extends BaseActivity {
     /**
      * Format date string to "MMM dd, yyyy" (e.g., "Apr 18, 2025")
      */
+
+    private String formatTo12HourTime(String timeString) {
+        if (timeString == null || timeString.equals("--:--") || timeString.isEmpty()) {
+            return "--:--";
+        }
+
+        try {
+            // Parse the input time
+            SimpleDateFormat inputFormat;
+            if (timeString.contains(":")) {
+                if (timeString.split(":").length == 3) {
+                    // Format: HH:mm:ss
+                    inputFormat = new SimpleDateFormat("HH:mm:ss", Locale.US);
+                } else {
+                    // Format: HH:mm
+                    inputFormat = new SimpleDateFormat("HH:mm", Locale.US);
+                }
+            } else {
+                // Unknown format, return as is
+                return timeString;
+            }
+
+            // Convert to Date
+            Date time = inputFormat.parse(timeString);
+            if (time == null) {
+                return timeString;
+            }
+
+            // Format to 12-hour with AM/PM
+            SimpleDateFormat outputFormat = new SimpleDateFormat("hh:mm a", Locale.US);
+            return outputFormat.format(time);
+        } catch (ParseException e) {
+            Log.e(TAG, "Error formatting time: " + timeString, e);
+            return timeString; // Return original on error
+        }
+    }
     private String formatDate(String dateString) {
         if (dateString == null || dateString.isEmpty()) {
             return "--";

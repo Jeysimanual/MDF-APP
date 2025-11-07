@@ -103,6 +103,9 @@ public class QRCheckInActivity extends BaseActivity {
     private static final String TAG = "QRCheckInActivity";
     private static final int BATCH_SIZE = 10;
 
+    private static final long RECENT_SCAN_WINDOW_MS = 30 * 60 * 1000;
+    private static final String PREF_LAST_SCAN = "last_scan_";
+
     private ImageView profileImageView;
     private DatabaseReference studentsRef;
     private DatabaseReference profilesRef;
@@ -166,7 +169,8 @@ public class QRCheckInActivity extends BaseActivity {
                     COLUMN_ATTENDANCE + " TEXT, " +
                     COLUMN_IS_LATE + " INTEGER, " +
                     COLUMN_STATUS + " TEXT, " +
-                    COLUMN_SYNCED + " INTEGER)";
+                    COLUMN_SYNCED + " INTEGER, " +
+                    "UNIQUE(" + COLUMN_STUDENT_ID + ", " + COLUMN_EVENT_UID + ", " + COLUMN_DAY_KEY + ", " + COLUMN_DATE + ") ON CONFLICT REPLACE)";
             db.execSQL(createScanRecordsTable);
         }
 
@@ -207,6 +211,22 @@ public class QRCheckInActivity extends BaseActivity {
                     db.execSQL(createScanRecordsTable);
                 }
                 cursorScanRecords.close();
+            }if (oldVersion < 3) {
+                db.execSQL("DROP TABLE IF EXISTS " + TABLE_SCAN_RECORDS);
+                String createScanRecordsTable = "CREATE TABLE " + TABLE_SCAN_RECORDS + " (" +
+                        COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        COLUMN_STUDENT_ID + " TEXT, " +
+                        COLUMN_EVENT_UID + " TEXT, " +
+                        COLUMN_DAY_KEY + " TEXT, " +
+                        COLUMN_DATE + " TEXT, " +
+                        COLUMN_CHECK_IN_TIME + " TEXT, " +
+                        COLUMN_CHECK_OUT_TIME + " TEXT, " +
+                        COLUMN_ATTENDANCE + " TEXT, " +
+                        COLUMN_IS_LATE + " INTEGER, " +
+                        COLUMN_STATUS + " TEXT, " +
+                        COLUMN_SYNCED + " INTEGER, " +
+                        "UNIQUE(" + COLUMN_STUDENT_ID + ", " + COLUMN_EVENT_UID + ", " + COLUMN_DAY_KEY + ", " + COLUMN_DATE + ") ON CONFLICT REPLACE)";
+                db.execSQL(createScanRecordsTable);
             }
         }
     }
@@ -335,6 +355,20 @@ public class QRCheckInActivity extends BaseActivity {
 
         setupBottomNavigation();
         loadUserProfile();
+    }
+
+    private boolean isTicketRecentlyScanned(String studentId, String eventId) {
+        String key = studentId + "_" + eventId;
+        long lastScanTime = sharedPreferences.getLong(PREF_LAST_SCAN + key, 0);
+        long currentTime = System.currentTimeMillis();
+        return (currentTime - lastScanTime) < RECENT_SCAN_WINDOW_MS;
+    }
+
+    private void saveRecentScan(String studentId, String eventId) {
+        String key = studentId + "_" + eventId;
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putLong(PREF_LAST_SCAN + key, System.currentTimeMillis());
+        editor.apply();
     }
 
     private void initializeDatabase() {
@@ -773,6 +807,13 @@ public class QRCheckInActivity extends BaseActivity {
             return;
         }
 
+        if (isTicketRecentlyScanned(studentId, eventId)) {
+            showUsedTicket();
+            usedText.setText("Ticket already scanned recently. Try again after 30 minutes for check-out.");
+            scanTicketBtn.setVisibility(Button.VISIBLE);
+            return;
+        }
+
         if (isNetworkAvailable()) {
             fetchEventDataFromFirebase(eventId, ticketData, studentId);
         } else {
@@ -1033,8 +1074,12 @@ public class QRCheckInActivity extends BaseActivity {
         String currentDate = getCurrentDate();
         String status = "Ongoing";
         String attendance = "Ongoing";
+        String studentId = ticketRef.getParent().getParent().getKey();
+        String eventId = ticketRef.getParent().getKey();
 
-        saveToLocalDatabase(ticketRef.getParent().getParent().getKey(), ticketRef.getParent().getKey(), dayKey, currentDate, currentTime, null, attendance, isLate, status);
+        saveToLocalDatabase(studentId, eventId, dayKey, currentDate, currentTime, null, attendance, isLate, status);
+
+        saveRecentScan(studentId, eventId);
 
         if (isNetworkAvailable()) {
             Map<String, Object> updates = new HashMap<>();
@@ -1072,7 +1117,7 @@ public class QRCheckInActivity extends BaseActivity {
         String attendance = "Ongoing";
 
         saveToLocalDatabase(studentId, eventId, dayKey, date, currentTime, null, attendance, isLate, status);
-
+        saveRecentScan(studentId, eventId);
         if (isNetworkAvailable()) {
             DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
             Map<String, Object> updates = new HashMap<>();
@@ -1104,9 +1149,12 @@ public class QRCheckInActivity extends BaseActivity {
         String currentDate = getCurrentDate();
         String status = "Pending";
         String attendance = isLateCheckin ? "Late" : "Present";
+        String studentId = ticketRef.getParent().getParent().getKey();
+        String eventId = ticketRef.getParent().getKey();
 
-        saveToLocalDatabase(ticketRef.getParent().getParent().getKey(), ticketRef.getParent().getKey(), dayKey, currentDate, null, currentTime, attendance, isLateCheckin, status);
+        saveToLocalDatabase(studentId, eventId, dayKey, currentDate, null, currentTime, attendance, isLateCheckin, status);
 
+        saveRecentScan(studentId, eventId);  // ← ADD THIS
         if (isNetworkAvailable()) {
             Map<String, Object> updates = new HashMap<>();
             updates.put("out", currentTime);
@@ -1142,7 +1190,7 @@ public class QRCheckInActivity extends BaseActivity {
         String attendance = isLateCheckin ? "Late" : "Present";
 
         saveToLocalDatabase(studentId, eventId, dayKey, date, null, currentTime, attendance, isLateCheckin, status);
-
+        saveRecentScan(studentId, eventId);
         if (isNetworkAvailable()) {
             DatabaseReference ticketRef = databaseRef.child("students").child(studentId).child("tickets").child(eventId);
             Map<String, Object> updates = new HashMap<>();
