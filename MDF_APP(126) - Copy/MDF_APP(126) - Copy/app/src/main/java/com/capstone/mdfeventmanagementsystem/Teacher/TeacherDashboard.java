@@ -354,7 +354,7 @@ public class TeacherDashboard extends BaseActivity {
                                 normalizedEventFor.contains("everyone") ||
                                 normalizedEventFor.contains("teacher")) {
                             shouldAdd = true;
-                            Log.d(TAG, "✓ Adding general event: " + event.getEventName() +
+                            Log.d(TAG, "Adding general event: " + event.getEventName() +
                                     ", EventFor: '" + eventFor + "'");
                         }
                         if (teacherYearLevelAdvisor != null && !teacherYearLevelAdvisor.isEmpty()) {
@@ -365,7 +365,7 @@ public class TeacherDashboard extends BaseActivity {
                                     normalizedEventFor.contains("g" + yearLevel) ||
                                     normalizedEventFor.contains("grade-" + yearLevel)) {
                                 shouldAdd = true;
-                                Log.d(TAG, "✓ Adding year-specific event: " + event.getEventName() +
+                                Log.d(TAG, "Adding year-specific event: " + event.getEventName() +
                                         " for year level: " + yearLevel);
                             }
                         }
@@ -389,12 +389,10 @@ public class TeacherDashboard extends BaseActivity {
                 markEventDatesOnCalendar(eventDates);
                 assignedEventAdapter.updateEventList(assignedEventList);
                 Log.d(TAG, "Showing " + eventsToShow + " events out of " + relevantEvents.size() + " relevant events");
-                if (relevantEvents.isEmpty()) {
-                    Toast.makeText(TeacherDashboard.this,
-                            "No events found for your advising grade level: " +
-                                    (teacherYearLevelAdvisor != null ? teacherYearLevelAdvisor : "N/A"),
-                            Toast.LENGTH_LONG).show();
-                }
+
+                // REMOVED: Toast about "No events found for your advising grade level"
+                // if (relevantEvents.isEmpty()) { ... } → Deleted
+
                 Log.d(TAG, "Stopping SwipeRefreshLayout in fetchAssignedEvents onDataChange");
                 swipeRefreshLayout.setRefreshing(false);
             }
@@ -468,7 +466,7 @@ public class TeacherDashboard extends BaseActivity {
                     }
                     if (yearLevelMatches && section.equals(studentSection)) {
                         studentCount++;
-                        Log.d(TAG, "✓ MATCH FOUND! Student: " + studentSnapshot.getKey());
+                        Log.d(TAG, "MATCH FOUND! Student: " + studentSnapshot.getKey());
                     }
                 }
                 TextView tvTotalStudents = findViewById(R.id.tvTotalStudents);
@@ -485,53 +483,116 @@ public class TeacherDashboard extends BaseActivity {
     }
 
     private void fetchEventsForDate(String selectedDate) {
-        databaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
+        List<Event> eventsOnDate = new ArrayList<>();
+        DatabaseReference liveEventsRef = FirebaseDatabase.getInstance().getReference("events");
+        DatabaseReference archivedEventsRef = FirebaseDatabase.getInstance().getReference("archive_events");
+
+        ValueEventListener eventListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                List<Event> eventsOnDate = new ArrayList<>();
                 for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
                     Event event = dataSnapshot.getValue(Event.class);
-                    if (event != null) {
+                    if (event != null && event.getStartDate() != null && event.getStartDate().equals(selectedDate)) {
                         event.setEventUID(dataSnapshot.getKey());
-                        if (event.getStartDate() != null && event.getStartDate().equals(selectedDate)) {
-                            String eventFor = event.getEventFor();
-                            boolean shouldAdd = false;
-                            if (eventFor != null) {
-                                String normalizedEventFor = eventFor.toLowerCase();
-                                if (normalizedEventFor.contains("all") ||
-                                        normalizedEventFor.contains("everyone") ||
-                                        normalizedEventFor.contains("teacher")) {
+                        String eventFor = event.getEventFor();
+                        boolean shouldAdd = false;
+
+                        if (eventFor != null) {
+                            String normalizedEventFor = eventFor.toLowerCase();
+                            if (normalizedEventFor.contains("all") ||
+                                    normalizedEventFor.contains("everyone") ||
+                                    normalizedEventFor.contains("teacher")) {
+                                shouldAdd = true;
+                            }
+                            if (teacherYearLevelAdvisor != null && !teacherYearLevelAdvisor.isEmpty()) {
+                                String yearLevel = teacherYearLevelAdvisor.toLowerCase().trim();
+                                if (normalizedEventFor.contains(yearLevel) ||
+                                        normalizedEventFor.contains("grade" + yearLevel) ||
+                                        normalizedEventFor.contains("grade " + yearLevel) ||
+                                        normalizedEventFor.contains("g" + yearLevel) ||
+                                        normalizedEventFor.contains("grade-" + yearLevel)) {
                                     shouldAdd = true;
                                 }
-                                if (teacherYearLevelAdvisor != null && !teacherYearLevelAdvisor.isEmpty()) {
-                                    String yearLevel = teacherYearLevelAdvisor.toLowerCase().trim();
-                                    if (normalizedEventFor.contains(yearLevel) ||
-                                            normalizedEventFor.contains("grade" + yearLevel) ||
-                                            normalizedEventFor.contains("grade " + yearLevel) ||
-                                            normalizedEventFor.contains("g" + yearLevel) ||
-                                            normalizedEventFor.contains("grade-" + yearLevel)) {
-                                        shouldAdd = true;
-                                    }
-                                }
                             }
-                            if (shouldAdd) {
-                                eventsOnDate.add(event);
-                            }
-                        } else if (event.getStartDate() == null) {
-                            Log.w(TAG, "Event with UID: " + dataSnapshot.getKey() + " has null startDate");
                         }
-                    } else {
-                        Log.w(TAG, "Failed to parse event for UID: " + dataSnapshot.getKey());
+                        if (shouldAdd) {
+                            eventsOnDate.add(event);
+                        }
                     }
                 }
-                showEventDialog(TeacherDashboard.this, eventsOnDate, selectedDate);
+
+                // After both live + archived are processed, show dialog
+                if (liveEventsRef.equals(snapshot.getRef()) && archivedEventsRef.equals(snapshot.getRef())) {
+                    // This won't trigger — we need to track both
+                }
             }
+
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Error fetching events for date: " + error.getMessage());
-                Toast.makeText(TeacherDashboard.this, "Error fetching events", Toast.LENGTH_SHORT).show();
             }
-        });
+        };
+
+        // Use a flag to wait for both queries
+        final boolean[] completed = {false, false};
+
+        ValueEventListener combinedListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
+                    Event event = dataSnapshot.getValue(Event.class);
+                    if (event != null && event.getStartDate() != null && event.getStartDate().equals(selectedDate)) {
+                        event.setEventUID(dataSnapshot.getKey());
+                        String eventFor = event.getEventFor();
+                        boolean shouldAdd = false;
+
+                        if (eventFor != null) {
+                            String normalizedEventFor = eventFor.toLowerCase();
+                            if (normalizedEventFor.contains("all") ||
+                                    normalizedEventFor.contains("everyone") ||
+                                    normalizedEventFor.contains("teacher")) {
+                                shouldAdd = true;
+                            }
+                            if (teacherYearLevelAdvisor != null && !teacherYearLevelAdvisor.isEmpty()) {
+                                String yearLevel = teacherYearLevelAdvisor.toLowerCase().trim();
+                                if (normalizedEventFor.contains(yearLevel) ||
+                                        normalizedEventFor.contains("grade" + yearLevel) ||
+                                        normalizedEventFor.contains("grade " + yearLevel) ||
+                                        normalizedEventFor.contains("g" + yearLevel) ||
+                                        normalizedEventFor.contains("grade-" + yearLevel)) {
+                                    shouldAdd = true;
+                                }
+                            }
+                        }
+                        if (shouldAdd) {
+                            eventsOnDate.add(event);
+                        }
+                    }
+                }
+
+                // Mark this source as done
+                if (snapshot.getRef().equals(liveEventsRef)) {
+                    completed[0] = true;
+                } else if (snapshot.getRef().equals(archivedEventsRef)) {
+                    completed[1] = true;
+                }
+
+                // When BOTH are done → show dialog
+                if (completed[0] && completed[1]) {
+                    showEventDialog(TeacherDashboard.this, eventsOnDate, selectedDate);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error fetching events for date: " + error.getMessage());
+                Toast.makeText(TeacherDashboard.this, "Error loading events", Toast.LENGTH_SHORT).show();
+            }
+        };
+
+        // Attach listener to both nodes
+        liveEventsRef.addListenerForSingleValueEvent(combinedListener);
+        archivedEventsRef.addListenerForSingleValueEvent(combinedListener);
     }
 
     private void showEventDialog(TeacherDashboard context, List<Event> events, String selectedDate) {
@@ -652,7 +713,13 @@ public class TeacherDashboard extends BaseActivity {
         }
         calendarView.removeDecorators();
         Map<CalendarDay, String> eventTypeMap = new HashMap<>();
-        databaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
+
+        // Reference to both live and archived events
+        DatabaseReference liveEventsRef = FirebaseDatabase.getInstance().getReference("events");
+        DatabaseReference archivedEventsRef = FirebaseDatabase.getInstance().getReference("archive_events");
+
+        // Helper to process events (live or archived)
+        ValueEventListener eventProcessor = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
@@ -679,12 +746,24 @@ public class TeacherDashboard extends BaseActivity {
                             }
                         }
                         if (shouldMark) {
-                            LocalDate date = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
-                            CalendarDay calDay = CalendarDay.from(date.getYear(), date.getMonthValue() - 1, date.getDayOfMonth());
-                            eventTypeMap.put(calDay, event.getEventType() != null ? event.getEventType() : "other");
+                            try {
+                                LocalDate date = LocalDate.parse(event.getStartDate(), DATE_FORMATTER);
+                                CalendarDay calDay = CalendarDay.from(date.getYear(), date.getMonthValue() - 1, date.getDayOfMonth());
+                                String type = event.getEventType() != null ? event.getEventType() : "other";
+                                eventTypeMap.put(calDay, type);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to parse date for archived/live event: " + event.getEventName(), e);
+                            }
                         }
                     }
                 }
+
+                // After processing both, apply decorators
+                if (eventTypeMap.isEmpty()) {
+                    Log.d(TAG, "No relevant events (live or archived) to mark on calendar");
+                    return;
+                }
+
                 for (Map.Entry<CalendarDay, String> entry : eventTypeMap.entrySet()) {
                     String eventType = entry.getValue();
                     int colorRes = getEventTypeColor(eventType);
@@ -693,6 +772,7 @@ public class TeacherDashboard extends BaseActivity {
                         public boolean shouldDecorate(CalendarDay day) {
                             return day.equals(entry.getKey());
                         }
+
                         @Override
                         public void decorate(DayViewFacade view) {
                             view.addSpan(new DotSpan(8, ContextCompat.getColor(TeacherDashboard.this, colorRes)));
@@ -701,13 +781,20 @@ public class TeacherDashboard extends BaseActivity {
                     calendarView.addDecorator(decorator);
                 }
                 calendarView.invalidateDecorators();
-                Log.d(TAG, "Marked " + eventTypeMap.size() + " dates on calendar with dynamic colors");
+                Log.d(TAG, "Marked " + eventTypeMap.size() + " dates on calendar (live + archived)");
             }
+
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Error fetching event types: " + error.getMessage());
+                Log.e(TAG, "Error reading events for calendar: " + error.getMessage());
             }
-        });
+        };
+
+        // Read live events
+        liveEventsRef.addListenerForSingleValueEvent(eventProcessor);
+
+        // Read archived events
+        archivedEventsRef.addListenerForSingleValueEvent(eventProcessor);
     }
 
     private int getEventTypeColor(String eventType) {

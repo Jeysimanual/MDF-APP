@@ -26,6 +26,8 @@ public class RegistrationAllowedChecker {
         Log.d(TAG, "checkAndDisableExpiredRegistrations: Checking registration status for events...");
 
         DatabaseReference eventsRef = FirebaseDatabase.getInstance().getReference("events");
+        // Disable cache syncing to ensure data is fetched from the server
+        eventsRef.keepSynced(false);
 
         eventsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
