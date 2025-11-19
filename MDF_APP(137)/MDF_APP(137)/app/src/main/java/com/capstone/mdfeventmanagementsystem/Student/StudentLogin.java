@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Looper;
 import android.text.method.PasswordTransformationMethod;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -276,7 +277,6 @@ public class StudentLogin extends BaseActivity {
                             .addOnSuccessListener(aVoid -> {
                                 Log.d(TAG, "FCM TOKEN SAVED SUCCESSFULLY!");
                                 Log.d(TAG, "Location: /students/" + studentID + "/fcmToken");
-                                Toast.makeText(StudentLogin.this, "Notifications Ready!", Toast.LENGTH_SHORT).show();
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "FAILED to save FCM token", e);
@@ -288,8 +288,16 @@ public class StudentLogin extends BaseActivity {
     private void navigateToDashboard() {
         Log.d(TAG, "Navigating to Student Dashboard.");
         updateFcmToken();
-        Intent intent = new Intent(StudentLogin.this, MainActivity2.class);
-        startActivity(intent);
-        finish();
+
+        // Success Toast - matches your Teacher logout style
+        Toast.makeText(StudentLogin.this, "Login Successfully!", Toast.LENGTH_SHORT).show();
+
+        // Small delay so the toast is clearly visible before screen changes
+        new android.os.Handler(Looper.getMainLooper()).postDelayed(() -> {
+            Intent intent = new Intent(StudentLogin.this, MainActivity2.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+        }, 800);
     }
 }

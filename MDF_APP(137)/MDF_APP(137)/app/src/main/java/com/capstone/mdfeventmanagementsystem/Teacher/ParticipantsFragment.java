@@ -1809,165 +1809,145 @@ public class ParticipantsFragment extends Fragment {
     // Method to create the Excel workbook with all data
     private void createExcelWorkbook(OutputStream outputStream, Uri fileUri, String fileName,
                                      List<ParticipantFullData> completeData, int numberOfDays) throws IOException {
-        // Create Excel workbook
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Attendance");
 
-        // Create cell styles
+        // === STYLES ===
         CellStyle headerStyle = workbook.createCellStyle();
         Font headerFont = workbook.createFont();
         headerFont.setBold(true);
         headerStyle.setFont(headerFont);
         headerStyle.setAlignment(HorizontalAlignment.CENTER);
 
-        // Create title style with larger font
         CellStyle titleStyle = workbook.createCellStyle();
         Font titleFont = workbook.createFont();
         titleFont.setBold(true);
-        titleFont.setFontHeightInPoints((short) 14); // Larger font for event name
+        titleFont.setFontHeightInPoints((short) 14);
         titleStyle.setFont(titleFont);
         titleStyle.setAlignment(HorizontalAlignment.CENTER);
-
-        // Add vertical alignment for title style to center text vertically
         titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
-        // Row 0: Event Name (merged across all columns)
-        Row eventNameRow = sheet.createRow(0);
-        // Set higher row height for better visibility of the event name
-        eventNameRow.setHeight((short) 600); // Increased row height (in twips) - about 30 pixels
+        CellStyle centerAlignedStyle = workbook.createCellStyle();
+        centerAlignedStyle.setAlignment(HorizontalAlignment.CENTER);
 
+        // === ROW 0: Event Name ===
+        Row eventNameRow = sheet.createRow(0);
+        eventNameRow.setHeight((short) 600);
         Cell eventNameCell = eventNameRow.createCell(0);
-        eventNameCell.setCellValue(eventName);
+        eventNameCell.setCellValue(eventName != null && !eventName.isEmpty() ? eventName : "Event Attendance");
         eventNameCell.setCellStyle(titleStyle);
 
-        // Calculate total columns based on event days (each day needs 3 columns: Status, Time In, Time Out)
-        int totalColumns = 2 + (numberOfDays * 3); // Name + Section + (Status, Time In, Time Out) * days
-
-        // Merge cells for Event Name heading (all columns)
+        int totalColumns = 2 + (numberOfDays * 3);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, totalColumns - 1));
 
-        // Add empty row for spacing after event name
-        Row spacerRow = sheet.createRow(1);
-        spacerRow.setHeight((short) 300); // About 15 pixels of empty space
+        // Empty row for spacing
+        sheet.createRow(1).setHeight((short) 300);
 
-        // Headers now start from row 2 (was row 1)
+        // === HEADERS (Row 2 & 3) ===
         Row headersRow = sheet.createRow(2);
-        Cell nameCell = headersRow.createCell(0);
-        nameCell.setCellValue("Name");
-        nameCell.setCellStyle(headerStyle);
+        headersRow.createCell(0).setCellValue("Name");
+        headersRow.createCell(1).setCellValue("Section");
 
-        Cell sectionCell = headersRow.createCell(1);
-        sectionCell.setCellValue("Section");
-        sectionCell.setCellStyle(headerStyle);
-
-        // Generate date headers for each day of the event
         List<String> formattedDates = getFormattedEventDates(eventStartDate, eventEndDate);
         for (int i = 0; i < formattedDates.size(); i++) {
-            // Create date header and merge it across 3 columns (for Status, Time In, Time Out)
             int startCol = 2 + (i * 3);
-            Cell dateHeaderCell = headersRow.createCell(startCol);
-            dateHeaderCell.setCellValue(formattedDates.get(i));
-            dateHeaderCell.setCellStyle(headerStyle);
-
-            // Merge cells for date heading (columns for this day)
+            Cell dateHeader = headersRow.createCell(startCol);
+            dateHeader.setCellValue(formattedDates.get(i));
+            dateHeader.setCellStyle(headerStyle);
             sheet.addMergedRegion(new CellRangeAddress(2, 2, startCol, startCol + 2));
         }
 
-        // Row 3: Status, Time In, Time Out headers for each day
+        // Sub-headers: Time In | Time Out | Status
         Row subHeadersRow = sheet.createRow(3);
         for (int i = 0; i < numberOfDays; i++) {
             int startCol = 2 + (i * 3);
 
-            Cell statusHeader = subHeadersRow.createCell(startCol);
-            statusHeader.setCellValue("Status");
-            statusHeader.setCellStyle(headerStyle);
+            subHeadersRow.createCell(startCol).setCellValue("Time In");
+            subHeadersRow.createCell(startCol + 1).setCellValue("Time Out");
+            subHeadersRow.createCell(startCol + 2).setCellValue("Status");  // Status now last
 
-            Cell timeInHeader = subHeadersRow.createCell(startCol + 1);
-            timeInHeader.setCellValue("Time In");
-            timeInHeader.setCellStyle(headerStyle);
-
-            Cell timeOutHeader = subHeadersRow.createCell(startCol + 2);
-            timeOutHeader.setCellValue("Time Out");
-            timeOutHeader.setCellStyle(headerStyle);
+            for (int j = 0; j < 3; j++) {
+                subHeadersRow.getCell(startCol + j).setCellStyle(headerStyle);
+            }
         }
 
-        // Set column widths manually
-        sheet.setColumnWidth(0, 20 * 256); // Name column
-        sheet.setColumnWidth(1, 15 * 256); // Section column
-
-        // Set widths for all date columns
-        for (int i = 0; i < numberOfDays * 3; i++) {
-            sheet.setColumnWidth(2 + i, 15 * 256);
+        // === COLUMN WIDTHS ===
+        sheet.setColumnWidth(0, 20 * 256);
+        sheet.setColumnWidth(1, 15 * 256);
+        for (int i = 2; i < totalColumns; i++) {
+            sheet.setColumnWidth(i, 15 * 256);
         }
 
-        // Create center-aligned cell style for data
-        CellStyle centerAlignedStyle = workbook.createCellStyle();
-        centerAlignedStyle.setAlignment(HorizontalAlignment.CENTER);
-
-        // Fill participant data starting from row 4
-        Log.d(TAG, "Adding " + completeData.size() + " participants to Excel");
+        // === FILL DATA (from row 4) ===
         int rowIndex = 4;
         for (ParticipantFullData pData : completeData) {
             Participant p = pData.getBasicInfo();
             Row row = sheet.createRow(rowIndex++);
 
-            // Common participant info
-            Cell nameValueCell = row.createCell(0);
-            nameValueCell.setCellValue(p.getName() != null ? p.getName() : "");
+            // Name & Section
+            row.createCell(0).setCellValue(p.getName() != null ? p.getName() : "Unknown");
+            Cell sectionCell = row.createCell(1);
+            sectionCell.setCellValue(p.getSection() != null ? p.getSection() : "");
+            sectionCell.setCellStyle(centerAlignedStyle);
 
-            Cell sectionValueCell = row.createCell(1);
-            sectionValueCell.setCellValue(p.getSection() != null ? p.getSection() : "");
-            sectionValueCell.setCellStyle(centerAlignedStyle);  // Apply center alignment
+            // Each Day: Time In → Time Out → Status
+            for (int day = 1; day <= numberOfDays; day++) {
+                int startCol = 2 + ((day - 1) * 3);
+                AttendanceData data = pData.getAttendanceForDay(day);
 
-            // For each day, fetch the appropriate attendance data from our complete dataset
-            for (int day = 0; day < numberOfDays; day++) {
-                int startCol = 2 + (day * 3);
+                String timeIn = data.getTimeIn();
+                String timeOut = data.getTimeOut();
+                String status = data.getStatus();
 
-                // Get attendance data for this day from our pre-fetched data
-                AttendanceData attendanceData = pData.getAttendanceForDay(day + 1);
+                // Time In
+                Cell timeInCell = row.createCell(startCol);
+                String displayTimeIn = formatTo12Hour(timeIn);
+                timeInCell.setCellValue(displayTimeIn);
+                timeInCell.setCellStyle(centerAlignedStyle);
 
-                Cell statusValueCell = row.createCell(startCol);
-                statusValueCell.setCellValue(attendanceData.getStatus() != null ? attendanceData.getStatus() : "");
-                statusValueCell.setCellStyle(centerAlignedStyle);
+                // Time Out
+                Cell timeOutCell = row.createCell(startCol + 1);
+                String displayTimeOut = formatTo12Hour(timeOut);
+                timeOutCell.setCellValue(displayTimeOut);
+                timeOutCell.setCellStyle(centerAlignedStyle);
 
-                Cell timeInValueCell = row.createCell(startCol + 1);
-                /*String formattedTimeIn = formatTo12Hour(attendanceData.getTimeIn()); */
-                /*timeInValueCell.setCellValue(formattedTimeIn); // Use the formatted time!*/
-                timeInValueCell.setCellStyle(centerAlignedStyle);
-
-                Cell timeOutValueCell = row.createCell(startCol + 2);
-                /*String formattedTimeOut = formatTo12Hour(attendanceData.getTimeOut());*/
-                /*timeOutValueCell.setCellValue(formattedTimeOut); // Use the formatted time!*/
-                timeOutValueCell.setCellStyle(centerAlignedStyle);
+                // Status (now last)
+                Cell statusCell = row.createCell(startCol + 2);
+                statusCell.setCellValue(status != null && !status.isEmpty() ? status : "Pending");
+                statusCell.setCellStyle(centerAlignedStyle);
             }
         }
 
-        // Write workbook to file
-        try {
-            workbook.write(outputStream);
-            workbook.close();
-            outputStream.flush();
-            outputStream.close();
-            Log.d(TAG, "Excel file successfully written with " + completeData.size() + " rows of data");
-        } catch (IOException e) {
-            Log.e(TAG, "Error while writing Excel file: " + e.getMessage(), e);
-            throw e;
-        }
+        // === WRITE TO FILE ===
+        workbook.write(outputStream);
+        workbook.close();
+        outputStream.flush();
+        outputStream.close();
 
-        // Display path and show success dialog
-        String userFriendlyPath;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            userFriendlyPath = Environment.DIRECTORY_DOWNLOADS + "/" + fileName;
-        } else {
-            File exportDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            userFriendlyPath = new File(exportDir, fileName).getAbsolutePath();
-        }
+        String userFriendlyPath = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                ? Environment.DIRECTORY_DOWNLOADS + "/" + fileName
+                : new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName).getAbsolutePath();
 
         showExportSuccessDialog(userFriendlyPath, fileUri);
 
-        // Mark as successfully exported
         hasExportedSuccessfully = true;
         lastExportedFileName = fileName;
+    }
+
+    private String formatTo12Hour(String time24) {
+        if (time24 == null || time24.trim().isEmpty() || "N/A".equalsIgnoreCase(time24)) {
+            return "N/A";
+        }
+
+        try {
+            SimpleDateFormat sdf24 = new SimpleDateFormat("HH:mm", Locale.getDefault());
+            SimpleDateFormat sdf12 = new SimpleDateFormat("hh:mm a", Locale.getDefault());
+            Date date = sdf24.parse(time24.trim());
+
+            return sdf12.format(date); // e.g., 02:30 PM
+        } catch (Exception e) {
+            return time24; // fallback to raw time if parsing fails
+        }
     }
 
     // Helper class to store attendance data for a specific day

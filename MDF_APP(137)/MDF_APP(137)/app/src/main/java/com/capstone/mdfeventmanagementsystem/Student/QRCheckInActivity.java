@@ -207,14 +207,6 @@ public class QRCheckInActivity extends BaseActivity {
         profilesRef = FirebaseDatabase.getInstance().getReference().child("user_profiles");
 
 
-        findViewById(R.id.fab_scan).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(getApplicationContext(), QRCheckInActivity.class));
-                overridePendingTransition(0, 0);
-            }
-        });
-
         BottomAppBar bottomAppBar = findViewById(R.id.bottomAppBar);
         bottomAppBar.setBackgroundTint(ColorStateList.valueOf(Color.WHITE));
 

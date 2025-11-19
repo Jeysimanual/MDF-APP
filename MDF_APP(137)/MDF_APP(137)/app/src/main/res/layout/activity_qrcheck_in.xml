@@ -156,14 +156,17 @@
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <!-- Status Container - This will center all status indicators -->
+
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/status_container"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
                     app:layout_constraintBottom_toTopOf="@id/viewDashDottedLine"
                     app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.0"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/instruction_for_scanning">
+                    app:layout_constraintTop_toBottomOf="@id/instruction_for_scanning"
+                    app:layout_constraintVertical_bias="0.0">
 
                     <!-- Valid Ticket Status -->
                     <ImageView
@@ -182,8 +185,8 @@
                         android:id="@+id/valid_text"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
                         android:layout_marginStart="16dp"
+                        android:layout_marginTop="8dp"
                         android:layout_marginEnd="16dp"
                         android:fontFamily="@font/host_grotesk_regular"
                         android:text="The ticket is valid"
@@ -212,8 +215,8 @@
                         android:id="@+id/used_text"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
                         android:layout_marginStart="16dp"
+                        android:layout_marginTop="8dp"
                         android:layout_marginEnd="16dp"
                         android:fontFamily="@font/host_grotesk_regular"
                         android:text="The ticket is used"
@@ -242,8 +245,8 @@
                         android:id="@+id/invalid_text"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
                         android:layout_marginStart="16dp"
+                        android:layout_marginTop="8dp"
                         android:layout_marginEnd="16dp"
                         android:fontFamily="@font/host_grotesk_regular"
                         android:text="The ticket is invalid"
@@ -272,8 +275,8 @@
                         android:id="@+id/not_allowed_text"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
                         android:layout_marginStart="16dp"
+                        android:layout_marginTop="8dp"
                         android:layout_marginEnd="16dp"
                         android:fontFamily="@font/host_grotesk_regular"
                         android:text="The ticket is not allowed to scan yet"

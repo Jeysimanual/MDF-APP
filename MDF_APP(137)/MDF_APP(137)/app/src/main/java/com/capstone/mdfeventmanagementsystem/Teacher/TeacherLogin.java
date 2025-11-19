@@ -195,8 +195,17 @@ public class TeacherLogin extends BaseActivity {
                                                     FirebaseUser user = auth.getCurrentUser();
                                                     if (user != null) {
                                                         Log.i(TAG, "loginTeacher: Auth successful, user UID: " + user.getUid());
+
+                                                        // === SESSION SAVED ===
                                                         saveTeacherSession(teacherId, email);
+
+                                                        // === UPDATE FCM TOKEN ===
                                                         updateFcmToken(teacherId);
+
+                                                        // === SUCCESS TOAST (NEW) ===
+                                                        Toast.makeText(TeacherLogin.this, "Login Successfully", Toast.LENGTH_SHORT).show();
+
+                                                        // === NAVIGATE TO DASHBOARD ===
                                                         navigateToDashboard();
                                                     } else {
                                                         setLoading(false);
@@ -269,7 +278,6 @@ public class TeacherLogin extends BaseActivity {
                             .setValue(token)
                             .addOnSuccessListener(aVoid -> {
                                 Log.d(TAG, "updateFcmToken: FCM token saved successfully at /teachers/" + teacherId + "/fcmToken");
-                                Toast.makeText(TeacherLogin.this, "Notifications Ready!", Toast.LENGTH_SHORT).show();
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "updateFcmToken: Failed to save FCM token", e);

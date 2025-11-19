@@ -546,10 +546,12 @@ public class StudentSignUp extends BaseActivity {
             return;
         }
 
-        if (!studentIdNumber.matches("\\d{7}")) {
-            Log.w(TAG, "validateAndRegister: Validation failed - Invalid ID number: " + studentIdNumber);
+
+        if (studentIdNumber.isEmpty() || firstName.isEmpty() || lastName.isEmpty() || email.isEmpty()
+                || password.isEmpty() || confirmPassword.isEmpty() || yearLevel.isEmpty() || section.isEmpty()) {
+            Log.w(TAG, "validateAndRegister: Validation failed - Missing required fields");
             runOnUiThread(() -> {
-                Toast.makeText(StudentSignUp.this, "ID must be exactly 7 digits!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(StudentSignUp.this, "Please fill up all fields!", Toast.LENGTH_SHORT).show();
                 setLoading(false);
             });
             return;
@@ -563,17 +565,6 @@ public class StudentSignUp extends BaseActivity {
             });
             return;
         }
-
-        if (studentIdNumber.isEmpty() || firstName.isEmpty() || lastName.isEmpty() || email.isEmpty()
-                || password.isEmpty() || confirmPassword.isEmpty() || yearLevel.isEmpty() || section.isEmpty()) {
-            Log.w(TAG, "validateAndRegister: Validation failed - Missing required fields");
-            runOnUiThread(() -> {
-                Toast.makeText(StudentSignUp.this, "Please fill in all required fields!", Toast.LENGTH_SHORT).show();
-                setLoading(false);
-            });
-            return;
-        }
-
         if (yearLevel.equals("Select") || section.equals("Select")) {
             Log.w(TAG, "validateAndRegister: Validation failed - Year Level or Section not selected");
             runOnUiThread(() -> {

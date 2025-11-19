@@ -87,6 +87,11 @@ public class TeacherCreateEventActivity extends BaseActivity {
     private TextView customParticipantsAsterisk;
     private EditText customParticipantsField;
 
+    // Grace Time Custom Fields
+    private TextView customGraceTimeLabel;
+    private TextView customGraceTimeAsterisk;
+    private EditText customGraceTimeField;
+
     // Uri for the selected image and document
     private Uri coverPhotoUri = null;
     private Uri proposalFileUri = null;
@@ -615,24 +620,67 @@ public class TeacherCreateEventActivity extends BaseActivity {
             eventData.put("endTime", endTime);
         }
 
-        // Set grace time spinner
+        // Set grace time spinner and handle custom values + DEBUG LOGS
         if (graceTime != null) {
-            String[] graceTimeOptions = {"None", "15 min", "30 min", "60 min", "120 min"};
+            Log.d("GRACE_TIME_DEBUG", "=== GRACE TIME POPULATE START ===");
+            Log.d("GRACE_TIME_DEBUG", "Saved graceTime from Firebase: '" + graceTime + "'");
 
-            // Find the appropriate spinner option
-            int selectionIndex = 0;
+            String[] graceTimeOptions = {"None", "15 min", "30 min", "60 min", "120 min", "Custom"};
+
+            boolean matched = false;
+
             if (graceTime.equals("none")) {
-                selectionIndex = 0;
+                Log.d("GRACE_TIME_DEBUG", "Matched 'none' → setting spinner to 0 (None)");
+                graceTimeSpinner.setSelection(0);
+                matched = true;
+            } else if (graceTime.equals("15")) {
+                Log.d("GRACE_TIME_DEBUG", "Matched '15' → setting spinner to 1");
+                graceTimeSpinner.setSelection(1);
+                matched = true;
+            } else if (graceTime.equals("30")) {
+                Log.d("GRACE_TIME_DEBUG", "Matched '30' → setting spinner to 2");
+                graceTimeSpinner.setSelection(2);
+                matched = true;
+            } else if (graceTime.equals("60")) {
+                Log.d("GRACE_TIME_DEBUG", "Matched '60' → setting spinner to 3");
+                graceTimeSpinner.setSelection(3);
+                matched = true;
+            } else if (graceTime.equals("120")) {
+                Log.d("GRACE_TIME_DEBUG", "Matched '120' → setting spinner to 4");
+                graceTimeSpinner.setSelection(4);
+                matched = true;
             } else {
-                for (int i = 1; i < graceTimeOptions.length; i++) {
-                    if (graceTimeOptions[i].startsWith(graceTime)) {
-                        selectionIndex = i;
-                        break;
-                    }
+                // CUSTOM VALUE
+                Log.d("GRACE_TIME_DEBUG", "NO predefined match → treating as CUSTOM: " + graceTime);
+                try {
+                    int customMins = Integer.parseInt(graceTime);
+                    Log.d("GRACE_TIME_DEBUG", "Parsed custom minutes: " + customMins);
+
+                    graceTimeSpinner.setSelection(5); // "Custom"
+                    Log.d("GRACE_TIME_DEBUG", "Spinner set to Custom (index 5)");
+
+                    // Force show and fill custom field
+                    customGraceTimeLabel.setVisibility(View.VISIBLE);
+                    customGraceTimeAsterisk.setVisibility(View.VISIBLE);
+                    customGraceTimeField.setVisibility(View.VISIBLE);
+                    customGraceTimeField.setText(String.valueOf(customMins));
+
+                    Log.d("GRACE_TIME_DEBUG", "Custom field VISIBLE + setText(" + customMins + ")");
+                    eventData.put("graceTime", String.valueOf(customMins));
+
+                } catch (NumberFormatException e) {
+                    Log.e("GRACE_TIME_DEBUG", "Failed to parse graceTime as number: " + graceTime, e);
+                    graceTimeSpinner.setSelection(0);
                 }
+                matched = true;
             }
 
-            graceTimeSpinner.setSelection(selectionIndex);
+            if (!matched) {
+                Log.w("GRACE_TIME_DEBUG", "No match found at all → forcing 'None'");
+                graceTimeSpinner.setSelection(0);
+            }
+
+            Log.d("GRACE_TIME_DEBUG", "=== GRACE TIME POPULATE END ===\n");
         }
     }
 
@@ -867,6 +915,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
         radioSingleDayEvent = findViewById(R.id.radioSingleDayEvent);
         radioMultiDayEvent = findViewById(R.id.radioMultiDayEvent);
 
+
         // Set default selection
         radioSingleDayEvent.setChecked(true);
         eventData.put("eventSpan", "single-day");
@@ -900,8 +949,12 @@ public class TeacherCreateEventActivity extends BaseActivity {
         setupTimePicker(startTimeField, "Start Time");
         setupTimePicker(endTimeField, "End Time");
 
+        // Initialize custom grace time fields
         // Initialize and setup Grace Time Spinner
         graceTimeSpinner = findViewById(R.id.graceTimeSpinner);
+        customGraceTimeLabel = findViewById(R.id.customGraceTimeLabel);
+        customGraceTimeAsterisk = findViewById(R.id.customGraceTimeAsterisk);
+        customGraceTimeField = findViewById(R.id.customGraceTimeField);
         setupGraceTimeSpinner();
     }
 
@@ -1358,14 +1411,12 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void setupGraceTimeSpinner() {
-        String[] graceTimeOptions = {"None", "15 min", "30 min", "60 min", "120 min"};
-
+        String[] graceTimeOptions = {"None", "15 min", "30 min", "60 min", "120 min", "Custom"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
                 graceTimeOptions
         );
-
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         graceTimeSpinner.setAdapter(adapter);
 
@@ -1373,11 +1424,35 @@ public class TeacherCreateEventActivity extends BaseActivity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedOption = graceTimeOptions[position];
-                if (selectedOption.equals("None")) {
-                    eventData.put("graceTime", "none");
+
+                if (selectedOption.equals("Custom")) {
+                    customGraceTimeLabel.setVisibility(View.VISIBLE);
+                    customGraceTimeAsterisk.setVisibility(View.VISIBLE);
+                    customGraceTimeField.setVisibility(View.VISIBLE);
+                    eventData.put("graceTime", "custom"); // temporary
                 } else {
-                    String graceTimeMinutes = selectedOption.split(" ")[0];
-                    eventData.put("graceTime", graceTimeMinutes);
+                    customGraceTimeLabel.setVisibility(View.GONE);
+                    customGraceTimeAsterisk.setVisibility(View.GONE);
+                    customGraceTimeField.setVisibility(View.GONE);
+
+                    String minutes = "none";
+                    if (!selectedOption.equals("None")) {
+                        minutes = selectedOption.split(" ")[0]; // "60", "120", etc.
+                    }
+
+                    // Block 60 min and above if event is exactly 1 hour
+                    if (isEventDurationExactlyOneHour() &&
+                            ("60".equals(minutes) || "120".equals(minutes))) {
+
+                        Toast.makeText(TeacherCreateEventActivity.this,
+                                "Grace time of 60 minutes or more is not allowed for 1-hour events. Please choose below 60 min or use Custom.",
+                                Toast.LENGTH_LONG).show();
+
+                        graceTimeSpinner.setSelection(0); // reset to "None"
+                        eventData.put("graceTime", "none");
+                    } else {
+                        eventData.put("graceTime", minutes);
+                    }
                 }
             }
 
@@ -1386,6 +1461,77 @@ public class TeacherCreateEventActivity extends BaseActivity {
                 eventData.put("graceTime", "none");
             }
         });
+
+        // Real-time validation for custom field
+        customGraceTimeField.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String input = s.toString().trim();
+                if (input.isEmpty()) {
+                    customGraceTimeField.setError(null);
+                    eventData.put("graceTime", "none");
+                    return;
+                }
+
+                try {
+                    int minutes = Integer.parseInt(input);
+
+                    if (minutes <= 0) {
+                        customGraceTimeField.setError("Must be greater than 0");
+                        eventData.put("graceTime", "none");
+                    }
+                    else if (isEventDurationExactlyOneHour() && minutes >= 60) {
+                        customGraceTimeField.setError("60 minutes or more not allowed for 1-hour events");
+                        // Do NOT save invalid value
+                    }
+                    else if (minutes > 999) {
+                        customGraceTimeField.setError("Maximum 999 minutes");
+                        customGraceTimeField.setText("999");
+                        customGraceTimeField.setSelection(3);
+                    }
+                    else {
+                        customGraceTimeField.setError(null);
+                        eventData.put("graceTime", String.valueOf(minutes));
+                    }
+                } catch (NumberFormatException e) {
+                    customGraceTimeField.setError("Invalid number");
+                    eventData.put("graceTime", "none");
+                }
+            }
+        });
+    }
+
+    // Add this helper method (replace the old one)
+    private boolean isEventDurationExactlyOneHour() {
+        String startTimeStr = startTimeField.getText().toString().trim();
+        String endTimeStr = endTimeField.getText().toString().trim();
+
+        if (startTimeStr.isEmpty() || endTimeStr.isEmpty()) return false;
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
+            Date start = sdf.parse(startTimeStr);
+            Date end = sdf.parse(endTimeStr);
+
+            if (start != null && end != null) {
+                long diffInMillis = end.getTime() - start.getTime();
+                long diffInMinutes = diffInMillis / (1000 * 60);
+
+                // Handle case where end time is next day (e.g., 11:00 PM → 1:00 AM)
+                if (diffInMillis < 0) {
+                    diffInMillis += 24 * 60 * 60 * 1000; // add 24 hours
+                    diffInMinutes = diffInMillis / (1000 * 60);
+                }
+
+                return diffInMinutes == 60;
+            }
+        } catch (Exception e) {
+            Log.e("GraceTime", "Error parsing time for 1-hour check", e);
+        }
+        return false;
     }
 
     private boolean validatePage2() {
@@ -1501,6 +1647,40 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         }
 
+// Validate custom grace time if visible
+        if (customGraceTimeField.getVisibility() == View.VISIBLE) {
+            String customGrace = customGraceTimeField.getText().toString().trim();
+
+            if (customGrace.isEmpty()) {
+                customGraceTimeField.setError("Please enter grace time in minutes");
+                isValid = false;
+            } else {
+                try {
+                    int mins = Integer.parseInt(customGrace);
+
+                    if (mins <= 0) {
+                        customGraceTimeField.setError("Must be greater than 0");
+                        isValid = false;
+                    }
+                    // Block 60 minutes AND ANYTHING ABOVE when event is exactly 1 hour
+                    else if (isEventDurationExactlyOneHour() && mins >= 60) {
+                        customGraceTimeField.setError("Grace time of 60 minutes or more is not allowed for 1-hour events");
+                        Toast.makeText(this,
+                                "Grace time of 60 minutes or more is not allowed when the event duration is exactly 1 hour.\n" +
+                                        "Please choose None, 15 min, 30 min, or a value below 60.",
+                                Toast.LENGTH_LONG).show();
+                        isValid = false;
+                    }
+                    else if (mins > 999) {
+                        customGraceTimeField.setError("Maximum 999 minutes allowed");
+                        isValid = false;
+                    }
+                } catch (NumberFormatException e) {
+                    customGraceTimeField.setError("Please enter a valid number");
+                    isValid = false;
+                }
+            }
+        }
 
         return isValid;
     }
