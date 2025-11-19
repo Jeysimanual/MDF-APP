@@ -215,9 +215,9 @@ public class TeacherLogin extends BaseActivity {
                                                     }
                                                 } else {
                                                     setLoading(false);
-                                                    Log.e(TAG, "loginTeacher: Authentication failed: " + task.getException().getMessage(), task.getException());
+                                                    Log.e(TAG, "loginTeacher: Authentication failed", task.getException());
                                                     Toast.makeText(TeacherLogin.this,
-                                                            "Authentication Failed: " + task.getException().getMessage(),
+                                                            "Invalid email or password. Please try again.",
                                                             Toast.LENGTH_SHORT).show();
                                                 }
                                             });
@@ -245,7 +245,6 @@ public class TeacherLogin extends BaseActivity {
                     }
                 });
     }
-
     private void saveTeacherSession(String teacherId, String email) {
         SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
