@@ -14,6 +14,7 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -36,6 +37,7 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import com.bumptech.glide.Glide;
 import com.capstone.mdfeventmanagementsystem.R;
 import com.capstone.mdfeventmanagementsystem.Utilities.BaseActivity;
+import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.card.MaterialCardView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -116,7 +118,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
     private boolean isProposal = true; // Added to track if editing a proposal
     private String eventId;
 
-    private LinearLayout selectedYearLevelsContainer;
+    private FlexboxLayout selectedYearLevelsContainer;
     private List<String> selectedYearLevels = new ArrayList<>();
 
     @Override
@@ -469,37 +471,80 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
         // Set target number of participants spinner
         if (targetParticipants != null) {
-            String[] participantOptions = {"None", "10", "20", "30", "40", "50", "100", "Custom"};
-            boolean foundMatchingOption = false;
+            // First fetch the current student count to populate the spinner correctly
+            fetchTotalStudentsForEdit(targetParticipants);
+        }
+    }
 
-            Log.d("populatePage1Fields", "Checking targetParticipants: " + targetParticipants);
-            for (int i = 0; i < participantOptions.length; i++) {
-                String option = participantOptions[i];
-                if (option.equals("None") && targetParticipants.equalsIgnoreCase("none")) {
-                    targetParticipantsSpinner.setSelection(i);
-                    eventData.put("targetParticipant", "none");
-                    foundMatchingOption = true;
-                    Log.d("populatePage1Fields", "Set targetParticipant to none at index " + i);
-                    break;
-                } else if (option.equals(targetParticipants)) {
-                    targetParticipantsSpinner.setSelection(i);
-                    eventData.put("targetParticipant", targetParticipants);
-                    foundMatchingOption = true;
-                    Log.d("populatePage1Fields", "Set targetParticipant to: " + targetParticipants + " at index " + i);
-                    break;
+    private void fetchTotalStudentsForEdit(String targetParticipants) {
+        DatabaseReference studentsRef = database.getReference("students");
+
+        studentsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                int totalStudents = 0;
+
+                // Count all students in the database
+                for (DataSnapshot studentSnapshot : dataSnapshot.getChildren()) {
+                    totalStudents++;
                 }
+
+                // Now populate the spinner with the correct selection
+                populateTargetParticipantsSpinnerForEdit(totalStudents, targetParticipants);
             }
 
-            if (!foundMatchingOption) {
-                targetParticipantsSpinner.setSelection(7);
-                customParticipantsLabel.setVisibility(View.VISIBLE);
-                customParticipantsAsterisk.setVisibility(View.VISIBLE);
-                customParticipantsField.setVisibility(View.VISIBLE);
-                Log.d("populatePage1Fields", "Setting customParticipantsField to: " + targetParticipants);
-                customParticipantsField.setText(targetParticipants);
-                eventData.put("targetParticipant", targetParticipants);
-                Log.d("populatePage1Fields", "Set to Custom after setting text");
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Log.e("TeacherCreateEvent", "Error fetching students count for edit: " + databaseError.getMessage());
+                // Fallback without dynamic total
+                populateTargetParticipantsSpinnerForEdit(0, targetParticipants);
             }
+        });
+    }
+
+    private void populateTargetParticipantsSpinnerForEdit(int totalStudents, String targetParticipants) {
+        List<String> participantOptions = new ArrayList<>();
+        participantOptions.add("--Select Number of Participants--");
+
+
+        // Add other fixed options
+        participantOptions.add("10");
+        participantOptions.add("20");
+        participantOptions.add("30");
+        participantOptions.add("40");
+        participantOptions.add("50");
+        participantOptions.add("100");
+        // Add the dynamic total students option - SHOW ONLY THE NUMBER
+        if (totalStudents > 0) {
+            participantOptions.add(String.valueOf(totalStudents)); // Just show the number
+        }
+        participantOptions.add("Custom");
+
+        boolean foundMatchingOption = false;
+
+        Log.d("populatePage1Fields", "Checking targetParticipants: " + targetParticipants);
+        for (int i = 0; i < participantOptions.size(); i++) {
+            String option = participantOptions.get(i);
+
+            // Handle matching values (no need for special "all" handling anymore)
+            if (option.equals(targetParticipants)) {
+                targetParticipantsSpinner.setSelection(i);
+                eventData.put("targetParticipant", targetParticipants);
+                foundMatchingOption = true;
+                Log.d("populatePage1Fields", "Set targetParticipant to: " + targetParticipants + " at index " + i);
+                break;
+            }
+        }
+
+        if (!foundMatchingOption) {
+            targetParticipantsSpinner.setSelection(participantOptions.size() - 1); // Set to "Custom"
+            customParticipantsLabel.setVisibility(View.VISIBLE);
+            customParticipantsAsterisk.setVisibility(View.VISIBLE);
+            customParticipantsField.setVisibility(View.VISIBLE);
+            Log.d("populatePage1Fields", "Setting customParticipantsField to: " + targetParticipants);
+            customParticipantsField.setText(targetParticipants);
+            eventData.put("targetParticipant", targetParticipants);
+            Log.d("populatePage1Fields", "Set to Custom after setting text");
         }
     }
 
@@ -609,15 +654,21 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         }
 
-        // Set times
+        // Set times - Convert 24-hour format to 12-hour format for display
         if (startTime != null) {
-            startTimeField.setText(startTime);
+            String displayStartTime = convertTo12HourFormat(startTime);
+            startTimeField.setText(displayStartTime);
+            // Store the original 24-hour format in eventData for database
             eventData.put("startTime", startTime);
+            Log.d("TimeConversion", "Start time converted from " + startTime + " to " + displayStartTime);
         }
 
         if (endTime != null) {
-            endTimeField.setText(endTime);
+            String displayEndTime = convertTo12HourFormat(endTime);
+            endTimeField.setText(displayEndTime);
+            // Store the original 24-hour format in eventData for database
             eventData.put("endTime", endTime);
+            Log.d("TimeConversion", "End time converted from " + endTime + " to " + displayEndTime);
         }
 
         // Set grace time spinner and handle custom values + DEBUG LOGS
@@ -629,28 +680,33 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
             boolean matched = false;
 
-            if (graceTime.equals("none")) {
+            if (graceTime.equals("none") || graceTime.equals("None")) {
                 Log.d("GRACE_TIME_DEBUG", "Matched 'none' → setting spinner to 0 (None)");
                 graceTimeSpinner.setSelection(0);
+                eventData.put("graceTime", "none");
                 matched = true;
             } else if (graceTime.equals("15")) {
                 Log.d("GRACE_TIME_DEBUG", "Matched '15' → setting spinner to 1");
                 graceTimeSpinner.setSelection(1);
+                eventData.put("graceTime", "15");
                 matched = true;
             } else if (graceTime.equals("30")) {
                 Log.d("GRACE_TIME_DEBUG", "Matched '30' → setting spinner to 2");
                 graceTimeSpinner.setSelection(2);
+                eventData.put("graceTime", "30");
                 matched = true;
             } else if (graceTime.equals("60")) {
                 Log.d("GRACE_TIME_DEBUG", "Matched '60' → setting spinner to 3");
                 graceTimeSpinner.setSelection(3);
+                eventData.put("graceTime", "60");
                 matched = true;
             } else if (graceTime.equals("120")) {
                 Log.d("GRACE_TIME_DEBUG", "Matched '120' → setting spinner to 4");
                 graceTimeSpinner.setSelection(4);
+                eventData.put("graceTime", "120");
                 matched = true;
             } else {
-                // CUSTOM VALUE
+                // CUSTOM VALUE - Handle both numeric strings and "custom" text
                 Log.d("GRACE_TIME_DEBUG", "NO predefined match → treating as CUSTOM: " + graceTime);
                 try {
                     int customMins = Integer.parseInt(graceTime);
@@ -666,11 +722,23 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     customGraceTimeField.setText(String.valueOf(customMins));
 
                     Log.d("GRACE_TIME_DEBUG", "Custom field VISIBLE + setText(" + customMins + ")");
+                    // Store the actual number value, not "custom"
                     eventData.put("graceTime", String.valueOf(customMins));
 
                 } catch (NumberFormatException e) {
                     Log.e("GRACE_TIME_DEBUG", "Failed to parse graceTime as number: " + graceTime, e);
-                    graceTimeSpinner.setSelection(0);
+                    // If it's not a number but says "custom", set to Custom option
+                    if (graceTime.equalsIgnoreCase("custom")) {
+                        graceTimeSpinner.setSelection(5);
+                        customGraceTimeLabel.setVisibility(View.VISIBLE);
+                        customGraceTimeAsterisk.setVisibility(View.VISIBLE);
+                        customGraceTimeField.setVisibility(View.VISIBLE);
+                        // Don't set text, let user enter new value
+                        eventData.put("graceTime", "none"); // Temporary until user enters value
+                    } else {
+                        graceTimeSpinner.setSelection(0);
+                        eventData.put("graceTime", "none");
+                    }
                 }
                 matched = true;
             }
@@ -678,6 +746,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
             if (!matched) {
                 Log.w("GRACE_TIME_DEBUG", "No match found at all → forcing 'None'");
                 graceTimeSpinner.setSelection(0);
+                eventData.put("graceTime", "none");
             }
 
             Log.d("GRACE_TIME_DEBUG", "=== GRACE TIME POPULATE END ===\n");
@@ -873,30 +942,111 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void setupTargetParticipantsSpinner() {
-        String[] participantOptions = {"None", "10", "20", "30", "40", "50", "100", "Custom"};
+        // First, fetch the total number of students from Firebase
+        fetchTotalStudents();
+    }
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+    private void fetchTotalStudents() {
+        DatabaseReference studentsRef = database.getReference("students");
+
+        studentsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                int totalStudents = 0;
+
+                // Count all students in the database
+                for (DataSnapshot studentSnapshot : dataSnapshot.getChildren()) {
+                    totalStudents++;
+                }
+
+                // Now setup the spinner with the dynamic total
+                setupTargetParticipantsSpinnerWithTotal(totalStudents);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Log.e("TeacherCreateEvent", "Error fetching students count: " + databaseError.getMessage());
+                // Fallback to default options if there's an error
+                setupTargetParticipantsSpinnerWithTotal(0);
+            }
+        });
+    }
+
+    private void setupTargetParticipantsSpinnerWithTotal(int totalStudents) {
+        List<String> participantOptions = new ArrayList<>();
+        participantOptions.add("--Select Number of Participants--");
+
+
+
+        // Add other fixed options
+        participantOptions.add("10");
+        participantOptions.add("20");
+        participantOptions.add("30");
+        participantOptions.add("40");
+        participantOptions.add("50");
+        participantOptions.add("100");
+        // Add the dynamic total students option - SHOW ONLY THE NUMBER
+        if (totalStudents > 0) {
+            participantOptions.add(String.valueOf(totalStudents)); // Just show the number
+        }
+        participantOptions.add("Custom");
+
+        // ... rest of the method remains the same ...
+        // Create adapter with all options
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
                 this,
                 android.R.layout.simple_spinner_item,
                 participantOptions
-        );
+        ) {
+            @Override
+            public boolean isEnabled(int position) {
+                // Make "--Select Number of Participants--" unselectable but visible
+                return position != 0;
+            }
+
+            @Override
+            public View getDropDownView(int position, View convertView, ViewGroup parent) {
+                View view = super.getDropDownView(position, convertView, parent);
+                TextView textView = (TextView) view;
+
+                // Gray out the "--Select Number of Participants--" option
+                if (position == 0) {
+                    textView.setTextColor(getResources().getColor(android.R.color.darker_gray));
+                } else {
+                    textView.setTextColor(getResources().getColor(android.R.color.black));
+                }
+                return view;
+            }
+        };
 
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         targetParticipantsSpinner.setAdapter(adapter);
 
         targetParticipantsSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            private boolean firstTime = true;
+
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                String selectedOption = participantOptions[position];
-                if (selectedOption.equals("Custom")) {
-                    customParticipantsLabel.setVisibility(View.VISIBLE);
-                    customParticipantsAsterisk.setVisibility(View.VISIBLE);
-                    customParticipantsField.setVisibility(View.VISIBLE);
-                } else {
-                    customParticipantsLabel.setVisibility(View.GONE);
-                    customParticipantsAsterisk.setVisibility(View.GONE);
-                    customParticipantsField.setVisibility(View.GONE);
-                    eventData.put("targetParticipant", selectedOption.equals("None") ? "none" : selectedOption);
+                // Skip the first call (initial selection)
+                if (firstTime) {
+                    firstTime = false;
+                    return;
+                }
+
+                String selectedOption = participantOptions.get(position);
+                if (!selectedOption.equals("--Select Number of Participants--")) {
+                    if (selectedOption.equals("Custom")) {
+                        customParticipantsLabel.setVisibility(View.VISIBLE);
+                        customParticipantsAsterisk.setVisibility(View.VISIBLE);
+                        customParticipantsField.setVisibility(View.VISIBLE);
+                    } else {
+                        customParticipantsLabel.setVisibility(View.GONE);
+                        customParticipantsAsterisk.setVisibility(View.GONE);
+                        customParticipantsField.setVisibility(View.GONE);
+
+                        // Store the selected value directly
+                        eventData.put("targetParticipant", selectedOption);
+                    }
                 }
             }
 
@@ -1264,6 +1414,14 @@ public class TeacherCreateEventActivity extends BaseActivity {
 
             TimePickerDialog timePickerDialog = new TimePickerDialog(TeacherCreateEventActivity.this,
                     (view, selectedHour, selectedMinute) -> {
+                        // Validate time range
+                        if (!isTimeInValidRange(selectedHour, selectedMinute)) {
+                            Toast.makeText(TeacherCreateEventActivity.this,
+                                    "Time must be between 5:00 AM and 10:00 PM",
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
                         boolean isCurrentDate = false;
                         String startDateStr = startDateField.getText().toString();
                         if (!startDateStr.isEmpty()) {
@@ -1342,6 +1500,14 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
 
             new TimePickerDialog(this, (view, selectedHour, selectedMinute) -> {
+                // Validate time range
+                if (!isTimeInValidRange(selectedHour, selectedMinute)) {
+                    Toast.makeText(TeacherCreateEventActivity.this,
+                            "Time must be between 5:00 AM and 10:00 PM",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
                 if (startTimeField.getText().toString().trim().isEmpty()) {
                     Toast.makeText(this, "Please select start time first", Toast.LENGTH_SHORT).show();
                     return;
@@ -1391,6 +1557,15 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     (view, selectedHour, selectedMinute) -> {
                         calendar.set(Calendar.HOUR_OF_DAY, selectedHour);
                         calendar.set(Calendar.MINUTE, selectedMinute);
+
+                        // Validate time range (5:00 AM to 10:00 PM)
+                        if (!isTimeInValidRange(selectedHour, selectedMinute)) {
+                            Toast.makeText(TeacherCreateEventActivity.this,
+                                    "Time must be between 5:00 AM and 10:00 PM",
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
                         SimpleDateFormat displayTimeFormat = new SimpleDateFormat("hh:mm a", Locale.US);
                         String displayTime = displayTimeFormat.format(calendar.getTime());
 
@@ -1410,6 +1585,15 @@ public class TeacherCreateEventActivity extends BaseActivity {
         });
     }
 
+    // Helper method to validate time range (5:00 AM to 10:00 PM)
+    private boolean isTimeInValidRange(int hour, int minute) {
+        // Convert to minutes since midnight for easier comparison
+        int totalMinutes = hour * 60 + minute;
+
+        // 5:00 AM = 5 * 60 = 300 minutes
+        // 10:00 PM = 22 * 60 = 1320 minutes
+        return totalMinutes >= 300 && totalMinutes <= 1320;
+    }
     private void setupGraceTimeSpinner() {
         String[] graceTimeOptions = {"None", "15 min", "30 min", "60 min", "120 min", "Custom"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
@@ -1429,7 +1613,11 @@ public class TeacherCreateEventActivity extends BaseActivity {
                     customGraceTimeLabel.setVisibility(View.VISIBLE);
                     customGraceTimeAsterisk.setVisibility(View.VISIBLE);
                     customGraceTimeField.setVisibility(View.VISIBLE);
-                    eventData.put("graceTime", "custom"); // temporary
+                    // Don't set "custom" text here, wait for user input
+                    // Clear any previous value until user enters a new one
+                    if (customGraceTimeField.getText().toString().trim().isEmpty()) {
+                        eventData.put("graceTime", "none");
+                    }
                 } else {
                     customGraceTimeLabel.setVisibility(View.GONE);
                     customGraceTimeAsterisk.setVisibility(View.GONE);
@@ -1605,12 +1793,24 @@ public class TeacherCreateEventActivity extends BaseActivity {
         if (startTime.isEmpty()) {
             startTimeField.setError("Start time is required");
             isValid = false;
+        } else {
+            // Validate start time range
+            if (!isTimeFieldInValidRange(startTimeField)) {
+                startTimeField.setError("Start time must be between 5:00 AM and 10:00 PM");
+                isValid = false;
+            }
         }
 
         String endTime = endTimeField.getText().toString().trim();
         if (endTime.isEmpty()) {
             endTimeField.setError("End time is required");
             isValid = false;
+        } else {
+            // Validate end time range
+            if (!isTimeFieldInValidRange(endTimeField)) {
+                endTimeField.setError("End time must be between 5:00 AM and 10:00 PM");
+                isValid = false;
+            }
         }
 
         // ADD THIS WHOLE BLOCK HERE – ENFORCES 1-HOUR MINIMUM DURATION
@@ -1647,7 +1847,7 @@ public class TeacherCreateEventActivity extends BaseActivity {
             }
         }
 
-// Validate custom grace time if visible
+        // Validate custom grace time if visible
         if (customGraceTimeField.getVisibility() == View.VISIBLE) {
             String customGrace = customGraceTimeField.getText().toString().trim();
 
@@ -1683,6 +1883,29 @@ public class TeacherCreateEventActivity extends BaseActivity {
         }
 
         return isValid;
+    }
+
+    // Helper method to validate time field range
+    private boolean isTimeFieldInValidRange(EditText timeField) {
+        String timeStr = timeField.getText().toString().trim();
+        if (timeStr.isEmpty()) {
+            return true;
+        }
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
+            Date time = sdf.parse(timeStr);
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(time);
+
+            int hour = cal.get(Calendar.HOUR_OF_DAY);
+            int minute = cal.get(Calendar.MINUTE);
+
+            return isTimeInValidRange(hour, minute);
+        } catch (ParseException e) {
+            Log.e("TimeValidation", "Error parsing time for range check", e);
+            return false;
+        }
     }
 
     private boolean validateTimeForCurrentDay() {
@@ -1780,18 +2003,47 @@ public class TeacherCreateEventActivity extends BaseActivity {
     private void setupEventForSpinner() {
         String[] gradeOptions = {"--Select Grade Level--", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12", "All Year Level"};
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+        // Create adapter with all options initially
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
                 this,
                 android.R.layout.simple_spinner_item,
                 gradeOptions
-        );
+        ) {
+            @Override
+            public boolean isEnabled(int position) {
+                // Make "--Select Grade Level--" unselectable but visible
+                return position != 0;
+            }
+
+            @Override
+            public View getDropDownView(int position, View convertView, ViewGroup parent) {
+                View view = super.getDropDownView(position, convertView, parent);
+                TextView textView = (TextView) view;
+
+                // Gray out the "--Select Grade Level--" option
+                if (position == 0) {
+                    textView.setTextColor(getResources().getColor(android.R.color.darker_gray));
+                } else {
+                    textView.setTextColor(getResources().getColor(android.R.color.black));
+                }
+                return view;
+            }
+        };
 
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         eventForSpinner.setAdapter(adapter);
 
         eventForSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            private boolean firstTime = true;
+
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                // Skip the first call (initial selection)
+                if (firstTime) {
+                    firstTime = false;
+                    return;
+                }
+
                 String selectedGrade = gradeOptions[position];
                 if (!selectedGrade.equals("--Select Grade Level--")) {
                     if (selectedGrade.equals("All Year Level")) {
@@ -1842,31 +2094,47 @@ public class TeacherCreateEventActivity extends BaseActivity {
     }
 
     private void updateSelectedYearLevelsUI() {
-        selectedYearLevelsContainer.removeAllViews();
-        if (!selectedYearLevels.isEmpty()) {
-            selectedYearLevelsContainer.setVisibility(View.VISIBLE);
-            LayoutInflater inflater = LayoutInflater.from(this);
-            for (String yearLevel : selectedYearLevels) {
-                View yearLevelView = inflater.inflate(R.layout.item_selected_year_level, selectedYearLevelsContainer, false);
-                TextView yearLevelText = yearLevelView.findViewById(R.id.yearLevelText);
-                yearLevelText.setText(yearLevel);
+        if (selectedYearLevelsContainer instanceof FlexboxLayout) {
+            FlexboxLayout flexboxLayout = (FlexboxLayout) selectedYearLevelsContainer;
+            flexboxLayout.removeAllViews();
 
-                View removeButton = yearLevelView.findViewById(R.id.removeYearLevelButton);
-                removeButton.setOnClickListener(v -> {
-                    selectedYearLevels.remove(yearLevel);
-                    updateSelectedYearLevelsUI();
-                    if (!isEditing && !startDateField.getText().toString().trim().isEmpty()) {
-                        startDateField.setText("");
-                        Toast.makeText(TeacherCreateEventActivity.this,
-                                "Please reselect the event date to check availability for the updated grade levels",
-                                Toast.LENGTH_SHORT).show();
+            if (!selectedYearLevels.isEmpty()) {
+                flexboxLayout.setVisibility(View.VISIBLE);
+                LayoutInflater inflater = LayoutInflater.from(this);
+
+                for (String yearLevel : selectedYearLevels) {
+                    View yearLevelView = inflater.inflate(R.layout.item_selected_year_level, flexboxLayout, false);
+                    TextView yearLevelText = yearLevelView.findViewById(R.id.yearLevelText);
+                    yearLevelText.setText(yearLevel);
+
+                    // Set Flexbox layout params for proper wrapping
+                    FlexboxLayout.LayoutParams layoutParams = (FlexboxLayout.LayoutParams) yearLevelView.getLayoutParams();
+                    if (layoutParams == null) {
+                        layoutParams = new FlexboxLayout.LayoutParams(
+                                FlexboxLayout.LayoutParams.WRAP_CONTENT,
+                                FlexboxLayout.LayoutParams.WRAP_CONTENT
+                        );
                     }
-                });
+                    layoutParams.setMargins(0, 0, 8, 8); // Add some spacing between items
+                    yearLevelView.setLayoutParams(layoutParams);
 
-                selectedYearLevelsContainer.addView(yearLevelView);
+                    View removeButton = yearLevelView.findViewById(R.id.removeYearLevelButton);
+                    removeButton.setOnClickListener(v -> {
+                        selectedYearLevels.remove(yearLevel);
+                        updateSelectedYearLevelsUI();
+                        if (!isEditing && !startDateField.getText().toString().trim().isEmpty()) {
+                            startDateField.setText("");
+                            Toast.makeText(TeacherCreateEventActivity.this,
+                                    "Please reselect the event date to check availability for the updated grade levels",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+                    flexboxLayout.addView(yearLevelView);
+                }
+            } else {
+                flexboxLayout.setVisibility(View.GONE);
             }
-        } else {
-            selectedYearLevelsContainer.setVisibility(View.GONE);
         }
     }
 
@@ -1920,15 +2188,19 @@ public class TeacherCreateEventActivity extends BaseActivity {
         }
 
         if (selectedYearLevels.isEmpty()) {
-            Toast.makeText(this, "Please select at least one year level", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please select the student grades for this event", Toast.LENGTH_SHORT).show();
             isValid = false;
         } else {
             String formattedGrades = String.join(",", selectedYearLevels).replace("All Year Level", "All").replace(" ", "-");
             eventData.put("eventFor", formattedGrades);
         }
 
+        // ADD VALIDATION FOR TARGET PARTICIPANTS
         String selectedTargetParticipants = targetParticipantsSpinner.getSelectedItem().toString();
-        if (selectedTargetParticipants.equals("Custom")) {
+        if (selectedTargetParticipants.equals("--Select Number of Participants--")) {
+            Toast.makeText(this, "Please select number of target participants", Toast.LENGTH_SHORT).show();
+            isValid = false;
+        } else if (selectedTargetParticipants.equals("Custom")) {
             String customNumber = customParticipantsField.getText().toString().trim();
             if (customNumber.isEmpty()) {
                 customParticipantsField.setError("Please enter the number of participants");
@@ -1969,15 +2241,18 @@ public class TeacherCreateEventActivity extends BaseActivity {
         eventData.put("eventFor", formattedGrades);
 
         String selectedTargetParticipants = targetParticipantsSpinner.getSelectedItem().toString();
-        if (selectedTargetParticipants.equals("Custom")) {
-            String customNumber = customParticipantsField.getText().toString().trim();
-            eventData.put("targetParticipant", customNumber);
-        } else {
-            eventData.put("targetParticipant", selectedTargetParticipants.toLowerCase());
+        if (!selectedTargetParticipants.equals("--Select Number of Participants--")) {
+            if (selectedTargetParticipants.equals("Custom")) {
+                String customNumber = customParticipantsField.getText().toString().trim();
+                eventData.put("targetParticipant", customNumber);
+            } else {
+                // Store the selected value directly (could be the dynamic total or any other number)
+                eventData.put("targetParticipant", selectedTargetParticipants);
+            }
         }
 
         eventData.put("createdAt", System.currentTimeMillis());
-        eventData.put("scanPermission", false); // Add scanPermission field
+        eventData.put("scanPermission", false);
 
         if (FirebaseAuth.getInstance().getCurrentUser() != null) {
             String userEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail();
@@ -2531,5 +2806,90 @@ public class TeacherCreateEventActivity extends BaseActivity {
             finish();
             return true;
         });
+    }
+    /**
+     * Convert 24-hour time format to 12-hour format with AM/PM
+     * @param time24 The time in 24-hour format (e.g., "13:00", "09:45")
+     * @return The time in 12-hour format with AM/PM (e.g., "1:00 PM", "9:45 AM")
+     */
+    private String convertTo12HourFormat(String time24) {
+        if (time24 == null || time24.isEmpty()) {
+            return "";
+        }
+
+        try {
+            // Remove any existing AM/PM indicators if present
+            String cleanTime = time24.replaceAll("(?i)\\s*(AM|PM)", "").trim();
+
+            // Parse the time
+            SimpleDateFormat inputFormat = new SimpleDateFormat("HH:mm", Locale.US);
+            SimpleDateFormat outputFormat = new SimpleDateFormat("h:mm a", Locale.US);
+
+            Date time = inputFormat.parse(cleanTime);
+            if (time != null) {
+                return outputFormat.format(time);
+            } else {
+                // If parsing fails, try alternative formats
+                try {
+                    // Try with seconds included
+                    inputFormat = new SimpleDateFormat("HH:mm:ss", Locale.US);
+                    time = inputFormat.parse(cleanTime);
+                    if (time != null) {
+                        return outputFormat.format(time);
+                    }
+                } catch (ParseException e) {
+                    Log.e("TimeConversion", "Error parsing time with seconds: " + cleanTime, e);
+                }
+
+                // If all parsing fails, return original time
+                return time24;
+            }
+        } catch (ParseException e) {
+            Log.e("TimeConversion", "Error parsing time: " + time24, e);
+
+            // If the time already contains AM/PM, return as is
+            if (time24.contains("AM") || time24.contains("PM") ||
+                    time24.contains("am") || time24.contains("pm")) {
+                return time24;
+            }
+
+            // Manual conversion as fallback
+            return manualTimeConversion(time24);
+        }
+    }
+
+    /**
+     * Manual conversion fallback for time format conversion
+     */
+    private String manualTimeConversion(String time24) {
+        if (time24 == null || time24.isEmpty()) {
+            return "";
+        }
+
+        try {
+            // Split hours and minutes
+            String[] parts = time24.split(":");
+            if (parts.length >= 2) {
+                int hour = Integer.parseInt(parts[0].trim());
+                String minutes = parts[1].trim();
+
+                String period = "AM";
+                if (hour >= 12) {
+                    period = "PM";
+                    if (hour > 12) {
+                        hour -= 12;
+                    }
+                }
+                if (hour == 0) {
+                    hour = 12;
+                }
+
+                return hour + ":" + minutes + " " + period;
+            }
+            return time24;
+        } catch (NumberFormatException e) {
+            Log.e("TimeConversion", "Error in manual time conversion: " + time24, e);
+            return time24;
+        }
     }
 }

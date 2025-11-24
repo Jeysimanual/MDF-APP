@@ -76,6 +76,9 @@ public class EventApprovalInside extends AppCompatActivity {
     private String targetParticipant;
     private DatabaseReference eventProposalsRef;
 
+    private String originalStartTime;
+    private String originalEndTime;
+
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -258,8 +261,14 @@ public class EventApprovalInside extends AppCompatActivity {
         String venue = dataSnapshot.child("venue").getValue(String.class);
         String startDate = dataSnapshot.child("startDate").getValue(String.class);
         String endDate = dataSnapshot.child("endDate").getValue(String.class);
-        String startTime = dataSnapshot.child("startTime").getValue(String.class);
-        String endTime = dataSnapshot.child("endTime").getValue(String.class);
+
+        // Store original times before conversion
+        originalStartTime = dataSnapshot.child("startTime").getValue(String.class);
+        originalEndTime = dataSnapshot.child("endTime").getValue(String.class);
+
+        String startTime = originalStartTime; // Use original for display conversion
+        String endTime = originalEndTime;     // Use original for display conversion
+
         String eventSpan = dataSnapshot.child("eventSpan").getValue(String.class);
         String graceTime = dataSnapshot.child("graceTime").getValue(String.class);
         String eventType = dataSnapshot.child("eventType").getValue(String.class);
@@ -300,8 +309,14 @@ public class EventApprovalInside extends AppCompatActivity {
             String venue = intent.getStringExtra("EVENT_VENUE");
             String startDate = intent.getStringExtra("EVENT_START_DATE");
             String endDate = intent.getStringExtra("EVENT_END_DATE");
-            String startTime = intent.getStringExtra("EVENT_START_TIME");
-            String endTime = intent.getStringExtra("EVENT_END_TIME");
+
+            // Get times from intent and store originals
+            originalStartTime = intent.getStringExtra("EVENT_START_TIME");
+            originalEndTime = intent.getStringExtra("EVENT_END_TIME");
+
+            String startTime = originalStartTime;
+            String endTime = originalEndTime;
+
             String eventSpan = intent.getStringExtra("EVENT_SPAN");
             String graceTime = intent.getStringExtra("EVENT_GRACE_TIME");
             String eventType = intent.getStringExtra("EVENT_TYPE");
@@ -322,7 +337,91 @@ public class EventApprovalInside extends AppCompatActivity {
             setEventDataToViews(name, description, venue, startDate, endDate, startTime, endTime,
                     eventSpan, graceTime, eventType, eventFor, photoUrl, eventStatus, reason);
         }
+    }
+    /**
+     * Convert 24-hour time format to 12-hour format with AM/PM
+     * @param time24 The time in 24-hour format (e.g., "14:30", "09:45")
+     * @return The time in 12-hour format with AM/PM (e.g., "2:30 PM", "9:45 AM")
+     */
+    private String convertTo12HourFormat(String time24) {
+        if (time24 == null || time24.isEmpty()) {
+            return "Not specified";
+        }
 
+        try {
+            // Remove any existing AM/PM indicators if present
+            String cleanTime = time24.replaceAll("(?i)\\s*(AM|PM)", "").trim();
+
+            // Parse the time
+            SimpleDateFormat inputFormat = new SimpleDateFormat("HH:mm", Locale.US);
+            SimpleDateFormat outputFormat = new SimpleDateFormat("h:mm a", Locale.US);
+
+            Date time = inputFormat.parse(cleanTime);
+            if (time != null) {
+                return outputFormat.format(time);
+            } else {
+                // If parsing fails, try alternative formats
+                try {
+                    // Try with seconds included
+                    inputFormat = new SimpleDateFormat("HH:mm:ss", Locale.US);
+                    time = inputFormat.parse(cleanTime);
+                    if (time != null) {
+                        return outputFormat.format(time);
+                    }
+                } catch (ParseException e) {
+                    Log.e(TAG, "Error parsing time with seconds: " + cleanTime, e);
+                }
+
+                // If all parsing fails, return original time
+                return time24;
+            }
+        } catch (ParseException e) {
+            Log.e(TAG, "Error parsing time: " + time24, e);
+
+            // If the time already contains AM/PM, return as is
+            if (time24.contains("AM") || time24.contains("PM") ||
+                    time24.contains("am") || time24.contains("pm")) {
+                return time24;
+            }
+
+            // Manual conversion as fallback
+            return manualTimeConversion(time24);
+        }
+    }
+
+    /**
+     * Manual conversion fallback for time format conversion
+     */
+    private String manualTimeConversion(String time24) {
+        if (time24 == null || time24.isEmpty()) {
+            return "Not specified";
+        }
+
+        try {
+            // Split hours and minutes
+            String[] parts = time24.split(":");
+            if (parts.length >= 2) {
+                int hour = Integer.parseInt(parts[0].trim());
+                String minutes = parts[1].trim();
+
+                String period = "AM";
+                if (hour >= 12) {
+                    period = "PM";
+                    if (hour > 12) {
+                        hour -= 12;
+                    }
+                }
+                if (hour == 0) {
+                    hour = 12;
+                }
+
+                return hour + ":" + minutes + " " + period;
+            }
+            return time24;
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Error in manual time conversion: " + time24, e);
+            return time24;
+        }
     }
 
     private void setEventDataToViews(String name, String description, String venue,
@@ -400,52 +499,20 @@ public class EventApprovalInside extends AppCompatActivity {
             }
         }
 
-        // Format and set start time with AM/PM
+        // Convert and set start time to 12-hour format
         if (startTime != null && !startTime.isEmpty()) {
-            // Check if time already contains AM/PM
-            if (!startTime.contains("AM") && !startTime.contains("PM") &&
-                    !startTime.contains("am") && !startTime.contains("pm")) {
-                try {
-                    // Try to parse hour to determine AM/PM
-                    String[] timeParts = startTime.split(":");
-                    if (timeParts.length > 0) {
-                        int hour = Integer.parseInt(timeParts[0]);
-                        if (hour >= 12) {
-                            startTime += " PM";
-                        } else {
-                            startTime += " AM";
-                        }
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error formatting start time: " + e.getMessage());
-                }
-            }
-            startTimeText.setText(startTime);
+            String formattedStartTime = convertTo12HourFormat(startTime);
+            startTimeText.setText(formattedStartTime);
+            Log.d(TAG, "setEventDataToViews: Start time converted from " + startTime + " to " + formattedStartTime);
         } else {
             startTimeText.setText("Not specified");
         }
 
-        // Format and set end time with AM/PM
+        // Convert and set end time to 12-hour format
         if (endTime != null && !endTime.isEmpty() && !endTime.equalsIgnoreCase("")) {
-            // Check if time already contains AM/PM
-            if (!endTime.contains("AM") && !endTime.contains("PM") &&
-                    !endTime.contains("am") && !endTime.contains("pm")) {
-                try {
-                    // Try to parse hour to determine AM/PM
-                    String[] timeParts = endTime.split(":");
-                    if (timeParts.length > 0) {
-                        int hour = Integer.parseInt(timeParts[0]);
-                        if (hour >= 12) {
-                            endTime += " PM";
-                        } else {
-                            endTime += " AM";
-                        }
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error formatting end time: " + e.getMessage());
-                }
-            }
-            endTimeText.setText(endTime);
+            String formattedEndTime = convertTo12HourFormat(endTime);
+            endTimeText.setText(formattedEndTime);
+            Log.d(TAG, "setEventDataToViews: End time converted from " + endTime + " to " + formattedEndTime);
         } else {
             endTimeText.setText("Not specified");
         }
@@ -654,8 +721,11 @@ public class EventApprovalInside extends AppCompatActivity {
         intent.putExtra("EVENT_VENUE", venueText.getText().toString());
         intent.putExtra("EVENT_START_DATE", startDateText.getText().toString());
         intent.putExtra("EVENT_END_DATE", endDateText.getText().toString());
-        intent.putExtra("EVENT_START_TIME", startTimeText.getText().toString());
-        intent.putExtra("EVENT_END_TIME", endTimeText.getText().toString());
+
+        // FIX: Pass original 24-hour format times instead of converted 12-hour display times
+        intent.putExtra("EVENT_START_TIME", originalStartTime);
+        intent.putExtra("EVENT_END_TIME", originalEndTime);
+
         intent.putExtra("EVENT_SPAN", eventSpanText.getText().toString());
         intent.putExtra("EVENT_GRACE_TIME", graceTimeText.getText().toString());
         intent.putExtra("EVENT_TYPE", eventTypeText.getText().toString());
@@ -690,8 +760,11 @@ public class EventApprovalInside extends AppCompatActivity {
         intent.putExtra("EVENT_VENUE", venueText.getText().toString());
         intent.putExtra("EVENT_START_DATE", startDateText.getText().toString());
         intent.putExtra("EVENT_END_DATE", endDateText.getText().toString());
-        intent.putExtra("EVENT_START_TIME", startTimeText.getText().toString());
-        intent.putExtra("EVENT_END_TIME", endTimeText.getText().toString());
+
+        // FIX: Pass original 24-hour format times instead of converted 12-hour display times
+        intent.putExtra("EVENT_START_TIME", originalStartTime);
+        intent.putExtra("EVENT_END_TIME", originalEndTime);
+
         intent.putExtra("EVENT_SPAN", eventSpanText.getText().toString());
         intent.putExtra("EVENT_GRACE_TIME", graceTimeText.getText().toString());
         intent.putExtra("EVENT_TYPE", eventTypeText.getText().toString());

@@ -176,6 +176,7 @@ public class TeacherDashboard extends BaseActivity {
                 swipeRefreshLayout.setRefreshing(false);
             }
         });
+        handleNotificationIntent();
     }
 
     @Override
@@ -270,6 +271,40 @@ public class TeacherDashboard extends BaseActivity {
         });
     }
 
+    private void handleNotificationIntent() {
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra("openFragment")) {
+            String fragmentToOpen = intent.getStringExtra("openFragment");
+            if ("EventApprovalFragment".equals(fragmentToOpen)) {
+                // Open EventApprovalFragment
+                openEventApprovalFragment();
+
+                // Clear the intent so it doesn't reopen on configuration changes
+                getIntent().removeExtra("openFragment");
+            }
+        }
+    }
+
+    private void openEventApprovalFragment() {
+        // Replace with your actual fragment transaction code
+        EventApprovalFragment fragment = new EventApprovalFragment();
+
+        // Pass any necessary data to the fragment
+        Bundle args = new Bundle();
+        String eventId = getIntent().getStringExtra("eventUID");
+        if (eventId != null) {
+            args.putString("eventUID", eventId);
+        }
+        fragment.setArguments(args);
+
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragment_container, fragment) // Replace with your container ID
+                .addToBackStack(null)
+                .commit();
+
+        Log.d(TAG, "EventApprovalFragment opened from notification");
+    }
+
     private void startRealtimeNotificationListener() {
         if (currentTeacherId == null) {
             Log.e(TAG, "startRealtimeNotificationListener: Skipped - currentTeacherId is null");
@@ -315,67 +350,22 @@ public class TeacherDashboard extends BaseActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         List<Notification> notificationList = new ArrayList<>();
-        NotificationAdapter adapter = new NotificationAdapter(this, notificationList, notification -> {
-            String eventId = notification.getEventId();
-            Log.d(TAG, "showNotificationsDialog: Notification clicked with eventId: " + eventId);
-            if (eventId != null && !eventId.isEmpty()) {
-                // Check both events and archive_events
-                DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
-                DatabaseReference archivedEventRef = FirebaseDatabase.getInstance().getReference("archive_events").child(eventId);
 
-                // Try live events first
-                eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        if (snapshot.exists()) {
-                            Event event = snapshot.getValue(Event.class);
-                            if (event != null) {
-                                startTeacherEventsInside(event, eventId);
-                                Log.d(TAG, "showNotificationsDialog: Found event in events: " + event.getEventName());
-                            } else {
-                                Log.w(TAG, "showNotificationsDialog: Event data is null for eventId: " + eventId);
-                                Toast.makeText(TeacherDashboard.this, "Event details not found", Toast.LENGTH_SHORT).show();
-                            }
-                        } else {
-                            // Try archived events
-                            archivedEventRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                                @Override
-                                public void onDataChange(@NonNull DataSnapshot archivedSnapshot) {
-                                    if (archivedSnapshot.exists()) {
-                                        Event event = archivedSnapshot.getValue(Event.class);
-                                        if (event != null) {
-                                            startTeacherEventsInside(event, eventId);
-                                            Log.d(TAG, "showNotificationsDialog: Found event in archive_events: " + event.getEventName());
-                                        } else {
-                                            Log.w(TAG, "showNotificationsDialog: Archived event data is null for eventId: " + eventId);
-                                            Toast.makeText(TeacherDashboard.this, "Event details not found", Toast.LENGTH_SHORT).show();
-                                        }
-                                    } else {
-                                        Log.w(TAG, "showNotificationsDialog: Event not found in events or archive_events for eventId: " + eventId);
-                                        Toast.makeText(TeacherDashboard.this, "Event not found", Toast.LENGTH_SHORT).show();
-                                    }
-                                }
+        // Use the updated NotificationAdapter with teacher flag set to true
+        NotificationAdapter adapter = new NotificationAdapter(this, notificationList, new NotificationAdapter.OnNotificationClickListener() {
+            @Override
+            public void onNotificationClick(Notification notification) {
+                String eventId = notification.getEventId();
+                String notificationType = notification.getType();
+                Log.d(TAG, "showNotificationsDialog: Teacher notification clicked with eventId: " + eventId + ", type: " + notificationType);
 
-                                @Override
-                                public void onCancelled(@NonNull DatabaseError error) {
-                                    Log.e(TAG, "showNotificationsDialog: Failed to fetch archived event details for eventId: " + eventId, error.toException());
-                                    Toast.makeText(TeacherDashboard.this, "Error loading event details", Toast.LENGTH_SHORT).show();
-                                }
-                            });
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        Log.e(TAG, "showNotificationsDialog: Failed to fetch event details for eventId: " + eventId, error.toException());
-                        Toast.makeText(TeacherDashboard.this, "Error loading event details", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            } else {
-                Log.w(TAG, "showNotificationsDialog: No eventId for notification: " + notification.getTitle());
-                Toast.makeText(TeacherDashboard.this, "No event associated with this notification", Toast.LENGTH_SHORT).show();
+                // Let the adapter handle the navigation based on notification type
+                // For teachers, this will navigate to TeacherEvents
+                handleTeacherNotificationNavigation(notification, eventId, notificationType);
+                dialog.dismiss(); // Close the dialog after clicking
             }
-        });
+        }, true); // Set isTeacher to true
+
         recyclerView.setAdapter(adapter);
 
         DatabaseReference indexRef = FirebaseDatabase.getInstance()
@@ -493,6 +483,25 @@ public class TeacherDashboard extends BaseActivity {
             Log.d(TAG, "showNotificationsDialog: User closed notifications dialog");
             dialog.dismiss();
         });
+    }
+
+    // Add this helper method for teacher notification navigation
+    private void handleTeacherNotificationNavigation(Notification notification, String eventId, String notificationType) {
+        Intent intent = new Intent(TeacherDashboard.this, TeacherEvents.class);
+
+        // Add notification data to intent
+        intent.putExtra("notificationTitle", notification.getTitle());
+        intent.putExtra("notificationBody", notification.getBody());
+        intent.putExtra("notificationType", notificationType);
+        intent.putExtra("notificationTimestamp", notification.getTimestamp());
+
+        // Pass eventId if available
+        if (eventId != null && !eventId.isEmpty()) {
+            intent.putExtra("eventUID", eventId);
+        }
+
+        startActivity(intent);
+        Log.d(TAG, "handleTeacherNotificationNavigation: Navigating to TeacherEvents for notification type: " + notificationType);
     }
 
     private void startTeacherEventsInside(Event event, String eventId) {

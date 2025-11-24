@@ -854,59 +854,21 @@ public class MainActivity2 extends BaseActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         List<Notification> notificationList = new ArrayList<>();
-        NotificationAdapter adapter = new NotificationAdapter(this, notificationList, notification -> {
-            String eventId = notification.getEventId();
-            Log.d(TAG, "showNotificationsDialog: Notification clicked with eventId: " + eventId);
-            if (eventId != null && !eventId.isEmpty()) {
-                // Check both events and archive_events
-                DatabaseReference eventRef = FirebaseDatabase.getInstance().getReference("events").child(eventId);
-                DatabaseReference archivedEventRef = FirebaseDatabase.getInstance().getReference("archive_events").child(eventId);
 
-                // Try live events first
-                eventRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        if (snapshot.exists()) {
-                            Intent intent = new Intent(MainActivity2.this, StudentDashboardInside.class);
-                            intent.putExtra("eventUID", eventId);
-                            startActivity(intent);
-                            Log.d(TAG, "showNotificationsDialog: Started StudentDashboardInside for eventId: " + eventId);
-                        } else {
-                            // Try archived events
-                            archivedEventRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                                @Override
-                                public void onDataChange(@NonNull DataSnapshot archivedSnapshot) {
-                                    if (archivedSnapshot.exists()) {
-                                        Intent intent = new Intent(MainActivity2.this, StudentDashboardInside.class);
-                                        intent.putExtra("eventUID", eventId);
-                                        startActivity(intent);
-                                        Log.d(TAG, "showNotificationsDialog: Started StudentDashboardInside for archived eventId: " + eventId);
-                                    } else {
-                                        Log.w(TAG, "showNotificationsDialog: Event not found in events or archive_events for eventId: " + eventId);
-                                        Toast.makeText(MainActivity2.this, "Event not found", Toast.LENGTH_SHORT).show();
-                                    }
-                                }
+        // Use the updated NotificationAdapter with proper navigation handling
+        NotificationAdapter adapter = new NotificationAdapter(this, notificationList, new NotificationAdapter.OnNotificationClickListener() {
+            @Override
+            public void onNotificationClick(Notification notification) {
+                String eventId = notification.getEventId();
+                String notificationType = notification.getType();
+                Log.d(TAG, "showNotificationsDialog: Notification clicked with eventId: " + eventId + ", type: " + notificationType);
 
-                                @Override
-                                public void onCancelled(@NonNull DatabaseError error) {
-                                    Log.e(TAG, "showNotificationsDialog: Failed to fetch archived event details for eventId: " + eventId, error.toException());
-                                    Toast.makeText(MainActivity2.this, "Error loading event details", Toast.LENGTH_SHORT).show();
-                                }
-                            });
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        Log.e(TAG, "showNotificationsDialog: Failed to fetch event details for eventId: " + eventId, error.toException());
-                        Toast.makeText(MainActivity2.this, "Error loading event details", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            } else {
-                Log.w(TAG, "showNotificationsDialog: No eventId for notification: " + notification.getTitle());
-                Toast.makeText(MainActivity2.this, "No event associated with this notification", Toast.LENGTH_SHORT).show();
+                // Let the adapter handle the navigation based on notification type
+                handleNotificationNavigation(notification, eventId, notificationType);
+                dialog.dismiss(); // Close the dialog after clicking
             }
-        });
+        }, false); // Add 'false' for isTeacher parameter
+
         recyclerView.setAdapter(adapter);
 
         DatabaseReference indexRef = FirebaseDatabase.getInstance()
@@ -1024,6 +986,91 @@ public class MainActivity2 extends BaseActivity {
             Log.d(TAG, "showNotificationsDialog: User closed notifications dialog");
             dialog.dismiss();
         });
+    }
+
+    private void handleNotificationNavigation(Notification notification, String eventId, String notificationType) {
+        Intent intent = null;
+
+        if (notificationType == null) {
+            Log.w(TAG, "Notification type is null, using default navigation");
+            // Fallback to default behavior
+            if (eventId != null && !eventId.isEmpty()) {
+                intent = new Intent(MainActivity2.this, StudentDashboardInside.class);
+                intent.putExtra("eventUID", eventId);
+            }
+        } else {
+            switch (notificationType) {
+                // Event-related notifications - go to event details
+                case "eventCreated":
+                case "registrationOpen":
+                case "registrationClosed":
+                case "eventReminder1Days":
+                case "eventReminder2Days":
+                case "eventReminder3Days":
+                case "eventOngoing":
+                case "eventEnded":
+                    if (eventId != null && !eventId.isEmpty()) {
+                        intent = new Intent(MainActivity2.this, StudentDashboardInside.class);
+                        intent.putExtra("eventUID", eventId);
+                        Log.d(TAG, "Navigating to StudentDashboardInside for event: " + eventId);
+                    }
+                    break;
+
+                // Certificate notifications - go to certificates
+                case "certificateAwarded":
+                    intent = new Intent(MainActivity2.this, StudentCertificate.class);
+                    // You might want to pass additional data for certificate
+                    if (eventId != null && !eventId.isEmpty()) {
+                        intent.putExtra("eventUID", eventId);
+                    }
+                    Log.d(TAG, "Navigating to StudentCertificate for event: " + eventId);
+                    break;
+
+                // Student Assistant notifications - go to tickets
+                case "studentAssistantAdded":
+                case "studentAssistantRemoved":
+                case "coordinatorRemoved":
+                    intent = new Intent(MainActivity2.this, StudentTickets.class);
+                    if (eventId != null && !eventId.isEmpty()) {
+                        intent.putExtra("eventUID", eventId);
+                    }
+                    Log.d(TAG, "Navigating to StudentTickets for event: " + eventId);
+                    break;
+
+                // Scan permission notifications - go to QR checkin
+                case "scanPermissionAllowed":
+                case "scanPermissionClosed":
+                    intent = new Intent(MainActivity2.this, QRCheckInActivity.class);
+                    if (eventId != null && !eventId.isEmpty()) {
+                        intent.putExtra("eventUID", eventId);
+                    }
+                    Log.d(TAG, "Navigating to QRCheckinActivity for event: " + eventId);
+                    break;
+
+                // Default case - fallback to event details
+                default:
+                    Log.w(TAG, "Unknown notification type: " + notificationType + ", using default navigation");
+                    if (eventId != null && !eventId.isEmpty()) {
+                        intent = new Intent(MainActivity2.this, StudentDashboardInside.class);
+                        intent.putExtra("eventUID", eventId);
+                    }
+                    break;
+            }
+        }
+
+        if (intent != null) {
+            // Add notification data to intent for potential use in target activity
+            intent.putExtra("notificationTitle", notification.getTitle());
+            intent.putExtra("notificationBody", notification.getBody());
+            intent.putExtra("notificationType", notificationType);
+            intent.putExtra("notificationTimestamp", notification.getTimestamp());
+
+            startActivity(intent);
+            Log.d(TAG, "Started activity with intent for notification type: " + notificationType);
+        } else {
+            Log.w(TAG, "No valid navigation intent created for notification");
+            Toast.makeText(this, "No event associated with this notification", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void clearUnreadCount() {
