@@ -1,0 +1,146 @@
+package com.capstone.mdfeventmanagementsystem.Adapters;
+
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.capstone.mdfeventmanagementsystem.R;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class CoordinatorAdapter extends RecyclerView.Adapter<CoordinatorAdapter.ViewHolder> {
+    private final List<CoordinatorItem> coordinatorItems;
+    private final OnCoordinatorClickListener onCoordinatorClickListener;
+
+    public interface OnCoordinatorClickListener {
+        void onCoordinatorClick(String studentId, String studentName);
+    }
+
+    public CoordinatorAdapter(OnCoordinatorClickListener listener) {
+        this.coordinatorItems = new ArrayList<>();
+        this.onCoordinatorClickListener = listener;
+    }
+
+    @NonNull
+    @Override
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_coordinators, parent, false);
+        return new ViewHolder(view);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        CoordinatorItem item = coordinatorItems.get(position);
+        if (item.isHeader()) {
+            holder.gradeHeader.setText(item.getDisplayText());
+            holder.gradeHeader.setVisibility(View.VISIBLE);
+            holder.sectionHeader.setText(item.getSection());
+            holder.sectionHeader.setVisibility(View.VISIBLE);
+            holder.studentItemLayout.setVisibility(View.GONE);
+        } else {
+            holder.gradeHeader.setVisibility(View.GONE);
+            holder.sectionHeader.setVisibility(View.GONE);
+            holder.studentItemLayout.setVisibility(View.VISIBLE);
+            holder.studentNameTextView.setText(item.getDisplayName());
+            holder.deleteButton.setOnClickListener(v -> {
+                if (onCoordinatorClickListener != null && item.getStudentId() != null) {
+                    onCoordinatorClickListener.onCoordinatorClick(item.getStudentId(), item.getDisplayName());
+                }
+            });
+        }
+    }
+
+    @Override
+    public int getItemCount() {
+        return coordinatorItems.size();
+    }
+
+    public void setData(List<CoordinatorItem> newCoordinators) {
+        this.coordinatorItems.clear();
+        this.coordinatorItems.addAll(newCoordinators);
+        notifyDataSetChanged();
+    }
+
+    public void clear() {
+        this.coordinatorItems.clear();
+        notifyDataSetChanged();
+    }
+
+    static class ViewHolder extends RecyclerView.ViewHolder {
+        TextView gradeHeader;
+        TextView sectionHeader;
+        LinearLayout studentItemLayout;
+        TextView studentNameTextView;
+        ImageView deleteButton;
+
+        ViewHolder(View itemView) {
+            super(itemView);
+            gradeHeader = itemView.findViewById(R.id.gradeHeader);
+            sectionHeader = itemView.findViewById(R.id.sectionHeader);
+            studentItemLayout = itemView.findViewById(R.id.studentItemLayout);
+            studentNameTextView = itemView.findViewById(R.id.studentNameTextView);
+            deleteButton = itemView.findViewById(R.id.deleteButton);
+        }
+    }
+
+    public static class CoordinatorItem {
+        private final String studentId; // Firebase key for the student
+        private final String displayName; // Student name only (lastName, firstName, middle initial)
+        private final String displayText; // For headers: "Grade X"
+        private final String yearLevel; // Internal use for grouping/sorting
+        private final String section; // For headers: section name
+        private final boolean isHeader; // True for grade headers, false for students
+
+        // Constructor for grade header
+        public CoordinatorItem(String gradeLevel, String section) {
+            this.studentId = null;
+            this.displayName = null;
+            this.displayText = "Grade " + gradeLevel;
+            this.yearLevel = gradeLevel;
+            this.section = section;
+            this.isHeader = true;
+        }
+
+        // Constructor for student item
+        public CoordinatorItem(String studentId, String studentName, String yearLevel) {
+            this.studentId = studentId;
+            this.displayName = studentName;
+            this.displayText = null;
+            this.yearLevel = yearLevel;
+            this.section = null;
+            this.isHeader = false;
+        }
+
+        public String getStudentId() {
+            return studentId;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+
+        public String getDisplayText() {
+            return displayText;
+        }
+
+        public String getYearLevel() {
+            return yearLevel;
+        }
+
+        public String getSection() {
+            return section;
+        }
+
+        public boolean isHeader() {
+            return isHeader;
+        }
+    }
+}

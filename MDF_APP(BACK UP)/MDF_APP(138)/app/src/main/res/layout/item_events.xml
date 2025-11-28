@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cardview_container"
+    android:layout_width="match_parent"
+    android:maxWidth="@dimen/_500sdp"
+    android:layout_height="@dimen/_110sdp"
+    android:layout_margin="@dimen/_8sdp"
+    android:elevation="8dp"
+    app:cardElevation="8dp"
+    app:cardCornerRadius="20dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:layout_gravity="center_horizontal"
+    app:cardBackgroundColor="#FFFFFF">
+
+    <!-- Horizontal LinearLayout as base container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <!-- Left Section - Date Display -->
+        <FrameLayout
+            android:layout_width="@dimen/_90sdp"
+            android:layout_height="match_parent">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="@dimen/_80sdp"
+                android:layout_height="@dimen/_90sdp"
+                app:cardCornerRadius="15dp"
+                app:cardElevation="0dp"
+                android:layout_gravity="center">
+
+                <!-- Date background -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/green_primary" />
+
+                <!-- Day number -->
+                <TextView
+                    android:id="@+id/dayOfMonth"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="@dimen/_16sdp"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:text="5"
+                    android:textSize="@dimen/_30ssp"
+                    android:textColor="#FFFFFF"
+                    android:elevation="2dp" />
+
+                <!-- Month -->
+                <TextView
+                    android:id="@+id/month"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="@dimen/_50sdp"
+                    android:text="Oct"
+                    android:textSize="@dimen/_18ssp"
+                    android:textColor="#FFFFFF"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:elevation="2dp" />
+            </androidx.cardview.widget.CardView>
+        </FrameLayout>
+
+        <!-- Right Section - Content -->
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginLeft="@dimen/_2sdp"
+            android:layout_marginTop="@dimen/_6sdp"
+            android:layout_marginRight="@dimen/_6sdp"
+            android:layout_marginBottom="@dimen/_6sdp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:cardCornerRadius="15dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="#FAFFFE">
+
+                <!-- Content area with LinearLayout for better vertical control -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:paddingLeft="@dimen/_6sdp"
+                    android:paddingRight="@dimen/_6sdp"
+                    android:paddingTop="@dimen/_6sdp"
+                    android:paddingBottom="@dimen/_3sdp">
+
+                    <!-- Status indicator -->
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <TextView
+                            android:id="@+id/eventName"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="@dimen/_40sdp"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:text="General Assembly"
+                            android:textColor="#333333"
+                            android:textSize="@dimen/_13ssp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                        <androidx.cardview.widget.CardView
+                            android:id="@+id/status_indicator"
+                            android:layout_width="@dimen/_65sdp"
+                            android:layout_height="@dimen/_22sdp"
+                            android:layout_gravity="end"
+                            android:visibility="gone"
+                            app:cardBackgroundColor="@android:color/holo_orange_light"
+                            app:cardCornerRadius="11dp"
+                            app:cardElevation="2dp">
+
+                            <TextView
+                                android:id="@+id/status_text"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:fontFamily="@font/host_grotesk_extra_bold"
+                                android:text="PENDING"
+                                android:textColor="@color/white"
+                                android:textSize="@dimen/_10ssp" />
+                        </androidx.cardview.widget.CardView>
+                    </FrameLayout>
+
+                    <!-- Divider -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="@dimen/_2sdp"
+                        android:layout_marginEnd="@dimen/_80sdp"
+                        android:background="@color/green_primary" />
+
+                    <!-- For (Location) section -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="@dimen/_2sdp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:text="For:"
+                            android:textColor="@color/green_primary"
+                            android:textSize="@dimen/_9ssp" />
+
+                        <TextView
+                            android:id="@+id/eventFor"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_4sdp"
+                            android:fontFamily="@font/host_grotesk_medium"
+                            android:text="Grade 7"
+                            android:textColor="#555555"
+                            android:textSize="@dimen/_9ssp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+
+                    <!-- Start time -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="@dimen/_4sdp"
+                        android:gravity="center_vertical">
+
+                        <View
+                            android:layout_width="@dimen/_6sdp"
+                            android:layout_height="@dimen/_6sdp"
+                            android:background="@android:drawable/radiobutton_off_background"
+                            android:backgroundTint="@color/green_primary" />
+
+                        <TextView
+                            android:id="@+id/startDate"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_4sdp"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:text="Start: 10-05-2024"
+                            android:textColor="@color/green_primary"
+                            android:textSize="@dimen/_9ssp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                        <TextView
+                            android:id="@+id/startTime"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/host_grotesk_bold"
+                            android:text="1:00 PM"
+                            android:textColor="@color/green_primary"
+                            android:textSize="@dimen/_9ssp" />
+                    </LinearLayout>
+
+                    <!-- End time -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="@dimen/_4sdp"
+                        android:gravity="center_vertical">
+
+                        <View
+                            android:layout_width="@dimen/_6sdp"
+                            android:layout_height="@dimen/_6sdp"
+                            android:background="@android:drawable/radiobutton_off_background"
+                            android:backgroundTint="@color/green_primary" />
+
+                        <TextView
+                            android:id="@+id/endDate"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_4sdp"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/host_grotesk_medium"
+                            android:text="End: 10-05-2024"
+                            android:textColor="#555555"
+                            android:textSize="@dimen/_9ssp"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                        <TextView
+                            android:id="@+id/endTime"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/host_grotesk_medium"
+                            android:text="5:00 PM"
+                            android:textColor="#555555"
+                            android:textSize="@dimen/_9ssp" />
+                    </LinearLayout>
+
+                    <!-- Posted info as fixed item at bottom -->
+                    <Space
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/dateCreated"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:fontFamily="@font/host_grotesk_medium"
+                        android:text="Posted: 10-01-2024"
+                        android:textColor="#333333"
+                        android:textSize="@dimen/_8ssp"
+                        android:layout_marginBottom="@dimen/_3sdp"
+                        android:layout_marginTop="@dimen/_2sdp" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+        </FrameLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

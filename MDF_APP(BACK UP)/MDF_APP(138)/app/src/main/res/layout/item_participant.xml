@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="@dimen/_8sdp">
+
+    <TextView
+        android:id="@+id/tv_name"
+        android:layout_width="@dimen/_220sdp"
+        android:layout_height="wrap_content"
+        android:text="/name/"
+        android:textSize="@dimen/_10ssp"
+        android:padding="@dimen/_8sdp"
+        android:ellipsize="end"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/tv_section"
+        android:layout_width="@dimen/_100sdp"
+        android:layout_height="wrap_content"
+        android:text="/section/"
+        android:textSize="@dimen/_10ssp"
+        android:gravity="center"
+        android:padding="@dimen/_8sdp" />
+
+    <TextView
+        android:id="@+id/tv_time_in"
+        android:layout_width="@dimen/_100sdp"
+        android:layout_height="wrap_content"
+        android:text="--:--"
+        android:textSize="@dimen/_10ssp"
+        android:gravity="center"
+        android:padding="@dimen/_8sdp" />
+
+    <TextView
+        android:id="@+id/tv_time_out"
+        android:layout_width="@dimen/_125sdp"
+        android:layout_height="wrap_content"
+        android:text="--:--"
+        android:textSize="@dimen/_10ssp"
+        android:gravity="center"
+        android:padding="@dimen/_8sdp" />
+
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="@dimen/_150sdp"
+        android:layout_height="wrap_content"
+        android:text="Present"
+        android:textSize="@dimen/_10ssp"
+        android:gravity="center"
+        android:padding="@dimen/_6sdp"
+        android:background="@drawable/status_present_background"
+        android:textColor="@color/white" />
+
+</LinearLayout>

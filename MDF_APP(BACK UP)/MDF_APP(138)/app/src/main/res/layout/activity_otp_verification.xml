@@ -1,0 +1,123 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@color/bg_green"
+    android:padding="24dp">
+
+    <!-- Close (X) button -->
+    <ImageView
+        android:id="@+id/btnCloseOtp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_close"
+        android:tint="@color/white"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="8dp"
+        android:contentDescription="Close OTP"
+        tools:ignore="UseAppTint" />
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="@color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="35dp">
+
+            <!-- Title -->
+            <TextView
+                android:id="@+id/tvOtpTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OTP Verification"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                android:gravity="center"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Subtitle -->
+            <TextView
+                android:id="@+id/tvOtpSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Enter the 6-digit OTP sent to your email."
+                android:textSize="16sp"
+                android:textColor="@color/gray"
+                android:gravity="center"
+                android:layout_marginBottom="24dp"/>
+
+            <!-- OTP Input -->
+            <EditText
+                android:id="@+id/etOtp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter OTP"
+                android:inputType="number"
+                android:maxLength="6"
+                android:gravity="center"
+                android:textSize="20sp"
+                android:padding="12dp"
+                android:background="@drawable/edittext_background"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Verify Button with ProgressBar -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp">
+                <Button
+                    android:id="@+id/btnVerifyOtp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Verify OTP"
+                    android:backgroundTint="@color/bg_green_btn"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:padding="12dp"/>
+                <ProgressBar
+                    android:id="@+id/verifyOtpProgressBar"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:visibility="gone"/>
+            </FrameLayout>
+
+            <!-- Resend OTP with ProgressBar -->
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+                <TextView
+                    android:id="@+id/tvResendOtp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Didn't receive OTP? Resend"
+                    android:textSize="16sp"
+                    android:textColor="@color/green"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_gravity="center"/>
+                <ProgressBar
+                    android:id="@+id/resendOtpProgressBar"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:visibility="gone"
+                    android:elevation="4dp"/>
+            </FrameLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+</RelativeLayout>

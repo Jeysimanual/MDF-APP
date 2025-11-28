@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg_green"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="16dp"
+        tools:context=".Student.StudentForgetPass">
+
+        <ImageView
+            android:id="@+id/backBtn"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:src="@drawable/ic_back"
+            app:tint="@color/white"
+            android:clickable="true"
+            app:layout_constraintBottom_toTopOf="@+id/imageView"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.0" />
+
+        <TextView
+            android:id="@+id/back_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/host_grotesk_extra_bold"
+            android:text="Back"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            app:layout_constraintBottom_toTopOf="@+id/imageView"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constraintStart_toEndOf="@+id/backBtn"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.0" />
+
+        <ImageView
+            android:id="@+id/imageView"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_marginTop="60dp"
+            android:src="@drawable/mdf_logo"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.497"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/page1"
+            android:layout_width="wrap_content"
+            android:layout_height="400dp"
+            android:maxHeight="400dp"
+            android:maxWidth="400dp"
+            android:layout_marginTop="20dp"
+            android:visibility="visible"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.5"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imageView"
+            app:layout_constraintVertical_bias="0.472">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <TextView
+                    android:id="@+id/forgotPassTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:text="Forgot Password"
+                    android:textColor="@color/bg_green"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.498"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+
+                <com.capstone.mdfeventmanagementsystem.Utilities.ViewDashDottedLine
+                    android:id="@+id/viewDashDottedLine"
+                    android:layout_width="400dp"
+                    android:layout_height="10dp"
+                    android:layout_marginTop="19dp"
+                    app:lineColor="@color/bg_green"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/forgotPassTitle" />
+
+                <TextView
+                    android:id="@+id/instruction"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:background="@color/white"
+                    android:fontFamily="@font/host_grotesk_light"
+                    android:padding="5dp"
+                    android:text="Enter the email you used in your account"
+                    android:textColor="@android:color/black"
+                    android:textSize="12sp"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.192"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/email" />
+
+                <EditText
+                    android:id="@+id/email"
+                    android:layout_width="325dp"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="80dp"
+                    android:background="@drawable/spinner_background"
+                    android:inputType="textEmailAddress"
+                    android:paddingStart="25dp"
+                    android:textSize="16sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/forgotPassTitle" />
+
+                <TextView
+                    android:id="@+id/email_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@color/white"
+                    android:fontFamily="@font/host_grotesk_light"
+                    android:padding="5dp"
+                    android:text="Email"
+                    android:textColor="@android:color/black"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.123"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.332" />
+
+
+                <Button
+                    android:id="@+id/sendBtn"
+                    android:layout_width="225dp"
+                    android:layout_height="60dp"
+                    android:layout_marginTop="72dp"
+                    android:backgroundTint="@color/bg_green_btn"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:text="Send"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/email" />
+
+                <View
+                    android:id="@+id/first_circle"
+                    android:layout_width="33dp"
+                    android:layout_height="33dp"
+                    android:layout_marginLeft="-17dp"
+                    android:layout_marginTop="67dp"
+                    android:background="@drawable/circle_shape"
+                    android:backgroundTint="@color/bg_green"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.177" />
+
+                <!-- Second Circle at Top-Right -->
+                <View
+                    android:id="@+id/second_circle"
+                    android:layout_width="33dp"
+                    android:layout_height="33dp"
+                    android:layout_marginTop="67dp"
+                    android:layout_marginRight="-17dp"
+                    android:background="@drawable/circle_shape"
+                    android:backgroundTint="@color/bg_green"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.177" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/page2"
+            android:layout_width="wrap_content"
+            android:layout_height="400dp"
+            android:maxHeight="400dp"
+            android:maxWidth="400dp"
+            android:layout_marginTop="20dp"
+            android:visibility="gone"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.5"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imageView"
+            app:layout_constraintVertical_bias="0.472">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <TextView
+                    android:id="@+id/createPassTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:text="Create New Password"
+                    android:textColor="@color/bg_green_btn"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.498"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+
+                <com.capstone.mdfeventmanagementsystem.Utilities.ViewDashDottedLine
+                    android:id="@+id/viewDashDottedLine2"
+                    android:layout_width="400dp"
+                    android:layout_height="10dp"
+                    android:layout_marginTop="19dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/createPassTitle" />
+
+                <ImageView
+                    android:id="@+id/check"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_marginTop="96dp"
+                    android:src="@drawable/ic_check"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.498"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextView
+                    android:id="@+id/textView24"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:gravity="center_horizontal"
+                    android:text="Check your email and create your new password"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/check" />
+
+                <Button
+                    android:id="@+id/loginPrompt"
+                    android:layout_width="225dp"
+                    android:layout_height="60dp"
+                    android:layout_marginTop="28dp"
+                    android:backgroundTint="@color/bg_green_btn"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:text="Login"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/textView24" />
+
+                <TextView
+                    android:id="@+id/textView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/libre_barcode39_regular"
+                    android:text="TICKET MATE"
+                    android:textAlignment="center"
+                    android:textSize="55dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/loginPrompt"
+                    app:layout_constraintVertical_bias="0.659" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:text="TICKET MATE"
+                    android:textAlignment="center"
+                    android:textSize="8dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/loginPrompt"
+                    app:layout_constraintVertical_bias="1.0" />
+
+                <View
+                    android:id="@+id/first_circle2"
+                    android:layout_width="33dp"
+                    android:layout_height="33dp"
+                    android:layout_marginLeft="-17dp"
+                    android:layout_marginTop="67dp"
+                    android:background="@drawable/circle_shape"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.177" />
+
+                <!-- Second Circle at Top-Right -->
+                <View
+                    android:id="@+id/second_circle2"
+                    android:layout_width="33dp"
+                    android:layout_height="33dp"
+                    android:layout_marginTop="67dp"
+                    android:layout_marginRight="-17dp"
+                    android:background="@drawable/circle_shape"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.177" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
+        </androidx.cardview.widget.CardView>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

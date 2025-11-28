@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:padding="16dp">
+
+    <!-- Empty view with just the text messages -->
+    <LinearLayout
+        android:id="@+id/empty_approval_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:visibility="visible">
+
+        <TextView
+            android:id="@+id/empty_approval_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="No Events Pending Approval"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/empty_approval_message"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Events you create will appear here while waiting for approval. Once approved, they will move to the Active tab."
+            android:textSize="14sp"
+            android:textColor="@color/gray"
+            android:lineSpacingExtra="4dp" />
+
+    </LinearLayout>
+
+    <!-- This RecyclerView will be populated when there are actual events -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_approval_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        tools:listitem="@layout/item_events"/>
+
+</RelativeLayout>

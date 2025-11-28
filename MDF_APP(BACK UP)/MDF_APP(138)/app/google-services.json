@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "330882875782",
+    "firebase_url": "https://ticket-mate-d4c52-default-rtdb.firebaseio.com",
+    "project_id": "ticket-mate-d4c52",
+    "storage_bucket": "ticket-mate-d4c52.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:330882875782:android:2d33738d4062278701ec07",
+        "android_client_info": {
+          "package_name": "com.capstone.mdfeventmanagementsystem"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmNZXMtGnqrgFglD8zInMvPwcRC94kTM8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:330882875782:android:41f7e8d3cdbc1b9901ec07",
+        "android_client_info": {
+          "package_name": "com.villanueva.ticketapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmNZXMtGnqrgFglD8zInMvPwcRC94kTM8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

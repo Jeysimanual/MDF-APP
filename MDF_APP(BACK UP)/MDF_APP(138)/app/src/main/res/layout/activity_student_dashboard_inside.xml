@@ -1,0 +1,807 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".Student.StudentDashboardInside">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="@dimen/_10sdp">
+
+        <ImageView
+            android:id="@+id/back_button"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_back"
+            android:contentDescription="Back"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <TextView
+            android:id="@+id/details_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Details"
+            android:fontFamily="@font/host_grotesk_extra_bold"
+            android:textSize="@dimen/_16ssp"
+            android:textColor="@color/black"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@id/back_button"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.5" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="@dimen/_40sdp">
+
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipeRefreshLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <!-- Event Name -->
+                    <TextView
+                        android:id="@+id/eventName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/medium_margin"
+                        android:layout_marginStart="@dimen/large_margin"
+                        android:layout_marginEnd="@dimen/medium_margin"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/host_grotesk_extra_bold"
+                        android:maxLines="2"
+                        android:paddingBottom="@dimen/small_margin"
+                        android:text="Event Name"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/title_text_size"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <!-- Cover Photo -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/cover_photo_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="@dimen/_125sdp"
+                        android:layout_marginStart="@dimen/large_margin"
+                        android:layout_marginTop="@dimen/small_margin"
+                        android:layout_marginEnd="@dimen/large_margin"
+                        app:cardCornerRadius="10dp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintHorizontal_bias="0.5"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/eventName">
+
+                        <ImageView
+                            android:id="@+id/eventPhotoUrl"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/placeholder_image" />
+                    </androidx.cardview.widget.CardView>
+
+                    <TextView
+                        android:id="@+id/textView15"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/large_margin"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        android:paddingLeft="@dimen/large_margin"
+                        android:text="Event Description"
+                        android:textSize="@dimen/tab_text_size"
+                        android:textColor="@color/black"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/cover_photo_container" />
+
+                    <TextView
+                        android:id="@+id/eventDescription"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/small_margin"
+                        android:layout_marginBottom="@dimen/medium_margin"
+                        android:fontFamily="@font/host_grotesk_regular"
+                        android:paddingStart="@dimen/large_margin"
+                        android:paddingEnd="@dimen/large_margin"
+                        android:text="Event Description Event Description Event Description"
+                        android:textSize="@dimen/message_text_size"
+                        android:textColor="#545454"
+                        android:maxLines="6"
+                        android:ellipsize="end"
+                        android:gravity="fill_horizontal|center_vertical"
+                        app:layout_constraintBottom_toTopOf="@+id/cardView2"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/textView15" />
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/cardView2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/large_margin"
+                        android:layout_marginTop="@dimen/medium_margin"
+                        android:layout_marginEnd="@dimen/large_margin"
+                        app:cardCornerRadius="12dp"
+                        android:foreground="@drawable/card_border"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/eventDescription"
+                        app:layout_constraintWidth_percent="0.9">
+
+                        <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_margin="@dimen/medium_margin">
+
+                            <!-- Guidelines for fixed column widths -->
+                            <androidx.constraintlayout.widget.Guideline
+                                android:id="@+id/guideline_venue_end"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                app:layout_constraintGuide_percent="0.33" />
+
+                            <androidx.constraintlayout.widget.Guideline
+                                android:id="@+id/guideline_span_end"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                app:layout_constraintGuide_percent="0.66" />
+
+                            <!-- Row 1: Event For with value and Event Type -->
+                            <TextView
+                                android:id="@+id/textView21"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/small_margin"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:fontFamily="@font/host_grotesk_light"
+                                android:text="EVENT IS FOR:"
+                                android:textColor="@color/black"
+                                android:textSize="@dimen/message_text_size"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toTopOf="parent" />
+
+                            <LinearLayout
+                                android:id="@+id/eventForContainer"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/small_margin"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:orientation="vertical"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/textView21">
+
+                                <TextView
+                                    android:id="@+id/eventFor"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:maxLines="10"
+                                    android:fontFamily="@font/host_grotesk_regular"
+                                    android:textAlignment="viewStart"
+                                    android:textSize="@dimen/message_text_size"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/eventType"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:maxWidth="150dp"
+                                android:ellipsize="end"
+                                android:singleLine="true"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:text="Seminar"
+                                android:textAlignment="viewEnd"
+                                android:textColor="@color/black"
+                                android:textSize="@dimen/message_text_size"
+                                android:textStyle="bold"
+                                android:background="@drawable/event_type_background"
+                                android:padding="@dimen/medium_padding"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintBottom_toBottomOf="@id/eventForContainer"
+                                app:layout_constraintTop_toTopOf="@id/eventForContainer" />
+
+                            <!-- Horizontal line after Row 1 -->
+                            <View
+                                android:id="@+id/line_row1"
+                                android:layout_width="0dp"
+                                android:layout_height="2dp"
+                                android:layout_marginTop="@dimen/medium_margin"
+                                android:background="#E8E9E8"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/eventForContainer" />
+
+                            <!-- Row 2: Date and Time -->
+                            <TextView
+                                android:id="@+id/textViewDateTime"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/small_margin"
+                                android:layout_marginTop="@dimen/medium_margin"
+                                android:fontFamily="@font/host_grotesk_light"
+                                android:text="DATE &amp; TIME"
+                                android:textColor="@color/black"
+                                android:textSize="@dimen/message_text_size"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/line_row1" />
+
+                            <TextView
+                                android:id="@+id/startTime"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/small_margin"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:text="6:00 AM"
+                                android:textSize="@dimen/message_text_size"
+                                android:textStyle="bold"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/textViewDateTime"
+                                app:layout_constraintWidth_percent="0.3" />
+
+                            <TextView
+                                android:id="@+id/startDate"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/small_margin"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:text="18 Apr, 2025"
+                                android:textSize="@dimen/message_text_size"
+                                android:textStyle="bold"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/startTime"
+                                app:layout_constraintWidth_percent="0.3" />
+
+                            <ImageView
+                                android:layout_width="@dimen/icon_size"
+                                android:layout_height="@dimen/icon_size"
+                                android:contentDescription="Icon"
+                                android:src="@drawable/ic_person"
+                                app:layout_constraintBottom_toBottomOf="@+id/dashed_line_time"
+                                app:layout_constraintEnd_toStartOf="@id/endTime"
+                                app:layout_constraintStart_toEndOf="@id/startTime"
+                                app:layout_constraintTop_toTopOf="@id/textViewDateTime" />
+
+                            <com.capstone.mdfeventmanagementsystem.Utilities.CircleViewDashDottedLine
+                                android:id="@+id/dashed_line_time"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:paddingStart="@dimen/medium_padding"
+                                android:paddingEnd="@dimen/medium_padding"
+                                android:layout_marginStart="@dimen/medium_margin"
+                                android:layout_marginEnd="@dimen/medium_margin"
+                                app:layout_constraintStart_toEndOf="@id/startTime"
+                                app:layout_constraintEnd_toStartOf="@id/endTime"
+                                app:layout_constraintTop_toBottomOf="@id/startTime"
+                                app:layout_constraintBottom_toBottomOf="@id/startTime"
+                                app:lineColor="#88919D" />
+
+                            <TextView
+                                android:id="@+id/endTime"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:layout_marginEnd="@dimen/medium_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:text="5:00 PM"
+                                android:textSize="@dimen/message_text_size"
+                                android:textStyle="bold"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/textViewDateTime"
+                                app:layout_constraintWidth_percent="0.3" />
+
+                            <TextView
+                                android:id="@+id/endDate"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:layout_marginEnd="@dimen/medium_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:text="18 Apr, 2025"
+                                android:textSize="@dimen/message_text_size"
+                                android:textStyle="bold"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/endTime"
+                                app:layout_constraintWidth_percent="0.3" />
+
+                            <!-- Horizontal line after Row 2 -->
+                            <View
+                                android:id="@+id/line_row2"
+                                android:layout_width="0dp"
+                                android:layout_height="2dp"
+                                android:background="#E8E9E8"
+                                android:layout_marginTop="@dimen/medium_margin"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/startDate" />
+
+                            <!-- Row 3: Three-Column Layout -->
+                            <TextView
+                                android:id="@+id/textView18"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/small_margin"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:text="EVENT VENUE:"
+                                android:textSize="@dimen/message_text_size"
+                                android:textColor="@color/black"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/line_row2"
+                                app:layout_constraintEnd_toStartOf="@+id/guideline_venue_end" />
+
+                            <TextView
+                                android:id="@+id/venue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:paddingBottom="@dimen/medium_margin"
+                                android:ellipsize="end"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:maxLines="3"
+                                android:paddingStart="@dimen/small_margin"
+                                android:text="Multi-Purpose Hall"
+                                android:textSize="@dimen/message_text_size"
+                                android:textStyle="bold"
+                                app:layout_constraintEnd_toStartOf="@+id/guideline_venue_end"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/textView18" />
+
+                            <TextView
+                                android:id="@+id/textView19"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:paddingStart="@dimen/small_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:text="EVENT SPAN:"
+                                android:textAlignment="center"
+                                android:textSize="@dimen/message_text_size"
+                                android:textColor="@color/black"
+                                app:layout_constraintEnd_toStartOf="@+id/guideline_span_end"
+                                app:layout_constraintStart_toEndOf="@+id/guideline_venue_end"
+                                app:layout_constraintTop_toBottomOf="@+id/line_row2" />
+
+                            <TextView
+                                android:id="@+id/eventSpan"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:paddingBottom="@dimen/medium_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:paddingStart="@dimen/small_margin"
+                                android:text="Single Day Event"
+                                android:textSize="@dimen/message_text_size"
+                                android:textStyle="bold"
+                                android:textAlignment="center"
+                                app:layout_constraintEnd_toStartOf="@+id/guideline_span_end"
+                                app:layout_constraintStart_toEndOf="@+id/guideline_venue_end"
+                                app:layout_constraintTop_toBottomOf="@+id/textView19" />
+
+                            <TextView
+                                android:id="@+id/textView11"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:layout_marginStart="@dimen/small_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:text="GRACE TIME:"
+                                android:textAlignment="center"
+                                android:textSize="@dimen/message_text_size"
+                                android:textColor="@color/black"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintStart_toEndOf="@+id/guideline_span_end"
+                                app:layout_constraintTop_toBottomOf="@+id/line_row2" />
+
+                            <TextView
+                                android:id="@+id/graceTime"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/small_margin"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:paddingStart="@dimen/small_margin"
+                                android:paddingBottom="@dimen/medium_margin"
+                                android:text="130 minutes"
+                                android:textAlignment="center"
+                                android:textSize="@dimen/message_text_size"
+                                android:textStyle="bold"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintStart_toEndOf="@+id/guideline_span_end"
+                                app:layout_constraintTop_toBottomOf="@+id/textView11" />
+
+                            <!-- Vertical lines for columns -->
+                            <View
+                                android:id="@+id/line_col1"
+                                android:layout_width="2dp"
+                                android:layout_height="0dp"
+                                android:background="#E8E9E8"
+                                app:layout_constraintBottom_toBottomOf="parent"
+                                app:layout_constraintStart_toStartOf="@+id/guideline_venue_end"
+                                app:layout_constraintTop_toBottomOf="@+id/line_row2" />
+
+                            <View
+                                android:id="@+id/line_col2"
+                                android:layout_width="2dp"
+                                android:layout_height="0dp"
+                                android:background="#E8E9E8"
+                                app:layout_constraintBottom_toBottomOf="parent"
+                                app:layout_constraintStart_toStartOf="@+id/guideline_span_end"
+                                app:layout_constraintTop_toBottomOf="@+id/line_row2" />
+
+                        </androidx.constraintlayout.widget.ConstraintLayout>
+                    </androidx.cardview.widget.CardView>
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/participantStatusCard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/_15sdp"
+                        android:layout_marginTop="@dimen/_10sdp"
+                        android:layout_marginEnd="@dimen/_15sdp"
+                        android:layout_marginBottom="10dp"
+                        android:elevation="4dp"
+                        app:cardCornerRadius="12dp"
+                        android:foreground="@drawable/card_border"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/cardView2">
+
+                        <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_margin="@dimen/_8sdp">
+
+                            <TextView
+                                android:id="@+id/textViewParticipantLabel"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/_10sdp"
+                                android:fontFamily="@font/host_grotesk_bold"
+                                android:text="Participants:"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintBottom_toBottomOf="parent"
+                                app:layout_constraintEnd_toStartOf="@+id/textViewParticipantCount"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toTopOf="parent" />
+
+                            <TextView
+                                android:id="@+id/textViewParticipantCount"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="@dimen/_15sdp"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:paddingStart="@dimen/_20sdp"
+                                android:text="0/0"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintBottom_toBottomOf="parent"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toEndOf="@+id/textViewParticipantLabel"
+                                app:layout_constraintTop_toTopOf="parent" />
+
+                        </androidx.constraintlayout.widget.ConstraintLayout>
+                    </androidx.cardview.widget.CardView>
+
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/attendanceStatusCard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/_15sdp"
+                        android:layout_marginTop="@dimen/_10sdp"
+                        android:layout_marginEnd="@dimen/_15sdp"
+                        android:elevation="4dp"
+                        app:cardCornerRadius="12dp"
+                        android:foreground="@drawable/card_border"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/participantStatusCard">
+
+                        <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_margin="@dimen/_8sdp">
+
+                            <TextView
+                                android:id="@+id/attendanceStatusHeader"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/_8sdp"
+                                android:fontFamily="@font/host_grotesk_extra_bold"
+                                android:paddingLeft="@dimen/_5sdp"
+                                android:text="Attendance Status"
+                                android:textSize="@dimen/_13ssp"
+                                android:textStyle="bold"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toTopOf="parent" />
+
+                            <!-- Check-In Time -->
+                            <TextView
+                                android:id="@+id/textViewCheckInLabel"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/_10sdp"
+                                android:layout_marginTop="@dimen/_10sdp"
+                                android:fontFamily="@font/host_grotesk_bold"
+                                android:text="Check-In Time:"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintEnd_toStartOf="@+id/textViewCheckInTime"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/attendanceStatusHeader" />
+
+                            <TextView
+                                android:id="@+id/textViewCheckInTime"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/_10sdp"
+                                android:layout_marginEnd="@dimen/_15sdp"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:paddingStart="@dimen/_20sdp"
+                                android:text="Not recorded"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toEndOf="@+id/textViewCheckInLabel"
+                                app:layout_constraintTop_toBottomOf="@+id/attendanceStatusHeader" />
+
+                            <!-- Check-Out Time -->
+                            <TextView
+                                android:id="@+id/textViewCheckOutLabel"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/_10sdp"
+                                android:layout_marginTop="@dimen/_6sdp"
+                                android:fontFamily="@font/host_grotesk_bold"
+                                android:text="Check-Out Time:"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintEnd_toStartOf="@+id/textViewCheckOutTime"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/textViewCheckInLabel" />
+
+                            <TextView
+                                android:id="@+id/textViewCheckOutTime"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/_6sdp"
+                                android:layout_marginEnd="@dimen/_15sdp"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:paddingStart="@dimen/_20sdp"
+                                android:text="Not recorded"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toEndOf="@+id/textViewCheckOutLabel"
+                                app:layout_constraintTop_toBottomOf="@+id/textViewCheckInTime" />
+
+                            <!-- Current Day -->
+                            <TextView
+                                android:id="@+id/textViewCurrentDayLabel"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/_10sdp"
+                                android:layout_marginTop="@dimen/_6sdp"
+                                android:fontFamily="@font/host_grotesk_bold"
+                                android:text="Current Day:"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintEnd_toStartOf="@+id/textViewCurrentDay"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/textViewCheckOutLabel" />
+
+                            <TextView
+                                android:id="@+id/textViewCurrentDay"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/_6sdp"
+                                android:layout_marginEnd="@dimen/_15sdp"
+                                android:fontFamily="@font/host_grotesk_regular"
+                                android:paddingStart="@dimen/_20sdp"
+                                android:text="Day 1"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toEndOf="@+id/textViewCurrentDayLabel"
+                                app:layout_constraintTop_toBottomOf="@+id/textViewCheckOutTime" />
+
+                            <!-- Status -->
+                            <TextView
+                                android:id="@+id/textViewStatusLabel"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="@dimen/_10sdp"
+                                android:layout_marginTop="@dimen/_6sdp"
+                                android:fontFamily="@font/host_grotesk_bold"
+                                android:text="Status:"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintEnd_toStartOf="@+id/textViewStatus"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@+id/textViewCurrentDayLabel" />
+
+                            <TextView
+                                android:id="@+id/textViewStatus"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/_6sdp"
+                                android:layout_marginEnd="@dimen/_15sdp"
+                                android:layout_marginBottom="@dimen/_8sdp"
+                                android:fontFamily="@font/host_grotesk_bold"
+                                android:paddingStart="@dimen/_20sdp"
+                                android:text="Pending"
+                                android:textColor="@color/red"
+                                android:textSize="@dimen/_11ssp"
+                                app:layout_constraintBottom_toBottomOf="parent"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintHorizontal_bias="0.5"
+                                app:layout_constraintStart_toEndOf="@+id/textViewStatusLabel"
+                                app:layout_constraintTop_toBottomOf="@+id/textViewCurrentDay" />
+
+                        </androidx.constraintlayout.widget.ConstraintLayout>
+                    </androidx.cardview.widget.CardView>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintHorizontal_bias="0.0"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@+id/attendanceStatusCard">
+
+                        <FrameLayout
+                            android:layout_width="200dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <Button
+                                android:id="@+id/registerButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:backgroundTint="@color/bg_green_btn"
+                                android:text="Register"
+                                android:textAllCaps="true"
+                                android:textColor="@android:color/white"
+                                android:visibility="gone" />
+
+                            <ProgressBar
+                                android:id="@+id/registerProgressBar"
+                                style="?android:attr/progressBarStyleSmall"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="16dp"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
+
+                        <FrameLayout
+                            android:layout_width="200dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/registerButton"
+                            tools:ignore="NotSibling">
+
+                            <Button
+                                android:id="@+id/ticketButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:backgroundTint="@color/bg_green_btn"
+                                android:text="SEE TICKET"
+                                android:textAllCaps="true"
+                                android:textColor="@android:color/white"
+                                android:visibility="gone" />
+
+                            <ProgressBar
+                                android:id="@+id/ticketProgressBar"
+                                style="?android:attr/progressBarStyleSmall"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="16dp"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
+
+                        <FrameLayout
+                            android:layout_width="200dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/ticketButton"
+                            tools:ignore="NotSibling">
+
+                            <Button
+                                android:id="@+id/evalButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:backgroundTint="@color/bg_green_btn"
+                                android:text="ANSWER EVALUATION"
+                                android:textAllCaps="true"
+                                android:textColor="@android:color/white"
+                                android:visibility="gone" />
+
+                            <ProgressBar
+                                android:id="@+id/evalProgressBar"
+                                style="?android:attr/progressBarStyleSmall"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="16dp"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
+
+                        <FrameLayout
+                            android:layout_width="200dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/evalButton"
+                            tools:ignore="NotSibling">
+
+                            <Button
+                                android:id="@+id/responseButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:backgroundTint="@color/bg_green_btn"
+                                android:text="SEE RESPONSE"
+                                android:textAllCaps="true"
+                                android:textColor="@android:color/white"
+                                android:visibility="gone" />
+
+                            <ProgressBar
+                                android:id="@+id/responseProgressBar"
+                                style="?android:attr/progressBarStyleSmall"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="16dp"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
+
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </ScrollView>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+    </androidx.cardview.widget.CardView>
+
+</FrameLayout>

@@ -1,0 +1,12 @@
+<!-- dialog_no_user_found.xml -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <!-- RecyclerView to display the list of invalid emails -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/invalidEmailsRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+</LinearLayout>

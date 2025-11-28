@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".Student.StudentActiveEventsFragment">
+
+    <!-- ProgressBar -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
+    <!-- General No Events Message -->
+    <TextView
+        android:id="@+id/noActiveEventsMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No active events found.\nUpcoming events will appear here."
+        android:fontFamily="@font/host_grotesk_bold"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:textColor="@color/green"
+        android:textSize="@dimen/_12ssp"
+        android:visibility="gone"
+        android:layout_gravity="center_vertical"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp" />
+
+    <!-- Filter-Based No Events Message -->
+    <TextView
+        android:id="@+id/noEventsFilterMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No events found"
+        android:fontFamily="@font/host_grotesk_bold"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:textColor="@color/green"
+        android:textSize="@dimen/_12ssp"
+        android:visibility="gone"
+        android:layout_gravity="center_vertical"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp" />
+
+    <!-- RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewEvents"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="50dp"
+        android:visibility="gone"
+        tools:listitem="@layout/item_events" />
+
+</FrameLayout>

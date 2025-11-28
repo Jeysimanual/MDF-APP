@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_green"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="16dp"
+        tools:context=".MainActivity">
+
+        <ImageView
+            android:id="@+id/imageView"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginTop="60dp"
+            android:src="@drawable/mdf_logo"
+            app:layout_constraintWidth_percent="0.5"
+            app:layout_constraintDimensionRatio="1:1"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:layout_constraintWidth_percent="0.95"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imageView"
+            app:layout_constraintVertical_bias="0.472">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingBottom="16dp">
+
+                <TextView
+                    android:id="@+id/loginTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:text="Welcome"
+                    android:textColor="@color/bg_green"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.498"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+
+                <com.capstone.mdfeventmanagementsystem.Utilities.ViewDashDottedLine
+                    android:id="@+id/viewDashDottedLine"
+                    android:layout_width="0dp"
+                    android:layout_height="7dp"
+                    android:layout_marginTop="19dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
+                    app:lineColor="@color/bg_green"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/loginTitle" />
+
+
+                <Spinner
+                    android:id="@+id/roleSpinner"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="80dp"
+                    android:background="@drawable/spinner_background"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="5dp"
+                    android:spinnerMode="dropdown"
+                    app:layout_constraintWidth_percent="0.85"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/loginTitle" />
+
+                <ImageView
+                    android:id="@+id/dropdown"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginRight="5dp"
+                    android:src="@drawable/ic_dropdown"
+                    app:layout_constraintBottom_toBottomOf="@+id/roleSpinner"
+                    app:layout_constraintEnd_toEndOf="@+id/roleSpinner"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintStart_toStartOf="@+id/roleSpinner"
+                    app:layout_constraintTop_toTopOf="@+id/roleSpinner"
+                    app:layout_constraintVertical_bias="0.0" />
+
+                <TextView
+                    android:id="@+id/pick_role"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginBottom="1dp"
+                    android:background="@color/white"
+                    android:fontFamily="@font/host_grotesk_light"
+                    android:padding="5dp"
+                    android:text="I am a ..."
+                    android:textColor="@android:color/black"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="@+id/roleSpinner"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="@+id/roleSpinner"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.332" />
+
+                <!-- Select Button -->
+                <Button
+                    android:id="@+id/btnSelect"
+                    android:layout_width="0dp"
+                    android:layout_height="60dp"
+                    android:layout_marginTop="40dp"
+                    android:backgroundTint="@color/bg_green_btn"
+                    android:fontFamily="@font/host_grotesk_extra_bold"
+                    android:text="Select"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    app:layout_constraintWidth_percent="0.6"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/roleSpinner" />
+
+                <!-- First Circle at Top-Left -->
+                <TextView
+                    android:id="@+id/textView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/libre_barcode39_regular"
+                    android:text="TICKET MATE"
+                    android:textAlignment="center"
+                    android:textSize="55dp"
+                    android:layout_marginTop="24dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/btnSelect" />
+
+                <TextView
+                    android:id="@+id/footerText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/host_grotesk_regular"
+                    android:text="MDF Event"
+                    android:textAlignment="center"
+                    android:textSize="8dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/textView" />
+
+                <View
+                    android:id="@+id/first_circle"
+                    android:layout_width="33dp"
+                    android:layout_height="33dp"
+                    android:layout_marginLeft="-17dp"
+                    android:layout_marginTop="67dp"
+                    android:background="@drawable/circle_shape"
+                    android:backgroundTint="@color/bg_green"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.177" />
+
+                <!-- Second Circle at Top-Right -->
+                <View
+                    android:id="@+id/second_circle"
+                    android:layout_width="33dp"
+                    android:layout_height="33dp"
+                    android:layout_marginTop="67dp"
+                    android:layout_marginRight="-17dp"
+                    android:background="@drawable/circle_shape"
+                    android:backgroundTint="@color/bg_green"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="1.0"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.177" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </androidx.cardview.widget.CardView>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>
