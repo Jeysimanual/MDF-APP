@@ -187,48 +187,47 @@ public class StudentLogin extends BaseActivity {
         Log.d(TAG, "Identifying user role for: " + userEmail);
 
         // First check if user is a teacher
-        teacherRef.orderByChild("email").equalTo(userEmail).get().addOnCompleteListener(teacherTask -> {
+        teacherRef.get().addOnCompleteListener(teacherTask -> {
             if (teacherTask.isSuccessful()) {
                 DataSnapshot teacherSnapshot = teacherTask.getResult();
+                boolean teacherFound = false;
+
                 if (teacherSnapshot.exists()) {
-                    // User is a teacher
-                    DataSnapshot firstMatch = null;
+                    // Manually search through all teachers
                     for (DataSnapshot teacherData : teacherSnapshot.getChildren()) {
                         String emailInDatabase = teacherData.child("email").getValue(String.class);
                         if (emailInDatabase != null && emailInDatabase.equalsIgnoreCase(userEmail)) {
-                            firstMatch = teacherData;
-                            break;
-                        }
-                    }
+                            // User is a teacher
+                            String teacherId = teacherData.getKey();
+                            String role = teacherData.child("role").getValue(String.class);
+                            Boolean verified = teacherData.child("verified").getValue(Boolean.class);
 
-                    if (firstMatch != null) {
-                        String teacherId = firstMatch.getKey();
-                        String role = firstMatch.child("role").getValue(String.class);
-                        Boolean verified = firstMatch.child("verified").getValue(Boolean.class);
+                            if ("teacher".equals(role)) {
+                                if (verified == null || !verified) {
+                                    setLoading(false);
+                                    Log.w(TAG, "Teacher account not verified for: " + teacherId);
+                                    Toast.makeText(StudentLogin.this, "Your teacher account is not verified", Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
 
-                        if ("teacher".equals(role)) {
-                            if (verified == null || !verified) {
-                                setLoading(false);
-                                Log.w(TAG, "Teacher account not verified for: " + teacherId);
-                                Toast.makeText(StudentLogin.this, "Your teacher account is not verified", Toast.LENGTH_SHORT).show();
+                                Log.d(TAG, "User identified as TEACHER: " + teacherId);
+                                saveTeacherSession(teacherId, userEmail);
+                                updateTeacherFcmToken(teacherId);
+                                navigateToTeacherDashboard();
+                                teacherFound = true;
                                 return;
                             }
-
-                            Log.d(TAG, "User identified as TEACHER: " + teacherId);
-                            saveTeacherSession(teacherId, userEmail);
-                            updateTeacherFcmToken(teacherId);
-                            navigateToTeacherDashboard();
-                            return;
                         }
                     }
                 }
 
-                // If not a teacher, check if user is a student
-                checkIfStudent(userEmail);
-
+                if (!teacherFound) {
+                    // If not a teacher, check if user is a student
+                    checkIfStudent(userEmail);
+                }
             } else {
                 Log.e(TAG, "Failed to query teachers: " + (teacherTask.getException() != null ? teacherTask.getException().getMessage() : "Unknown error"));
-                // If teacher query fails, still check if user is a student
+                // Even if teacher query fails, still check if user is a student
                 checkIfStudent(userEmail);
             }
         });

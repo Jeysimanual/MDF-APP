@@ -580,7 +580,6 @@ public class TeacherDashboard extends BaseActivity {
                     } else {
                         TextView tvGradeTitle = findViewById(R.id.tvGradeTitle);
                         tvGradeTitle.setText("Teacher Profile Not Found");
-                        Log.d(TAG, "No teacher record found for: " + userEmail);
                     }
                 }
                 @Override
